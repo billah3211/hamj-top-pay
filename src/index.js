@@ -11,11 +11,18 @@ const app = express()
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
 
-// Initialize Redis client connection
-redis.connect().catch(console.error)
+// Initialize Redis client connection with error handling
+const redisStore = new RedisStore({
+  client: redis,
+  prefix: "hamj:",
+})
+
+redis.connect().catch(err => {
+  console.error('Redis connection error:', err)
+})
 
 app.use(session({
-  store: new RedisStore({ client: redis }),
+  store: redisStore,
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
   saveUninitialized: false,
