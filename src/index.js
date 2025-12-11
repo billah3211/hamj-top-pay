@@ -1,6 +1,7 @@
 const express = require('express')
 require('dotenv').config()
 const session = require('express-session')
+const RedisStore = require('connect-redis').default
 const { prisma } = require('./db/prisma')
 const { redis } = require('./redis/client')
 const authRoutes = require('./routes/auth')
@@ -9,7 +10,17 @@ const adminRoutes = require('./routes/admin')
 const app = express()
 app.use(express.json())
 app.use(express.urlencoded({ extended: false }))
-app.use(session({ secret: process.env.SESSION_SECRET || 'dev-secret', resave: false, saveUninitialized: false }))
+
+// Initialize Redis client connection
+redis.connect().catch(console.error)
+
+app.use(session({
+  store: new RedisStore({ client: redis }),
+  secret: process.env.SESSION_SECRET || 'dev-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 1000 * 60 * 60 * 24 } // 1 day
+}))
 app.use(express.static('public'))
 app.use('/admin_p', (req, res, next) => { if (req.session && req.session.admin) return next(); return res.redirect('/admin/login') })
 app.use('/admin_p', express.static('admin_p'))
