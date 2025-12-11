@@ -193,23 +193,25 @@ router.get('/signup', (req, res) => {
 })
 
 router.post('/auth/signup', async (req, res) => {
-  const { firstName, lastName, email, country, countryCode, phone, password, confirmPassword } = req.body
-  if (!firstName || !lastName || !email || !country || !countryCode || !phone || !password || !confirmPassword) {
-    return res.status(400).send('Missing fields')
-  }
-  if (password !== confirmPassword) {
-    return res.status(400).send('Passwords do not match')
-  }
-  const fullPhone = `${countryCode}${phone}`
-  const base = makeBaseUsername(firstName, lastName)
-  const username = await ensureUniqueUsername(base)
-  const hash = await bcrypt.hash(password, 10)
   try {
+    const { firstName, lastName, email, country, countryCode, phone, password, confirmPassword } = req.body
+    if (!firstName || !lastName || !email || !country || !countryCode || !phone || !password || !confirmPassword) {
+      return res.status(400).send('Missing fields')
+    }
+    if (password !== confirmPassword) {
+      return res.status(400).send('Passwords do not match')
+    }
+    const fullPhone = `${countryCode}${phone}`
+    const base = makeBaseUsername(firstName, lastName)
+    const username = await ensureUniqueUsername(base)
+    const hash = await bcrypt.hash(password, 10)
+
     const user = await prisma.user.create({ data: { firstName, lastName, username, email, country, phone: fullPhone, passwordHash: hash } })
     req.session.userId = user.id
     return res.redirect('/dashboard')
   } catch (e) {
-    return res.status(400).send('Signup failed')
+    console.error('Signup error:', e)
+    return res.status(500).send('Internal Server Error: ' + e.message)
   }
 })
 
