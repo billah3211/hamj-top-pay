@@ -1,0 +1,201 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin Dashboard - HaMJ toP PaY</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  
+  <button class="menu-trigger" id="mobileMenuBtn">☰</button>
+  
+  <div class="app-layout">
+    <nav class="sidebar-premium" id="sidebar">
+      <div class="brand-logo"><span>A</span> Admin Panel</div>
+      <ul class="nav-links">
+        <li class="nav-item"><a href="#" data-section="users" class="active"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Users</a></li>
+        <li class="nav-item"><a href="#" data-section="balances"><img src="https://api.iconify.design/lucide:wallet.svg?color=%2394a3b8" class="nav-icon"> Balances</a></li>
+        <li class="nav-item" style="margin-top:auto"><a href="/admin/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
+      </ul>
+    </nav>
+    
+    <div class="main-content">
+      
+      <!-- Users Section -->
+      <div id="usersPanel">
+        <div class="section-header">
+          <div class="section-title">User Statistics</div>
+        </div>
+        <div class="dashboard-grid">
+          <div class="glass-panel stat-card">
+            <div class="label">Total Users</div>
+            <div id="totalUsers" class="value">0</div>
+            <div class="trend">Registered</div>
+          </div>
+          <div class="glass-panel stat-card">
+            <div class="label">Active Users</div>
+            <div id="activeUsers" class="value">0</div>
+            <div class="trend" style="color:#4ade80">Active Now</div>
+          </div>
+          <div class="glass-panel stat-card">
+            <div class="label">Inactive Users</div>
+            <div id="inactiveUsers" class="value">0</div>
+            <div class="trend" style="color:#f87171">No Balance</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Balances Section -->
+      <div id="balancesPanel" class="hidden">
+        <div class="section-header">
+          <div class="section-title">System Balances</div>
+        </div>
+        
+        <div class="balance-nav" style="margin-bottom:24px;display:flex;justify-content:center;gap:12px">
+          <button class="btn-premium tab active" data-type="diamond" style="background:var(--bg-card);border:1px solid var(--glass-border);box-shadow:none">Diamond</button>
+          <button class="btn-premium tab" data-type="dollar" style="background:var(--bg-card);border:1px solid var(--glass-border);box-shadow:none">Dollar</button>
+          <button class="btn-premium tab" data-type="coin" style="background:var(--bg-card);border:1px solid var(--glass-border);box-shadow:none">Coin</button>
+          <button class="btn-premium tab" data-type="hamjt" style="background:var(--bg-card);border:1px solid var(--glass-border);box-shadow:none">HaMJ T</button>
+          <button class="btn-premium tab" data-type="tk" style="background:var(--bg-card);border:1px solid var(--glass-border);box-shadow:none">Tk</button>
+        </div>
+
+        <div class="admin-card-container">
+          <div id="adminBalanceCard" class="admin-card">
+            <div class="brand-logo" style="margin-bottom:20px;font-size:20px">HaMJ toP PaY</div>
+            <div class="currency-label" style="font-size:16px;text-transform:uppercase;letter-spacing:2px;opacity:0.7">Total Reserve</div>
+            <div id="adminSumVal" class="amount">0</div>
+            <div class="currency">Diamond 💎</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Sidebar & Mobile Menu
+    const menuBtn = document.getElementById('mobileMenuBtn');
+    const sidebar = document.getElementById('sidebar');
+    
+    menuBtn.addEventListener('click', () => {
+      sidebar.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('open')) {
+        sidebar.classList.remove('open');
+      }
+    });
+
+    // Navigation
+    const navLinks = document.querySelectorAll('#sidebar a[data-section]');
+    const usersPanel = document.getElementById('usersPanel');
+    const balancesPanel = document.getElementById('balancesPanel');
+
+    function showSection(sec) {
+      usersPanel.classList.toggle('hidden', sec !== 'users');
+      balancesPanel.classList.toggle('hidden', sec !== 'balances');
+      navLinks.forEach(link => {
+        if (link.getAttribute('data-section') === sec) {
+          link.classList.add('active');
+          link.style.background = 'rgba(255,255,255,0.05)';
+          link.style.color = '#fff';
+        } else {
+          link.classList.remove('active');
+          link.style.background = 'transparent';
+          link.style.color = '';
+        }
+      });
+    }
+
+    navLinks.forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        showSection(a.getAttribute('data-section'));
+      });
+    });
+
+    // Stats Fetching
+    (async function(){
+      try {
+        var r = await fetch('/admin/api/stats');
+        if(!r.ok) return;
+        var d = await r.json();
+        document.getElementById('totalUsers').textContent = d.totalUsers;
+        document.getElementById('activeUsers').textContent = d.activeUsers;
+        document.getElementById('inactiveUsers').textContent = d.inactiveUsers;
+        if(window.__applyAdminBalances) window.__applyAdminBalances(d);
+      } catch(e) {}
+    })();
+
+    // Balance Tabs Logic
+    (function(){
+      var card = document.getElementById('adminBalanceCard');
+      var tabs = document.querySelectorAll('.balance-nav .tab');
+      var currencyEl = card.querySelector('.currency');
+      var amountEl = document.getElementById('adminSumVal');
+      var totals = { diamond: 0, dollar: 0, coin: 0, hamjt: 0, tk: 0 };
+      
+      function apply(type) {
+        // Reset Tabs
+        tabs.forEach(t => {
+          t.style.background = 'var(--bg-card)';
+          t.style.color = 'var(--text-main)';
+          if(t.getAttribute('data-type') === type) {
+            t.style.background = 'var(--primary)';
+            t.style.color = 'white';
+          }
+        });
+
+        // Update Card Content
+        var name = {
+          diamond: 'Diamond 💎',
+          dollar: 'Dollar 💵',
+          coin: 'Coin 🪙',
+          hamjt: 'HaMJ T 🔷',
+          tk: 'Tk ৳'
+        }[type];
+        
+        currencyEl.textContent = name;
+        amountEl.textContent = totals[type] || 0;
+
+        try { localStorage.setItem('adminBalType', type); } catch(e) {}
+      }
+
+      window.__applyAdminBalances = function(d) {
+        totals.diamond = d.totals.diamond || 0;
+        totals.dollar = d.totals.dk || 0;
+        totals.coin = d.totals.coin || 0;
+        totals.hamjt = d.totals.lora || 0;
+        totals.tk = d.totals.tk || 0;
+        
+        var init = 'diamond';
+        try { init = localStorage.getItem('adminBalType') || 'diamond'; } catch(e) {}
+        apply(init);
+      };
+
+      tabs.forEach(t => {
+        t.addEventListener('click', () => apply(t.getAttribute('data-type')));
+      });
+    })();
+
+    // Skin Logic
+    (function(){
+      var dt = document.querySelectorAll('.device-toggle-settings .tab');
+      function applySkin(m) {
+        document.body.classList.remove('skin-desktop','skin-mobile');
+        document.body.classList.add('skin-'+m);
+        if(dt.length){dt.forEach(b => b.classList.toggle('active', b.getAttribute('data-device') === m))}
+        try { localStorage.setItem('siteSkin', m); } catch(e) {}
+      }
+      if(dt.length){dt.forEach(b => {
+        b.addEventListener('click', () => applySkin(b.getAttribute('data-device')));
+      })}
+      var init = 'desktop';
+      try { init = localStorage.getItem('siteSkin') || 'desktop'; } catch(e) {}
+      applySkin(init);
+    })();
+  </script>
+</body>
+</html>
