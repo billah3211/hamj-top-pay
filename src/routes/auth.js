@@ -81,6 +81,7 @@ router.get('/get-start', (req, res) => {
 })
 
 router.get('/signup', (req, res) => {
+  const error = req.query.error || ''
   const defaultCountry = 'Bangladesh'
   res.send(`
     <!doctype html>
@@ -118,6 +119,8 @@ router.get('/signup', (req, res) => {
             <div style="font-size:28px;font-weight:800;color:white;margin-bottom:8px;">Create Account</div>
             <div style="color:var(--text-muted)">Join HaMJ toP PaY today</div>
           </div>
+
+          ${error ? `<div style="background:rgba(248, 113, 113, 0.2);border:1px solid #f87171;color:#fca5a5;padding:12px;border-radius:8px;margin-bottom:20px;text-align:center;font-size:14px;">${error}</div>` : ''}
 
           <form method="post" action="/auth/signup">
             <div class="form-row">
@@ -196,10 +199,10 @@ router.post('/auth/signup', async (req, res) => {
   try {
     const { firstName, lastName, email, country, countryCode, phone, password, confirmPassword } = req.body
     if (!firstName || !lastName || !email || !country || !countryCode || !phone || !password || !confirmPassword) {
-      return res.status(400).send('Missing fields')
+      return res.redirect('/signup?error=Missing+fields')
     }
     if (password !== confirmPassword) {
-      return res.status(400).send('Passwords do not match')
+      return res.redirect('/signup?error=Passwords+do+not+match')
     }
     const fullPhone = `${countryCode}${phone}`
     const base = makeBaseUsername(firstName, lastName)
@@ -211,7 +214,16 @@ router.post('/auth/signup', async (req, res) => {
     return res.redirect('/dashboard')
   } catch (e) {
     console.error('Signup error:', e)
-    return res.status(500).send('Internal Server Error: ' + e.message)
+    if (e.code === 'P2002') {
+      const target = e.meta?.target || []
+      if (Array.isArray(target)) {
+        if (target.includes('email')) return res.redirect('/signup?error=Email+already+exists')
+        if (target.includes('username')) return res.redirect('/signup?error=Username+taken')
+        if (target.includes('phone')) return res.redirect('/signup?error=Phone+number+already+used')
+      }
+      return res.redirect('/signup?error=Account+already+exists')
+    }
+    return res.redirect('/signup?error=Internal+Server+Error')
   }
 })
 
