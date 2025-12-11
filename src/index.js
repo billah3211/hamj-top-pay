@@ -1,7 +1,7 @@
 const express = require('express')
 require('dotenv').config()
 const session = require('express-session')
-const RedisStore = require('connect-redis').default
+const { RedisStore } = require('connect-redis')
 const { prisma } = require('./db/prisma')
 const { redis } = require('./redis/client')
 const authRoutes = require('./routes/auth')
