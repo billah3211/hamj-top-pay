@@ -80,6 +80,9 @@ router.get('/get-start', (req, res) => {
   `)
 })
 
+router.get('/auth/signup', (req, res) => res.redirect('/signup'))
+router.get('/auth/login', (req, res) => res.redirect('/login'))
+
 router.get('/signup', (req, res) => {
   const error = req.query.error || ''
   const defaultCountry = 'Bangladesh'
@@ -122,7 +125,7 @@ router.get('/signup', (req, res) => {
 
           ${error ? `<div style="background:rgba(248, 113, 113, 0.2);border:1px solid #f87171;color:#fca5a5;padding:12px;border-radius:8px;margin-bottom:20px;text-align:center;font-size:14px;">${error}</div>` : ''}
 
-          <form method="post" action="/auth/signup">
+          <form method="post" action="/signup">
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">First Name</label>
@@ -195,7 +198,7 @@ router.get('/signup', (req, res) => {
   `)
 })
 
-router.post('/auth/signup', async (req, res) => {
+router.post('/signup', async (req, res) => {
   try {
     const { firstName, lastName, email, country, countryCode, phone, password, confirmPassword } = req.body
     if (!firstName || !lastName || !email || !country || !countryCode || !phone || !password || !confirmPassword) {
@@ -265,7 +268,7 @@ router.get('/login', (req, res) => {
 
           ${error ? `<div style="background:rgba(248, 113, 113, 0.2);border:1px solid #f87171;color:#fca5a5;padding:12px;border-radius:8px;margin-bottom:20px;text-align:center;font-size:14px;">${error}</div>` : ''}
 
-          <form method="post" action="/auth/login">
+          <form method="post" action="/login">
             <div class="form-group">
               <label class="form-label">Email, Username or Phone</label>
               <input class="form-input" name="identifier" required placeholder="Enter your ID">
@@ -295,7 +298,7 @@ router.get('/login', (req, res) => {
   `)
 })
 
-router.post('/auth/login', async (req, res) => {
+router.post('/login', async (req, res) => {
   const { identifier, password } = req.body
   if (!identifier || !password) return res.redirect('/login?error=Missing+credentials')
   const user = await prisma.user.findFirst({ where: { OR: [ { email: identifier }, { username: identifier }, { phone: identifier } ] } })
