@@ -212,7 +212,7 @@ router.post('/signup', async (req, res) => {
     const username = await ensureUniqueUsername(base)
     const hash = await bcrypt.hash(password, 10)
 
-    const user = await prisma.user.create({ data: { firstName, lastName, username, email, country, phone: fullPhone, passwordHash: hash } })
+    const user = await prisma.user.create({ data: { firstName, lastName, username, email, country, phone: fullPhone, passwordHash: hash, isLoggedIn: true } })
     req.session.userId = user.id
     return res.redirect('/dashboard')
   } catch (e) {
@@ -305,6 +305,7 @@ router.post('/login', async (req, res) => {
   if (!user) return res.redirect('/login?error=User+not+found')
   const ok = await bcrypt.compare(password, user.passwordHash)
   if (!ok) return res.redirect('/login?error=Invalid+password')
+  await prisma.user.update({ where: { id: user.id }, data: { isLoggedIn: true } })
   req.session.userId = user.id
   return res.redirect('/dashboard')
 })
@@ -706,8 +707,13 @@ router.get('/balance', async (req, res) => {
 
 router.get('/', (req, res) => res.redirect('/get-start'))
 
-router.get('/auth/logout', (req, res) => {
+router.get('/auth/logout', async (req, res) => {
   if (!req.session) return res.redirect('/login')
+  if (req.session.userId) {
+    try {
+      await prisma.user.update({ where: { id: req.session.userId }, data: { isLoggedIn: false } })
+    } catch (_) {}
+  }
   req.session.destroy(() => {
     res.redirect('/login')
   })

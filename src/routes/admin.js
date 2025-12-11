@@ -184,8 +184,8 @@ function getCard(title, value, type = 'default') {
 
 router.get('/dashboard', requireAdmin, async (req, res) => {
   const totalUsers = await prisma.user.count()
-  const activeUsers = await prisma.user.count({ where: { OR: [ { diamond: { gt: 0 } }, { dk: { gt: 0 } }, { coin: { gt: 0 } }, { lora: { gt: 0 } }, { tk: { gt: 0 } } ] } })
-  const inactiveUsers = totalUsers - activeUsers
+  const activeUsers = await prisma.user.count({ where: { isLoggedIn: true } })
+  const inactiveUsers = await prisma.user.count({ where: { isLoggedIn: false } })
   const sums = await prisma.user.aggregate({ _sum: { diamond: true, dk: true, coin: true, lora: true, tk: true } })
   
   res.send(`
@@ -218,16 +218,16 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
 
 router.get('/api/stats', requireAdmin, async (req, res) => {
   const totalUsers = await prisma.user.count()
-  const activeUsers = await prisma.user.count({ where: { OR: [ { diamond: { gt: 0 } }, { dk: { gt: 0 } }, { coin: { gt: 0 } }, { lora: { gt: 0 } }, { tk: { gt: 0 } } ] } })
-  const inactiveUsers = totalUsers - activeUsers
+  const activeUsers = await prisma.user.count({ where: { isLoggedIn: true } })
+  const inactiveUsers = await prisma.user.count({ where: { isLoggedIn: false } })
   const sums = await prisma.user.aggregate({ _sum: { diamond: true, dk: true, coin: true, lora: true, tk: true } })
   res.json({ totalUsers, activeUsers, inactiveUsers, totals: { diamond: sums._sum.diamond||0, dk: sums._sum.dk||0, coin: sums._sum.coin||0, lora: sums._sum.lora||0, tk: sums._sum.tk||0 } })
 })
 
 router.get('/users', requireAdmin, async (req, res) => {
   const totalUsers = await prisma.user.count()
-  const activeUsers = await prisma.user.count({ where: { OR: [ { diamond: { gt: 0 } }, { dk: { gt: 0 } }, { coin: { gt: 0 } }, { lora: { gt: 0 } }, { tk: { gt: 0 } } ] } })
-  const inactiveUsers = totalUsers - activeUsers
+  const activeUsers = await prisma.user.count({ where: { isLoggedIn: true } })
+  const inactiveUsers = await prisma.user.count({ where: { isLoggedIn: false } })
   
   res.send(`
     ${getHead('User Management')}

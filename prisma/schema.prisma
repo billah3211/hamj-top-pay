@@ -20,6 +20,7 @@ model User {
   coin      Int      @default(0)
   lora      Int      @default(0)
   tk        Int      @default(0)
+  isLoggedIn Boolean @default(false)
   createdAt DateTime @default(now())
   tasks     Task[]
 }
