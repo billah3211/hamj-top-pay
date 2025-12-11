@@ -134,10 +134,11 @@ router.get('/login', (req, res) => {
 
 router.post('/auth/login', async (req, res) => {
   const { email, password } = req.body
-  const adminEmail = process.env.ADMIN_EMAIL
+  // Default credentials for initial setup
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@hamjtoppay.com'
+  const plain = process.env.ADMIN_PASSWORD || 'admin123'
   const hash = process.env.ADMIN_PASSWORD_HASH
-  const plain = process.env.ADMIN_PASSWORD
-  if (!adminEmail || (!hash && !plain)) return res.redirect('/admin/login?error=Configuration+error')
+  
   if (email !== adminEmail) return res.redirect('/admin/login?error=Invalid+credentials')
   let ok = false
   try {

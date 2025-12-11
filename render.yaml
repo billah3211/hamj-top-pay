@@ -17,6 +17,10 @@ services:
           property: connectionString
       - key: SESSION_SECRET
         generateValue: true
+      - key: ADMIN_EMAIL
+        value: admin@hamjtoppay.com
+      - key: ADMIN_PASSWORD
+        value: admin123
 
   - type: redis
     name: hamj-redis
