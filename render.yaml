@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: hamj-top-pay
+    env: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hamj-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: hamj-redis
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+
+  - type: redis
+    name: hamj-redis
+    ipAllowList: [] # only allow internal connections
+    plan: free
+
+databases:
+  - name: hamj-db
+    databaseName: hamj_top_pay
+    user: hamj_user
+    plan: free
