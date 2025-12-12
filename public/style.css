@@ -391,11 +391,12 @@ body.menu-open { overflow: hidden; }
   left: 50%;
   transform: translate(-50%, -50%) scale(0.95);
   width: 90%;
-  max-width: 400px;
+  max-width: 500px; /* Increased from 400px */
   z-index: 1000;
   opacity: 0;
   pointer-events: none;
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  perspective: 1000px; /* Enable 3D space */
 }
 .modal-premium.open {
   transform: translate(-50%, -50%) scale(1);
@@ -404,104 +405,139 @@ body.menu-open { overflow: hidden; }
 }
 
 .modal-content {
-  background: rgba(30, 41, 59, 0.8);
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.95)); /* Gradient bg */
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2); /* Highlight top */
+  border-left: 1px solid rgba(255, 255, 255, 0.2); /* Highlight left */
+  border-radius: 30px; /* Rounder corners */
   overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.05), /* Inner subtle border */
+    inset 0 1px 0 rgba(255, 255, 255, 0.1); /* Inner highlight */
+  transform-style: preserve-3d;
 }
 
 .modal-header {
-  padding: 32px 24px 24px;
+  padding: 40px 30px 30px; /* More padding */
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  background: linear-gradient(to bottom, rgba(255,255,255,0.03), transparent);
+  background: linear-gradient(to bottom, rgba(255,255,255,0.05), transparent);
   position: relative;
 }
 
 .modal-close {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  background: transparent;
-  border: none;
+  top: 20px;
+  right: 20px;
+  background: rgba(255,255,255,0.05); /* Subtle background */
+  border: 1px solid rgba(255,255,255,0.1);
   color: var(--text-muted);
-  font-size: 24px;
+  font-size: 20px;
   cursor: pointer;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   transition: all 0.2s;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 .modal-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.3);
+  transform: rotate(90deg);
 }
 
 .profile-avatar {
-  width: 80px;
-  height: 80px;
+  width: 100px; /* Larger avatar */
+  height: 100px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--primary), var(--accent));
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 32px;
+  font-size: 40px;
   font-weight: 700;
   color: white;
-  margin-bottom: 16px;
-  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
-  border: 4px solid rgba(30, 41, 59, 0.8);
+  margin-bottom: 20px;
+  box-shadow: 
+    0 15px 35px rgba(99, 102, 241, 0.4),
+    inset 0 -5px 10px rgba(0,0,0,0.2),
+    inset 0 5px 10px rgba(255,255,255,0.2); /* 3D effect */
+  border: 4px solid rgba(30, 41, 59, 1);
+  position: relative;
+}
+.profile-avatar::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  z-index: -1;
 }
 
 .profile-title .name {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 24px;
+  font-weight: 800;
   color: white;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 .profile-title .username {
   color: var(--primary);
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 15px;
+  font-weight: 600;
+  background: rgba(99, 102, 241, 0.1);
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 .modal-body {
-  padding: 24px;
+  padding: 30px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  background: rgba(0,0,0,0.2); /* Darker bottom half */
 }
 
 .info-group {
-  background: rgba(15, 23, 42, 0.4);
-  padding: 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.03);
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.8));
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
   transition: all 0.2s;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .info-group:hover {
-  background: rgba(15, 23, 42, 0.6);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.8);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(0,0,0,0.2);
 }
 
 .info-group .label {
-  font-size: 12px;
-  text-transform: uppercase;
+  font-size: 13px;
+  text-transform: capitalize; /* Normal case looks better */
   color: var(--text-muted);
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
+  letter-spacing: 0;
+  margin-bottom: 0;
+  font-weight: 500;
 }
 .info-group .value {
   font-size: 16px;
   color: white;
-  font-weight: 500;
+  font-weight: 600;
+  text-align: right;
 }
 
 .modal-footer {
