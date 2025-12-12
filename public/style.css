@@ -57,8 +57,8 @@ body {
 .btn-premium:active { transform: translateY(0); }
 
 /* Layout */
-.app-layout { display: flex; min-height: 100vh; }
-.main-content { flex: 1; padding: 32px; margin-left: var(--sidebar-width); transition: margin 0.3s ease; width: 100%; }
+.app-layout { display: flex; min-height: 100vh; width: 100%; }
+.main-content { flex: 1; padding: 32px; margin-left: var(--sidebar-width); transition: margin 0.3s ease; width: auto; max-width: 100%; }
 
 /* Sidebar */
 .sidebar-premium {
@@ -70,7 +70,7 @@ body {
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(20px);
   border-right: 1px solid var(--glass-border);
-  z-index: 100;
+  z-index: 500;
   padding: 24px;
   display: flex;
   flex-direction: column;
