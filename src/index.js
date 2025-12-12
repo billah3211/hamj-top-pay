@@ -6,6 +6,7 @@ const { prisma } = require('./db/prisma')
 const { redis } = require('./redis/client')
 const authRoutes = require('./routes/auth')
 const adminRoutes = require('./routes/admin')
+const superAdminRoutes = require('./routes/super_admin')
 
 const app = express()
 app.set('trust proxy', 1) // Trust Render proxy for secure cookies
@@ -50,6 +51,7 @@ app.get('/health', async (req, res) => {
 
 app.use('/', authRoutes)
 app.use('/admin', adminRoutes)
+app.use('/super-admin', superAdminRoutes)
 
 const port = process.env.PORT || 3000
 app.listen(port, () => {

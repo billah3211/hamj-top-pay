@@ -44,3 +44,12 @@ model Notification {
   userId    Int
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model Admin {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  role         String   @default("admin") // "SUPER_ADMIN", "ADMIN"
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

@@ -4,15 +4,20 @@ const { prisma } = require('../db/prisma')
 const router = express.Router()
 
 function requireAdmin(req, res, next) {
-  if (req.session && req.session.admin) return next()
+  if (req.session && (req.session.admin || req.session.role === 'ADMIN' || req.session.role === 'SUPER_ADMIN')) return next()
   return res.redirect('/admin/login')
 }
 
-function getSidebar(active) {
+function getSidebar(active, role) {
+  const superLink = role === 'SUPER_ADMIN' ? 
+    `<li class="nav-item" style="margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:10px"><a href="/super-admin/dashboard"><img src="https://api.iconify.design/lucide:shield.svg?color=%23ec4899" class="nav-icon"> <span style="color:#ec4899">Super Panel</span></a></li>` 
+    : ''
+
   return `
     <nav class="sidebar-premium" id="sidebar">
       <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
       <ul class="nav-links">
+        ${superLink}
         <li class="nav-item"><a href="/admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
         <li class="nav-item"><a href="/admin/users" class="${active === 'users' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Users</a></li>
         <li class="nav-item"><a href="/admin/balances" class="${active === 'balances' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=%2394a3b8" class="nav-icon"> Balances</a></li>
@@ -134,24 +139,53 @@ router.get('/login', (req, res) => {
 
 router.post('/auth/login', async (req, res) => {
   const { email, password } = req.body
-  // Default credentials for initial setup
+  
+  try {
+    const adminUser = await prisma.admin.findUnique({ where: { email } })
+    if (adminUser) {
+      const match = await bcrypt.compare(password, adminUser.passwordHash)
+      if (match) {
+        req.session.adminId = adminUser.id
+        req.session.role = adminUser.role
+        req.session.admin = true
+        if (adminUser.role === 'SUPER_ADMIN') return res.redirect('/super-admin/dashboard')
+        return res.redirect('/admin/dashboard')
+      } else {
+        return res.redirect('/admin/login?error=Invalid+credentials')
+      }
+    }
+  } catch (e) {
+    console.error('Admin login db error:', e)
+  }
+
+  // Default credentials for initial setup (Fallback)
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@hamjtoppay.com'
   const plain = process.env.ADMIN_PASSWORD || 'admin123'
   const hash = process.env.ADMIN_PASSWORD_HASH
   
-  if (email !== adminEmail) return res.redirect('/admin/login?error=Invalid+credentials')
-  let ok = false
-  try {
-    if (hash) ok = await bcrypt.compare(password, hash)
-    else ok = password === plain
-  } catch (_) {}
-  if (!ok) return res.redirect('/admin/login?error=Invalid+credentials')
-  req.session.admin = true
-  return res.redirect('/admin/dashboard')
+  if (email === adminEmail) {
+    let ok = false
+    try {
+      if (hash) ok = await bcrypt.compare(password, hash)
+      else ok = password === plain
+    } catch (_) {}
+    
+    if (ok) {
+        req.session.admin = true
+        req.session.role = 'SUPER_ADMIN' // Fallback admin gets super powers
+        return res.redirect('/super-admin/dashboard')
+    }
+  }
+
+  return res.redirect('/admin/login?error=Invalid+credentials')
 })
 
 router.get('/logout', (req, res) => {
-  if (req.session) req.session.admin = false
+  if (req.session) {
+    req.session.admin = false
+    req.session.role = null
+    req.session.adminId = null
+  }
   return res.redirect('/admin/login')
 })
 
