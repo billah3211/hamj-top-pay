@@ -123,19 +123,41 @@ router.get('/dashboard', requireSuperAdmin, async (req, res) => {
 })
 
 router.get('/admins', requireSuperAdmin, async (req, res) => {
-  const admins = await prisma.admin.findMany({ orderBy: { id: 'asc' } })
+  const admins = await prisma.user.findMany({ 
+    where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } },
+    orderBy: { id: 'asc' }
+  })
   const error = req.query.error || ''
   const success = req.query.success || ''
+  const currentUserId = req.session.userId
   
-  let adminListHtml = admins.map(admin => `
+  let adminListHtml = admins.map(user => {
+    const isMe = user.id === currentUserId
+    const isSuper = user.role === 'SUPER_ADMIN'
+    
+    // Do not show revoke button for self
+    const actionBtn = isMe 
+      ? `<span style="color:var(--text-muted);font-size:12px;">(You)</span>` 
+      : `<form action="/super-admin/revoke-access" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to revoke admin access from this user?');">
+           <input type="hidden" name="userId" value="${user.id}">
+           <button type="submit" style="background:rgba(239,68,68,0.2);color:#fca5a5;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:500">Revoke Access</button>
+         </form>`
+
+    return `
     <div style="background:rgba(15,23,42,0.4);border:1px solid var(--glass-border);padding:16px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <div>
-        <div style="color:white;font-weight:600">${admin.email}</div>
-        <div style="color:var(--text-muted);font-size:12px;text-transform:uppercase;letter-spacing:1px;margin-top:4px;">${admin.role}</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;border-radius:50%;background:#ec4899;display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;">${user.firstName[0]}</div>
+        <div>
+          <div style="color:white;font-weight:600">${user.firstName} ${user.lastName} <span style="font-size:12px;background:${isSuper?'#ec4899':'#6366f1'};padding:2px 6px;border-radius:4px;margin-left:8px;">${user.role}</span></div>
+          <div style="color:var(--text-muted);font-size:12px;">@${user.username} • ${user.email}</div>
+        </div>
       </div>
-      <button onclick="editAdmin(${admin.id}, '${admin.email}', '${admin.role}')" style="background:rgba(59,130,246,0.2);color:#60a5fa;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:500">Edit</button>
+      <div>
+        ${actionBtn}
+      </div>
     </div>
-  `).join('')
+  `
+  }).join('')
 
   res.send(`
     ${getHead('Manage Admins')}
@@ -144,29 +166,27 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
       <div class="section-header">
         <div>
           <div class="section-title">Manage Admins</div>
-          <div style="color:var(--text-muted);font-size:14px">Create and update admin credentials</div>
+          <div style="color:var(--text-muted);font-size:14px">Grant or revoke admin access</div>
         </div>
-        <button onclick="showCreateModal()" class="btn-premium">Add New Admin</button>
       </div>
 
       ${error ? `<div style="background:rgba(239,68,68,0.2);color:#fca5a5;padding:12px;border-radius:8px;margin-bottom:20px;">${error}</div>` : ''}
       ${success ? `<div style="background:rgba(34,197,94,0.2);color:#86efac;padding:12px;border-radius:8px;margin-bottom:20px;">${success}</div>` : ''}
 
       <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:24px;margin-bottom:24px;">
-        <h3 style="color:white;margin-bottom:20px;">Grant Admin Access to User</h3>
+        <h3 style="color:white;margin-bottom:20px;">Grant Admin Access</h3>
         <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px;">
-          Enter a user's email or username and <b>their login password</b> to grant them admin access.
-          They will see an "Admin Panel" option in their profile.
+          Enter a user's email or username and <b>your password</b> to grant them admin access.
         </p>
         <form action="/super-admin/grant-user" method="post" style="display:flex;flex-direction:column;gap:16px;">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
             <div>
-              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Email or Username</label>
-              <input type="text" name="identifier" required placeholder="User email or username" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">User Email or Username</label>
+              <input type="text" name="identifier" required placeholder="Target user..." style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
             </div>
             <div>
-              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Your Password (Confirmation)</label>
-              <input type="password" name="password" required placeholder="Enter your password to confirm" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Your Password</label>
+              <input type="password" name="password" required placeholder="Confirm identity" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
             </div>
           </div>
           <button type="submit" class="btn-premium" style="width:auto;align-self:flex-start;">Grant Access</button>
@@ -174,78 +194,10 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
       </div>
 
       <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:24px;">
-        <h3 style="color:white;margin-bottom:20px;">Admin Accounts</h3>
+        <h3 style="color:white;margin-bottom:20px;">Current Administrators</h3>
         ${adminListHtml}
       </div>
     </div>
-
-    <!-- Modal for Create/Edit -->
-    <div id="adminModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;backdrop-filter:blur(5px);">
-      <div class="glass-panel" style="width:100%;max-width:400px;padding:32px;position:relative;">
-        <button onclick="closeModal()" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text-muted);font-size:24px;cursor:pointer;">&times;</button>
-        <h2 id="modalTitle" style="color:white;margin-bottom:24px;font-size:20px;">Add Admin</h2>
-        
-        <form method="post" action="/super-admin/admins/save">
-          <input type="hidden" name="id" id="adminId">
-          <div style="margin-bottom:16px;">
-            <label style="color:var(--text-muted);display:block;margin-bottom:8px;font-size:14px;">Email</label>
-            <input type="email" name="email" id="adminEmail" required style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
-          </div>
-          <div style="margin-bottom:16px;">
-            <label style="color:var(--text-muted);display:block;margin-bottom:8px;font-size:14px;">Password</label>
-            <input type="text" name="password" id="adminPassword" placeholder="Leave empty to keep current" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
-          </div>
-          <div style="margin-bottom:24px;">
-            <label style="color:var(--text-muted);display:block;margin-bottom:8px;font-size:14px;">Role</label>
-            <select name="role" id="adminRole" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
-              <option value="admin">Normal Admin</option>
-              <option value="SUPER_ADMIN">Super Admin</option>
-            </select>
-          </div>
-          <button type="submit" class="btn-premium" style="width:100%;justify-content:center;">Save Changes</button>
-        </form>
-      </div>
-    </div>
-
-    <script>
-      const modal = document.getElementById('adminModal');
-      const title = document.getElementById('modalTitle');
-      const idInput = document.getElementById('adminId');
-      const emailInput = document.getElementById('adminEmail');
-      const roleInput = document.getElementById('adminRole');
-      const passwordInput = document.getElementById('adminPassword');
-
-      function showCreateModal() {
-        title.innerText = 'Add New Admin';
-        idInput.value = '';
-        emailInput.value = '';
-        passwordInput.value = '';
-        passwordInput.placeholder = 'Required';
-        passwordInput.required = true;
-        roleInput.value = 'admin';
-        modal.style.display = 'flex';
-      }
-
-      function editAdmin(id, email, role) {
-        title.innerText = 'Edit Admin';
-        idInput.value = id;
-        emailInput.value = email;
-        passwordInput.value = '';
-        passwordInput.placeholder = 'Leave empty to keep current';
-        passwordInput.required = false;
-        roleInput.value = role;
-        modal.style.display = 'flex';
-      }
-
-      function closeModal() {
-        modal.style.display = 'none';
-      }
-      
-      // Close on outside click
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-      });
-    </script>
     ${getScripts()}
   `)
 })
@@ -291,34 +243,27 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
    }
  })
  
- router.post('/admins/save', requireSuperAdmin, async (req, res) => {
-  const { id, email, password, role } = req.body
+ router.post('/revoke-access', requireSuperAdmin, async (req, res) => {
+  const { userId } = req.body
+  const currentUserId = req.session.userId
+
+  if (!userId) return res.redirect('/super-admin/admins?error=User+ID+required')
   
+  if (parseInt(userId) === currentUserId) {
+    return res.redirect('/super-admin/admins?error=You+cannot+revoke+your+own+access')
+  }
+
   try {
-    if (id) {
-      // Update
-      const data = { email, role }
-      if (password && password.trim()) {
-        data.passwordHash = await bcrypt.hash(password, 10)
-      }
-      await prisma.admin.update({
-        where: { id: parseInt(id) },
-        data
-      })
-      res.redirect('/super-admin/admins?success=Admin+updated+successfully')
-    } else {
-      // Create
-      if (!password) return res.redirect('/super-admin/admins?error=Password+is+required')
-      const passwordHash = await bcrypt.hash(password, 10)
-      await prisma.admin.create({
-        data: {
-          email,
-          passwordHash,
-          role
-        }
-      })
-      res.redirect('/super-admin/admins?success=Admin+created+successfully')
-    }
+    await prisma.user.update({
+      where: { id: parseInt(userId) },
+      data: { role: 'USER' }
+    })
+    
+    // Note: This does not immediately kill their active session if stored in Redis without role checks on every request,
+    // but they will fail next time role is checked or on re-login.
+    // For stricter security, we could iterate sessions, but for now this suffices as per requirement.
+    
+    res.redirect('/super-admin/admins?success=Admin+access+revoked+successfully')
   } catch (e) {
     console.error(e)
     res.redirect('/super-admin/admins?error=' + encodeURIComponent(e.message))
