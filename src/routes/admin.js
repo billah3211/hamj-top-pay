@@ -443,7 +443,7 @@ router.post('/user/:id/balance', requireAdmin, async (req, res) => {
     prisma.notification.create({
       data: {
         userId: parseInt(id),
-        message: \`Balance Update: \${action === 'add' ? '+' : '-'}\${val} \${type.toUpperCase()}. Reason: \${message}\`,
+        message: `Balance Update: ${action === 'add' ? '+' : '-'}${val} ${type.toUpperCase()}. Reason: ${message}`,
         type: action === 'add' ? 'credit' : 'debit'
       }
     })

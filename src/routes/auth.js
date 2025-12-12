@@ -486,42 +486,6 @@ router.get('/dashboard', async (req, res) => {
   res.send(html)
 })
 
-  res.send(`
-    <!doctype html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width,initial-scale=1">
-      <title>Notifications - HaMJ toP PaY</title>
-      <link rel="stylesheet" href="/style.css">
-    </head>
-    <body>
-      <button class="menu-trigger" id="mobileMenuBtn">☰</button>
-      <div class="app-layout">
-        ${sidebar}
-        <div class="main-content">
-          <div class="section-header">
-            <div class="section-title">Notifications</div>
-            <div style="color:var(--text-muted)">Your recent updates</div>
-          </div>
-          <div class="glass-panel" style="padding:20px;text-align:center;color:var(--text-muted)">No notifications yet</div>
-        </div>
-      </div>
-      <script>
-        const menuBtn = document.getElementById('mobileMenuBtn');
-        const sidebar = document.getElementById('sidebar');
-        menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
-        document.addEventListener('click', (e) => {
-          if (!sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('open')) {
-            sidebar.classList.remove('open');
-          }
-        });
-      </script>
-    </body>
-    </html>
-  `)
-})
-
 router.get('/notifications', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login')
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
