@@ -2,6 +2,7 @@ const express = require('express')
 const bcrypt = require('bcryptjs')
 const multer = require('multer')
 const path = require('path')
+const fs = require('fs')
 const { prisma } = require('../db/prisma')
 const router = express.Router()
 
@@ -496,11 +497,24 @@ router.post('/store/edit', requireSuperAdmin, upload.single('image'), async (req
 router.post('/store/delete', requireSuperAdmin, async (req, res) => {
   try {
     const { id } = req.body
-    await prisma.storeItem.delete({ where: { id: parseInt(id) } })
+    const item = await prisma.storeItem.findUnique({ where: { id: parseInt(id) } })
+    
+    if (item) {
+      // Try to delete the file if it exists
+      if (item.imageUrl && item.imageUrl.startsWith('/uploads/')) {
+        const filePath = path.join(__dirname, '../../public', item.imageUrl)
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath)
+        }
+      }
+      
+      await prisma.storeItem.delete({ where: { id: parseInt(id) } })
+    }
+    
     res.redirect('/super-admin/store?success=Item+deleted+successfully')
   } catch (e) {
     console.error(e)
-    res.redirect('/super-admin/store?error=Delete+failed')
+    res.redirect('/super-admin/store?error=Delete+failed:+This+item+might+be+in+use+by+users')
   }
 })
 

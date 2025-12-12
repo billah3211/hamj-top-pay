@@ -57,7 +57,7 @@ router.get('/', requireLogin, async (req, res) => {
         </div>
       </div>
       <form action="/store/buy/${item.id}" method="POST">
-        <button type="submit" class="btn-store">Buy Now</button>
+        <button type="submit" class="btn-store">${item.currency === 'free' ? 'Get for Free' : 'Buy Now'}</button>
       </form>
     </div>
   `

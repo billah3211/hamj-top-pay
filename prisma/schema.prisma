@@ -51,7 +51,7 @@ model UserItem {
   userId      Int
   user        User     @relation(fields: [userId], references: [id])
   itemId      Int
-  item        StoreItem @relation(fields: [itemId], references: [id])
+  item        StoreItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
   purchasedAt DateTime @default(now())
 }
 
