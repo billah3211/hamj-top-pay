@@ -4,8 +4,7 @@ const { prisma } = require('../db/prisma')
 const router = express.Router()
 
 function requireSuperAdmin(req, res, next) {
-  const isWhitelisted = req.session && req.session.email === 'mdmasumbilla272829@gmail.com'
-  if (req.session && req.session.role === 'SUPER_ADMIN' && isWhitelisted) return next()
+  if (req.session && req.session.role === 'SUPER_ADMIN') return next()
   return res.redirect('/admin/login')
 }
 
@@ -16,6 +15,7 @@ function getSidebar(active) {
       <ul class="nav-links">
         <li class="nav-item"><a href="/super-admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=${active === 'dashboard' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Dashboard</a></li>
         <li class="nav-item"><a href="/super-admin/admins" class="${active === 'admins' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shield-check.svg?color=${active === 'admins' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Admins</a></li>
+        <li class="nav-item" style="margin-top:10px;border-top:1px solid rgba(236, 72, 153, 0.2);padding-top:10px"><a href="/admin/dashboard"><img src="https://api.iconify.design/lucide:layout-template.svg?color=%2394a3b8" class="nav-icon"> Normal Panel</a></li>
         <li class="nav-item" style="margin-top:auto"><a href="/admin/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
       </ul>
     </nav>
@@ -176,13 +176,20 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
       <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:24px;margin-bottom:24px;">
         <h3 style="color:white;margin-bottom:20px;">Grant Admin Access</h3>
         <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px;">
-          Enter a user's email or username and <b>your password</b> to grant them admin access.
+          Enter a user's email or username, select their role, and <b>your password</b> to confirm.
         </p>
         <form action="/super-admin/grant-user" method="post" style="display:flex;flex-direction:column;gap:16px;">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
             <div>
               <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">User Email or Username</label>
               <input type="text" name="identifier" required placeholder="Target user..." style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+            </div>
+            <div>
+              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Role to Assign</label>
+              <select name="role" required style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+                <option value="ADMIN">Normal Admin</option>
+                <option value="SUPER_ADMIN">Super Admin</option>
+              </select>
             </div>
             <div>
               <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Your Password</label>
@@ -203,8 +210,12 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
 })
  
  router.post('/grant-user', requireSuperAdmin, async (req, res) => {
-   const { identifier, password } = req.body
+   const { identifier, password, role } = req.body
    
+   if (!['ADMIN', 'SUPER_ADMIN'].includes(role)) {
+     return res.redirect('/super-admin/admins?error=Invalid+role+selected')
+   }
+
    try {
      // Fetch target user
     const targetUser = await prisma.user.findFirst({
@@ -231,12 +242,10 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
     // Update user role
     await prisma.user.update({
       where: { id: targetUser.id },
-      data: { role: 'ADMIN' }
+      data: { role: role }
     })
- 
-     // Also ensure they are not blocked if they are becoming admin? No requirement.
      
-     res.redirect('/super-admin/admins?success=User+granted+admin+access+successfully')
+     res.redirect('/super-admin/admins?success=User+granted+access+successfully')
    } catch (e) {
      console.error(e)
      res.redirect('/super-admin/admins?error=' + encodeURIComponent(e.message))
