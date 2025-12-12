@@ -160,7 +160,7 @@ router.get('/login', async (req, res) => {
 })
 
 router.post('/auth/login', async (req, res) => {
-  const { password } = req.body
+  const { email, password } = req.body
   
   // Strict Security: Must be logged in as user
   if (!req.session || !req.session.userId) {
@@ -176,6 +176,11 @@ router.post('/auth/login', async (req, res) => {
 
     if (!isSuperEmail && user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
       return res.status(400).send('Unauthorized')
+    }
+
+    // Verify email matches session user (prevent confusion)
+    if (email && email.toLowerCase() !== user.email.toLowerCase()) {
+       return res.redirect(`/admin/login?error=Please login as ${user.email} first`)
     }
 
     const match = await bcrypt.compare(password, user.passwordHash)

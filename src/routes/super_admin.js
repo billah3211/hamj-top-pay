@@ -165,8 +165,8 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
               <input type="text" name="identifier" required placeholder="User email or username" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
             </div>
             <div>
-              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">User's Password</label>
-              <input type="password" name="password" required placeholder="Verify user password" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Your Password (Confirmation)</label>
+              <input type="password" name="password" required placeholder="Enter your password to confirm" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
             </div>
           </div>
           <button type="submit" class="btn-premium" style="width:auto;align-self:flex-start;">Grant Access</button>
@@ -254,30 +254,33 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
    const { identifier, password } = req.body
    
    try {
-     const user = await prisma.user.findFirst({
-       where: {
-         OR: [
-           { email: identifier },
-           { username: identifier }
-         ]
-       }
-     })
- 
-     if (!user) {
-       return res.redirect('/super-admin/admins?error=User+not+found')
-     }
- 
-     // Verify password
-     const match = await bcrypt.compare(password, user.passwordHash)
-     if (!match) {
-       return res.redirect('/super-admin/admins?error=Invalid+user+password')
-     }
- 
-     // Update user role
-     await prisma.user.update({
-       where: { id: user.id },
-       data: { role: 'ADMIN' }
-     })
+     // Fetch target user
+    const targetUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: identifier },
+          { username: identifier }
+        ]
+      }
+    })
+
+    if (!targetUser) {
+      return res.redirect('/super-admin/admins?error=User+not+found')
+    }
+
+    // Verify Super Admin password (current user)
+    const superAdmin = await prisma.user.findUnique({ where: { id: req.session.userId } })
+    const match = await bcrypt.compare(password, superAdmin.passwordHash)
+    
+    if (!match) {
+      return res.redirect('/super-admin/admins?error=Invalid+confirmation+password')
+    }
+
+    // Update user role
+    await prisma.user.update({
+      where: { id: targetUser.id },
+      data: { role: 'ADMIN' }
+    })
  
      // Also ensure they are not blocked if they are becoming admin? No requirement.
      

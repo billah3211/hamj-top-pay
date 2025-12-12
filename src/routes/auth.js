@@ -357,6 +357,10 @@ router.get('/dashboard', async (req, res) => {
             <div class="value">${user.email}</div>
           </div>
           <div class="info-group">
+            <div class="label">Role</div>
+            <div class="value" style="color:var(--primary);font-weight:600">${user.role}</div>
+          </div>
+          <div class="info-group">
             <div class="label">Phone Number</div>
             <div class="value">${user.phone}</div>
           </div>
