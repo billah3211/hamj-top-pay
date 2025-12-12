@@ -449,6 +449,7 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
     </div>
 
     ${getScripts()}
+  `)
 })
 
 router.post('/user/:id/balance', requireAdmin, async (req, res) => {
