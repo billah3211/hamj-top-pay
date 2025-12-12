@@ -1,4 +1,5 @@
 const express = require('express')
+console.log('Starting application with dependencies refreshed...');
 require('dotenv').config()
 const session = require('express-session')
 const { RedisStore } = require('connect-redis')
