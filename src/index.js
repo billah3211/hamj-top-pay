@@ -4,6 +4,13 @@ const session = require('express-session')
 const { RedisStore } = require('connect-redis')
 const { prisma } = require('./db/prisma')
 const { redis } = require('./redis/client')
+
+// Check if public/uploads exists, if not create it
+const fs = require('fs')
+if (!fs.existsSync('public/uploads')){
+    fs.mkdirSync('public/uploads', { recursive: true });
+}
+
 const authRoutes = require('./routes/auth')
 const adminRoutes = require('./routes/admin')
 const superAdminRoutes = require('./routes/super_admin')
