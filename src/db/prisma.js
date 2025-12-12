@@ -1,15 +1,24 @@
-const { Pool } = require('pg')
-const { PrismaPg } = require('@prisma/adapter-pg')
 const { PrismaClient } = require('@prisma/client')
 
-const connectionString = process.env.DATABASE_URL
-
-if (!connectionString) {
-  console.error('CRITICAL ERROR: DATABASE_URL is missing from environment variables!')
+// Explicitly provide the datasource URL to avoid accidental "adapter" options
+// being picked up by the generated client (this prevents the "driverAdapters"
+// preview-feature error during startup on some environments).
+const prismaOptions = {
+	datasources: {
+		db: {
+			url: process.env.DATABASE_URL,
+		},
+	},
 }
 
-const pool = new Pool({ connectionString })
-const adapter = new PrismaPg(pool)
-const prisma = new PrismaClient({ adapter })
+let prisma
+try {
+	prisma = new PrismaClient(prismaOptions)
+} catch (err) {
+	// Rethrow after logging more context so deploy logs are clearer.
+	console.error('PrismaClient initialization failed. prismaOptions:', prismaOptions)
+	console.error(err)
+	throw err
+}
 
 module.exports = { prisma }
