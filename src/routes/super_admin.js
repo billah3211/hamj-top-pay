@@ -1,7 +1,33 @@
 const express = require('express')
 const bcrypt = require('bcryptjs')
+const multer = require('multer')
+const path = require('path')
 const { prisma } = require('../db/prisma')
 const router = express.Router()
+
+// Multer Config
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'public/uploads')
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname))
+  }
+})
+
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true)
+  } else {
+    cb(new Error('Not an image! Please upload an image.'), false)
+  }
+}
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
+  fileFilter: fileFilter
+})
 
 function requireSuperAdmin(req, res, next) {
   if (req.session && req.session.role === 'SUPER_ADMIN') return next()
@@ -15,6 +41,7 @@ function getSidebar(active) {
       <ul class="nav-links">
         <li class="nav-item"><a href="/super-admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=${active === 'dashboard' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Dashboard</a></li>
         <li class="nav-item"><a href="/super-admin/admins" class="${active === 'admins' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shield-check.svg?color=${active === 'admins' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Admins</a></li>
+        <li class="nav-item"><a href="/super-admin/store" class="${active === 'store' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=${active === 'store' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Store</a></li>
         <li class="nav-item" style="margin-top:10px;border-top:1px solid rgba(236, 72, 153, 0.2);padding-top:10px"><a href="/admin/dashboard"><img src="https://api.iconify.design/lucide:layout-template.svg?color=%2394a3b8" class="nav-icon"> Normal Panel</a></li>
         <li class="nav-item" style="margin-top:auto"><a href="/admin/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
       </ul>
@@ -276,6 +303,204 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
   } catch (e) {
     console.error(e)
     res.redirect('/super-admin/admins?error=' + encodeURIComponent(e.message))
+  }
+})
+
+// Store Management Routes
+router.get('/store', requireSuperAdmin, async (req, res) => {
+  const items = await prisma.storeItem.findMany({ orderBy: { createdAt: 'desc' } })
+  
+  const renderItemRow = (item) => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+      <td style="padding:16px"><img src="${item.imageUrl}" style="width:50px;height:50px;border-radius:8px;object-fit:cover"></td>
+      <td style="padding:16px;color:white">${item.name}</td>
+      <td style="padding:16px"><span style="background:rgba(99,102,241,0.1);color:#818cf8;padding:4px 8px;border-radius:4px;font-size:12px">${item.type}</span></td>
+      <td style="padding:16px;color:var(--text-muted)">
+        ${item.currency === 'free' ? 'Free' : item.price + ' ' + (item.currency === 'dk' ? 'Dollar' : 'Taka')}
+      </td>
+      <td style="padding:16px;text-align:right">
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button onclick="editItem(${item.id}, '${item.name}', ${item.price}, '${item.currency}', '${item.type}')" class="btn-premium" style="padding:8px;font-size:12px">Edit</button>
+          <form action="/super-admin/store/delete" method="POST" onsubmit="return confirm('Delete this item?')" style="display:inline">
+            <input type="hidden" name="id" value="${item.id}">
+            <button class="btn-premium" style="padding:8px;font-size:12px;background:rgba(239,68,68,0.2);color:#fca5a5;border-color:rgba(239,68,68,0.3)">Del</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+  `
+
+  res.send(`
+    ${getHead('Manage Store')}
+    ${getSidebar('store')}
+    <div class="main-content">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Store Management</div>
+          <div style="color:var(--text-muted)">Upload and manage profile assets</div>
+        </div>
+      </div>
+
+      ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
+      ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
+
+      <div style="display:grid;grid-template-columns:1fr 350px;gap:24px;align-items:start">
+        
+        <!-- Items List -->
+        <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;overflow:hidden">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:rgba(255,255,255,0.02);text-align:left">
+                <th style="padding:16px;color:var(--text-muted);font-weight:500">Image</th>
+                <th style="padding:16px;color:var(--text-muted);font-weight:500">Name</th>
+                <th style="padding:16px;color:var(--text-muted);font-weight:500">Type</th>
+                <th style="padding:16px;color:var(--text-muted);font-weight:500">Price</th>
+                <th style="padding:16px;color:var(--text-muted);font-weight:500;text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${items.length ? items.map(renderItemRow).join('') : '<tr><td colspan="5" style="padding:32px;text-align:center;color:var(--text-muted)">No items in store</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Upload/Edit Form -->
+        <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:24px;position:sticky;top:24px">
+          <h3 id="formTitle" style="color:white;margin-bottom:20px;font-size:18px">Upload New Item</h3>
+          
+          <form id="storeForm" action="/super-admin/store/upload" method="POST" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:16px;">
+            <input type="hidden" name="itemId" id="itemId">
+            
+            <div>
+              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Item Name</label>
+              <input type="text" name="name" id="itemName" required style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+            </div>
+
+            <div>
+              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Item Type</label>
+              <select name="type" id="itemType" required style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+                <option value="avatar">Profile Picture</option>
+                <option value="banner">Profile Banner</option>
+              </select>
+            </div>
+
+            <div>
+              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Price Type</label>
+              <select name="currency" id="itemCurrency" required onchange="togglePrice(this.value)" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+                <option value="free">Free</option>
+                <option value="dk">Dollar Balance</option>
+                <option value="tk">Taka Balance</option>
+              </select>
+            </div>
+
+            <div id="priceField" style="display:none">
+              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Price Amount</label>
+              <input type="number" name="price" id="itemPrice" min="1" value="0" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+            </div>
+
+            <div>
+              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Image File (Max 20MB)</label>
+              <div style="position:relative;overflow:hidden;background:rgba(15,23,42,0.6);border:1px dashed var(--glass-border);border-radius:8px;padding:20px;text-align:center;">
+                <input type="file" name="image" id="itemImage" accept="image/*" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;">
+                <div style="color:var(--text-muted);pointer-events:none">Click to upload</div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:10px">
+              <button type="submit" class="btn-premium" style="flex:1">Save Item</button>
+              <button type="button" onclick="resetForm()" class="btn-premium" style="background:transparent;border:1px solid var(--glass-border);width:auto;padding:0 12px">Reset</button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+    ${getScripts()}
+    <script>
+      function togglePrice(val) {
+        document.getElementById('priceField').style.display = val === 'free' ? 'none' : 'block';
+      }
+      
+      function editItem(id, name, price, currency, type) {
+        document.getElementById('formTitle').innerText = 'Edit Item';
+        document.getElementById('storeForm').action = '/super-admin/store/edit';
+        document.getElementById('itemId').value = id;
+        document.getElementById('itemName').value = name;
+        document.getElementById('itemType').value = type;
+        document.getElementById('itemCurrency').value = currency;
+        document.getElementById('itemPrice').value = price;
+        togglePrice(currency);
+        // Image is optional in edit
+        document.getElementById('itemImage').required = false;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      function resetForm() {
+        document.getElementById('formTitle').innerText = 'Upload New Item';
+        document.getElementById('storeForm').action = '/super-admin/store/upload';
+        document.getElementById('itemId').value = '';
+        document.getElementById('storeForm').reset();
+        togglePrice('free');
+        document.getElementById('itemImage').required = true;
+      }
+    </script>
+  `)
+})
+
+router.post('/store/upload', requireSuperAdmin, upload.single('image'), async (req, res) => {
+  try {
+    const { name, type, currency, price } = req.body
+    const imageUrl = '/uploads/' + req.file.filename
+    
+    await prisma.storeItem.create({
+      data: {
+        name,
+        type,
+        currency,
+        price: currency === 'free' ? 0 : parseInt(price || 0),
+        imageUrl
+      }
+    })
+    res.redirect('/super-admin/store?success=Item+uploaded+successfully')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/store?error=Upload+failed')
+  }
+})
+
+router.post('/store/edit', requireSuperAdmin, upload.single('image'), async (req, res) => {
+  try {
+    const { itemId, name, type, currency, price } = req.body
+    const data = {
+      name,
+      type,
+      currency,
+      price: currency === 'free' ? 0 : parseInt(price || 0)
+    }
+    
+    if (req.file) {
+      data.imageUrl = '/uploads/' + req.file.filename
+    }
+
+    await prisma.storeItem.update({
+      where: { id: parseInt(itemId) },
+      data
+    })
+    res.redirect('/super-admin/store?success=Item+updated+successfully')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/store?error=Update+failed')
+  }
+})
+
+router.post('/store/delete', requireSuperAdmin, async (req, res) => {
+  try {
+    const { id } = req.body
+    await prisma.storeItem.delete({ where: { id: parseInt(id) } })
+    res.redirect('/super-admin/store?success=Item+deleted+successfully')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/store?error=Delete+failed')
   }
 })
 

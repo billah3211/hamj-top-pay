@@ -24,8 +24,33 @@ model User {
   isBlocked Boolean  @default(false)
   role      String   @default("USER") // "USER", "ADMIN", "SUPER_ADMIN"
   createdAt DateTime @default(now())
+  
+  currentAvatar String?
+  currentBanner String?
+  
   tasks     Task[]
   notifications Notification[]
+  items     UserItem[]
+}
+
+model StoreItem {
+  id          Int      @id @default(autoincrement())
+  name        String
+  type        String   // "avatar", "banner"
+  price       Int
+  currency    String   // "free", "dk", "tk"
+  imageUrl    String
+  createdAt   DateTime @default(now())
+  users       UserItem[]
+}
+
+model UserItem {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  itemId      Int
+  item        StoreItem @relation(fields: [itemId], references: [id])
+  purchasedAt DateTime @default(now())
 }
 
 model Task {
