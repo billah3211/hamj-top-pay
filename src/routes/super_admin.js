@@ -125,10 +125,13 @@ router.get('/dashboard', requireSuperAdmin, async (req, res) => {
     ${getHead('Super Admin Dashboard')}
     ${getSidebar('dashboard')}
     <div class="main-content">
-      <div class="section-header">
+      <div class="section-header" style="background: linear-gradient(to right, rgba(236, 72, 153, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(236, 72, 153, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
+        <div style="background: rgba(236, 72, 153, 0.2); padding: 12px; border-radius: 12px;">
+           <img src="https://api.iconify.design/lucide:shield-check.svg?color=%23ec4899" width="32" height="32">
+        </div>
         <div>
-          <div class="section-title">Dashboard Overview</div>
-          <div style="color:var(--text-muted)">Welcome back, Super Admin</div>
+          <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">Dashboard Overview</div>
+          <div style="color:var(--text-muted); font-size: 16px;">Welcome back, <span style="color: #ec4899; font-weight: 600;">Super Admin</span></div>
         </div>
       </div>
       
@@ -311,39 +314,48 @@ router.get('/store', requireSuperAdmin, async (req, res) => {
     ${getHead('Manage Store')}
     ${getSidebar('store')}
     <div class="main-content">
-      <div class="section-header">
+      <div class="section-header" style="background: linear-gradient(to right, rgba(99, 102, 241, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(99, 102, 241, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
+        <div style="background: rgba(99, 102, 241, 0.2); padding: 12px; border-radius: 12px;">
+           <img src="https://api.iconify.design/lucide:shopping-bag.svg?color=%236366f1" width="32" height="32">
+        </div>
         <div>
-          <div class="section-title">Store Management</div>
-          <div style="color:var(--text-muted)">Upload and manage profile assets</div>
+          <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">Store Management</div>
+          <div style="color:var(--text-muted); font-size: 16px;">Upload and manage profile assets</div>
         </div>
       </div>
 
       ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
       ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
 
-      <div style="display:grid;grid-template-columns:1fr 350px;gap:24px;align-items:start">
+      <div style="display:grid;grid-template-columns:1fr 380px;gap:24px;align-items:start">
         
         <!-- Items List -->
         <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;overflow:hidden">
+          <div style="padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 18px;">Active Items</h3>
+            <span style="background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 20px; font-size: 12px;">${items.length} items</span>
+          </div>
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="background:rgba(255,255,255,0.02);text-align:left">
-                <th style="padding:16px;color:var(--text-muted);font-weight:500">Image</th>
-                <th style="padding:16px;color:var(--text-muted);font-weight:500">Name</th>
-                <th style="padding:16px;color:var(--text-muted);font-weight:500">Type</th>
-                <th style="padding:16px;color:var(--text-muted);font-weight:500">Price</th>
-                <th style="padding:16px;text-align:right;color:var(--text-muted);font-weight:500">Action</th>
+                <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:1px">Preview</th>
+                <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:1px">Item Info</th>
+                <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:1px">Pricing</th>
+                <th style="padding:16px;text-align:right;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:1px">Action</th>
               </tr>
             </thead>
             <tbody>
-              ${items.map(renderItemRow).join('')}
+              ${items.length > 0 ? items.map(renderItemRow).join('') : '<tr><td colspan="4" style="padding:40px;text-align:center;color:var(--text-muted)">No items found in store</td></tr>'}
             </tbody>
           </table>
         </div>
 
         <!-- Add Item Form -->
-        <div class="glass-panel">
-          <h3 style="margin-bottom:20px;font-size:18px">Add New Item</h3>
+        <div class="glass-panel" style="padding: 24px; position: sticky; top: 24px;">
+          <h3 style="margin-bottom:20px;font-size:18px; display: flex; align-items: center; gap: 10px;">
+            <span style="background:rgba(34, 197, 94, 0.2); width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: #4ade80;"><img src="https://api.iconify.design/lucide:plus.svg?color=currentColor" width="16"></span>
+            Add New Item
+          </h3>
           <form action="/super-admin/store/add" method="POST" enctype="multipart/form-data">
             <div class="form-group">
               <label class="form-label">Item Name</label>
@@ -374,10 +386,16 @@ router.get('/store', requireSuperAdmin, async (req, res) => {
 
             <div class="form-group">
               <label class="form-label">Image File</label>
-              <input type="file" name="image" required accept="image/*" class="form-input" style="padding:8px">
+              <div style="position: relative; overflow: hidden; display: inline-block; width: 100%;">
+                 <input type="file" name="image" required accept="image/*" class="form-input" style="padding: 10px; cursor: pointer;">
+              </div>
+              <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">Recommended: PNG with transparent background</div>
             </div>
 
-            <button type="submit" class="btn-premium full-width">Upload Item</button>
+            <button type="submit" class="btn-premium full-width" style="background: linear-gradient(135deg, #10b981, #059669);">
+              <img src="https://api.iconify.design/lucide:upload-cloud.svg?color=white" width="18" style="vertical-align: middle; margin-right: 8px;">
+              Upload Item
+            </button>
           </form>
         </div>
 
@@ -449,31 +467,73 @@ router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
     ${getHead('Promote Settings')}
     ${getSidebar('promote')}
     <div class="main-content">
-      <div class="section-header">
+      <div class="section-header" style="margin-bottom: 32px;">
         <div>
-          <div class="section-title">Promote Settings</div>
+          <div class="section-title" style="font-size: 24px;">Promote Settings</div>
           <div style="color:var(--text-muted)">Configure visit timer and screenshot requirements</div>
         </div>
       </div>
 
-      ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
+      ${req.query.success ? `<div class="alert success" style="margin-bottom: 24px;">${req.query.success}</div>` : ''}
 
-      <div class="glass-panel" style="max-width:500px">
-        <form action="/super-admin/promote-settings" method="POST">
-          <div class="form-group" style="margin-bottom:20px">
-            <label class="form-label" style="display:block;margin-bottom:8px">Visit Timer (Seconds)</label>
-            <input type="number" name="timer" value="${timerVal}" class="form-input" style="width:100%;padding:12px;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);border-radius:8px;color:white">
-            <div style="font-size:12px;color:var(--text-muted);margin-top:5px">Default: 50 seconds</div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+        <!-- Settings Card -->
+        <div class="glass-panel" style="padding: 32px; border-top: 4px solid #ec4899;">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+            <div style="background: rgba(236, 72, 153, 0.2); padding: 10px; border-radius: 10px;">
+              <img src="https://api.iconify.design/lucide:sliders.svg?color=%23ec4899" width="24" height="24">
+            </div>
+            <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Configuration</h3>
           </div>
 
-          <div class="form-group" style="margin-bottom:20px">
-            <label class="form-label" style="display:block;margin-bottom:8px">Required Screenshots</label>
-            <input type="number" name="screenshots" value="${screenshotVal}" class="form-input" style="width:100%;padding:12px;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);border-radius:8px;color:white">
-            <div style="font-size:12px;color:var(--text-muted);margin-top:5px">Default: 2 screenshots</div>
-          </div>
+          <form action="/super-admin/promote-settings" method="POST">
+            <div class="form-group" style="margin-bottom: 24px;">
+              <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 500;">
+                <img src="https://api.iconify.design/lucide:timer.svg?color=%2394a3b8" width="16" style="vertical-align: middle; margin-right: 6px;">
+                Visit Timer (Seconds)
+              </label>
+              <div style="position: relative;">
+                <input type="number" name="timer" value="${timerVal}" class="form-input" style="width: 100%; padding: 14px 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 12px; color: white; font-size: 16px;">
+              </div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px; padding-left: 4px;">Time users must wait before submitting proof. Default: 50s</div>
+            </div>
 
-          <button type="submit" class="btn-premium">Save Settings</button>
-        </form>
+            <div class="form-group" style="margin-bottom: 32px;">
+              <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 500;">
+                <img src="https://api.iconify.design/lucide:image.svg?color=%2394a3b8" width="16" style="vertical-align: middle; margin-right: 6px;">
+                Required Screenshots
+              </label>
+              <div style="position: relative;">
+                <input type="number" name="screenshots" value="${screenshotVal}" class="form-input" style="width: 100%; padding: 14px 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 12px; color: white; font-size: 16px;">
+              </div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px; padding-left: 4px;">Number of proofs required. Default: 2</div>
+            </div>
+
+            <button type="submit" class="btn-premium full-width" style="padding: 14px; font-size: 16px; background: linear-gradient(135deg, #ec4899, #8b5cf6);">
+              <img src="https://api.iconify.design/lucide:save.svg?color=white" width="18" style="vertical-align: middle; margin-right: 8px;">
+              Save Settings
+            </button>
+          </form>
+        </div>
+
+        <!-- Info Card -->
+        <div class="glass-panel" style="padding: 32px; background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8));">
+          <h3 style="margin-bottom: 20px; font-size: 18px; color: var(--text-muted);">How it works</h3>
+          <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 16px;">
+            <li style="display: flex; gap: 12px; align-items: start;">
+              <div style="background: rgba(99, 102, 241, 0.2); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #818cf8; font-size: 12px; flex-shrink: 0;">1</div>
+              <div style="font-size: 14px; color: var(--text-muted); line-height: 1.5;">Users view promoted links for the specified <strong>Visit Timer</strong> duration.</div>
+            </li>
+            <li style="display: flex; gap: 12px; align-items: start;">
+              <div style="background: rgba(99, 102, 241, 0.2); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #818cf8; font-size: 12px; flex-shrink: 0;">2</div>
+              <div style="font-size: 14px; color: var(--text-muted); line-height: 1.5;">After the timer ends, they must upload the exact number of <strong>Required Screenshots</strong>.</div>
+            </li>
+            <li style="display: flex; gap: 12px; align-items: start;">
+              <div style="background: rgba(99, 102, 241, 0.2); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: #818cf8; font-size: 12px; flex-shrink: 0;">3</div>
+              <div style="font-size: 14px; color: var(--text-muted); line-height: 1.5;">Admins or Link Owners approve the proof to release rewards.</div>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
     ${getScripts()}
