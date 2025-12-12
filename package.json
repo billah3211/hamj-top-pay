@@ -6,7 +6,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "start": "npx prisma db push --accept-data-loss || echo 'DB Push Failed' && node src/index.js",
+    "start": "npm ci --only=production && npx prisma db push --accept-data-loss || echo 'DB Push Failed'; node src/index.js",
     "dev": "nodemon src/index.js",
     "build": "node -e \"console.log('Build step OK')\"",
     "postinstall": "npx prisma generate || echo 'Prisma generate skipped'",
