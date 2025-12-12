@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "npx prisma db push && node src/index.js",
+    "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "build": "npx prisma generate",
+    "build": "npx prisma generate && npx prisma db push",
     "prisma:generate": "prisma generate"
   },
   "dependencies": {
