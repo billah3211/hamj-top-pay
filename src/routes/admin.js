@@ -293,15 +293,36 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
     ${getSidebar('users')}
     <style>
         .balance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
-        .balance-card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 16px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
-        .balance-card:hover { border-color: var(--primary); background: rgba(99, 102, 241, 0.1); }
+        .balance-card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 16px; border: 1px solid transparent; }
         .balance-title { color: var(--text-muted); font-size: 14px; margin-bottom: 8px; }
         .balance-val { font-size: 24px; font-weight: 700; color: white; }
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
-        .modal.open { opacity: 1; pointer-events: auto; }
-        .modal-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
-        .modal-box { position: relative; background: #0f172a; padding: 24px; border-radius: 16px; width: 90%; max-width: 400px; border: 1px solid rgba(255,255,255,0.1); transform: scale(0.9); transition: transform 0.3s; }
-        .modal.open .modal-box { transform: scale(1); }
+        
+        /* New Form Styles */
+        .selection-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+        .selection-card { position: relative; }
+        .selection-card input { position: absolute; opacity: 0; cursor: pointer; inset: 0; z-index: 10; }
+        .selection-content { 
+          background: rgba(15, 23, 42, 0.6); border: 2px solid var(--glass-border); padding: 16px; border-radius: 12px;
+          display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+          transition: all 0.2s; cursor: pointer; height: 100%;
+        }
+        .selection-card input:checked + .selection-content {
+          border-color: var(--primary); background: rgba(99, 102, 241, 0.1); box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+        }
+        .selection-icon { font-size: 24px; }
+        .selection-label { font-weight: 600; font-size: 14px; }
+        .check-mark { position: absolute; top: 8px; right: 8px; color: var(--primary); opacity: 0; transform: scale(0.5); transition: all 0.2s; }
+        .selection-card input:checked + .selection-content .check-mark { opacity: 1; transform: scale(1); }
+
+        .action-group { display: flex; gap: 16px; margin-bottom: 24px; }
+        .action-label { flex: 1; cursor: pointer; }
+        .action-content {
+          padding: 16px; background: rgba(15, 23, 42, 0.6); border: 2px solid var(--glass-border); border-radius: 12px;
+          text-align: center; font-weight: 600; transition: all 0.2s;
+        }
+        .action-label input { display: none; }
+        .action-label input:checked + .action-content { border-color: var(--primary); background: rgba(99, 102, 241, 0.1); }
+        .action-label input[value="cut"]:checked + .action-content { border-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
     </style>
     <div class="main-content">
       <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;">
@@ -312,28 +333,105 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
         <a href="/admin/users" class="btn-premium">Back</a>
       </div>
 
-      <div class="section-title" style="font-size:18px;margin-bottom:16px;">Balances (Click to Edit)</div>
+      <div class="section-title" style="font-size:18px;margin-bottom:16px;">Current Balances</div>
       <div class="balance-grid">
-        <div class="balance-card" onclick="openModal('diamond', ${user.diamond})">
+        <div class="balance-card">
           <div class="balance-title">Diamond 💎</div>
           <div class="balance-val">${user.diamond}</div>
         </div>
-        <div class="balance-card" onclick="openModal('dk', ${user.dk})">
+        <div class="balance-card">
           <div class="balance-title">Dollar 💵</div>
           <div class="balance-val">$${user.dk}</div>
         </div>
-        <div class="balance-card" onclick="openModal('coin', ${user.coin})">
+        <div class="balance-card">
           <div class="balance-title">Coin 🪙</div>
           <div class="balance-val">${user.coin}</div>
         </div>
-        <div class="balance-card" onclick="openModal('lora', ${user.lora})">
+        <div class="balance-card">
           <div class="balance-title">HaMJ T 🔷</div>
           <div class="balance-val">${user.lora}</div>
         </div>
-        <div class="balance-card" onclick="openModal('tk', ${user.tk})">
+        <div class="balance-card">
           <div class="balance-title">Tk ৳</div>
           <div class="balance-val">${user.tk}</div>
         </div>
+      </div>
+
+      <div class="glass-panel" style="padding: 24px; margin-bottom: 32px;">
+        <h3 class="section-title" style="margin-bottom: 24px; border-bottom: 1px solid var(--glass-border); padding-bottom: 16px;">Update Balance</h3>
+        <form action="/admin/user/${user.id}/balance" method="post">
+            
+            <label class="form-label" style="margin-bottom: 12px; display:block; color:var(--text-muted);">1. Select Currency (Click to tick)</label>
+            <div class="selection-grid">
+                <label class="selection-card">
+                    <input type="radio" name="type" value="diamond" required>
+                    <div class="selection-content">
+                        <span class="selection-icon">💎</span>
+                        <span class="selection-label">Diamond</span>
+                        <div class="check-mark">✔</div>
+                    </div>
+                </label>
+                <label class="selection-card">
+                    <input type="radio" name="type" value="dk">
+                    <div class="selection-content">
+                        <span class="selection-icon">💵</span>
+                        <span class="selection-label">Dollar</span>
+                        <div class="check-mark">✔</div>
+                    </div>
+                </label>
+                <label class="selection-card">
+                    <input type="radio" name="type" value="coin">
+                    <div class="selection-content">
+                        <span class="selection-icon">🪙</span>
+                        <span class="selection-label">Coin</span>
+                        <div class="check-mark">✔</div>
+                    </div>
+                </label>
+                <label class="selection-card">
+                    <input type="radio" name="type" value="lora">
+                    <div class="selection-content">
+                        <span class="selection-icon">🔷</span>
+                        <span class="selection-label">HaMJ T</span>
+                        <div class="check-mark">✔</div>
+                    </div>
+                </label>
+                <label class="selection-card">
+                    <input type="radio" name="type" value="tk">
+                    <div class="selection-content">
+                        <span class="selection-icon">৳</span>
+                        <span class="selection-label">Tk</span>
+                        <div class="check-mark">✔</div>
+                    </div>
+                </label>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 24px;">
+                <div>
+                    <label class="form-label" style="margin-bottom: 12px; display:block; color:var(--text-muted);">2. Select Action</label>
+                    <div class="action-group">
+                        <label class="action-label">
+                            <input type="radio" name="action" value="add" checked>
+                            <div class="action-content">Add (+)</div>
+                        </label>
+                        <label class="action-label">
+                            <input type="radio" name="action" value="cut">
+                            <div class="action-content">Cut (-)</div>
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label class="form-label" style="margin-bottom: 12px; display:block; color:var(--text-muted);">3. Enter Amount</label>
+                    <input type="number" name="amount" class="form-input" required min="1" placeholder="0" style="width: 100%; padding: 16px; background: rgba(15,23,42,0.6); border: 2px solid var(--glass-border); border-radius: 12px; color: white; font-size: 18px;">
+                </div>
+            </div>
+
+            <div style="margin-bottom: 24px;">
+                <label class="form-label" style="margin-bottom: 12px; display:block; color:var(--text-muted);">4. Reason / Message</label>
+                <textarea name="message" class="form-input" required placeholder="Write a message explaining this update..." style="width: 100%; padding: 16px; background: rgba(15,23,42,0.6); border: 2px solid var(--glass-border); border-radius: 12px; color: white; font-size: 16px; min-height: 100px;"></textarea>
+            </div>
+
+            <button type="submit" class="btn-premium" style="width: 100%; justify-content: center; font-size: 18px; padding: 16px;">Submit Update</button>
+        </form>
       </div>
 
       <div class="section-title" style="font-size:18px;margin-bottom:16px;color:#ef4444;">Danger Zone</div>
@@ -350,74 +448,7 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
       </div>
     </div>
 
-    <!-- Balance Modal -->
-      <div id="balanceModal" class="modal">
-        <div class="modal-bg" onclick="closeModal()"></div>
-        <div class="modal-box">
-          <h3 style="margin-top:0;color:white;margin-bottom:16px;">Update Balance</h3>
-          <form action="/admin/user/${user.id}/balance" method="post">
-            <input type="hidden" name="type" id="balType">
-            
-            <div style="margin-bottom:16px;">
-              <label class="form-label">Current Balance: <span id="currentBal" style="color:var(--primary)"></span></label>
-            </div>
-
-            <div style="margin-bottom:16px;">
-              <label class="form-label">Action</label>
-              <div style="display:flex;gap:8px;">
-                <label style="flex:1;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;cursor:pointer;text-align:center;">
-                  <input type="radio" name="action" value="add" checked> Add
-                </label>
-                <label style="flex:1;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;cursor:pointer;text-align:center;">
-                  <input type="radio" name="action" value="cut"> Cut
-                </label>
-              </div>
-            </div>
-
-            <div style="margin-bottom:16px;">
-              <label class="form-label">Amount</label>
-              <input type="number" name="amount" class="form-input" required min="1">
-            </div>
-
-            <div style="margin-bottom:24px;">
-              <label class="form-label">Reason (Notification Message)</label>
-              <textarea name="message" class="form-input" required placeholder="Why are you changing the balance?"></textarea>
-            </div>
-
-            <button type="submit" class="btn-premium" style="width:100%">Update Balance</button>
-          </form>
-        </div>
-      </div>
-
-    <script>
-        const modal = document.getElementById('balanceModal');
-        const balType = document.getElementById('balType');
-        const currentBal = document.getElementById('currentBal');
-
-        function openModal(type, current) {
-          balType.value = type;
-          currentBal.innerText = current;
-          modal.classList.add('open');
-        }
-        function closeModal() {
-          modal.classList.remove('open');
-        }
-        
-        // Mobile menu logic is already in getScripts() but we need to ensure it works
-        const menuBtn = document.getElementById('mobileMenuBtn');
-        const sidebar = document.getElementById('sidebar');
-        if(menuBtn && sidebar) {
-            menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
-            document.addEventListener('click', (e) => {
-                if (!sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('open')) {
-                    sidebar.classList.remove('open');
-                }
-            });
-        }
-    </script>
-    </body>
-    </html>
-  `)
+    ${getScripts()}
 })
 
 router.post('/user/:id/balance', requireAdmin, async (req, res) => {
