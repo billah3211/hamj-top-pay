@@ -5,7 +5,7 @@ const { RedisStore } = require('connect-redis')
 const { prisma } = require('./db/prisma')
 const { redis } = require('./redis/client')
 
-// Check if public/uploads exists, if not create it
+// Check if public/uploads exists, if not create it (Required for Render)
 const fs = require('fs')
 if (!fs.existsSync('public/uploads')){
     fs.mkdirSync('public/uploads', { recursive: true });
