@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start": "node src/index.js",
+    "start": "npx prisma db push && node src/index.js",
     "dev": "nodemon src/index.js",
-    "build": "npx prisma generate && npx prisma db push",
+    "build": "npx prisma generate",
     "prisma:generate": "prisma generate"
   },
   "dependencies": {
@@ -18,10 +18,10 @@
     "express-session": "^1.18.2",
     "multer": "^2.0.2",
     "pg": "^8.16.3",
-    "redis": "^5.10.0"
+    "redis": "^5.10.0",
+    "prisma": "^7.1.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.11",
-    "prisma": "^7.1.0"
+    "nodemon": "^3.1.11"
   }
 }
