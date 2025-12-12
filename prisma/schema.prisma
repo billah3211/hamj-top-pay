@@ -22,6 +22,7 @@ model User {
   tk        Int      @default(0)
   isLoggedIn Boolean @default(false)
   isBlocked Boolean  @default(false)
+  role      String   @default("USER") // "USER", "ADMIN", "SUPER_ADMIN"
   createdAt DateTime @default(now())
   tasks     Task[]
   notifications Notification[]

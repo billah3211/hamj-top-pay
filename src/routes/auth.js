@@ -308,6 +308,8 @@ router.post('/login', async (req, res) => {
   if (!ok) return res.redirect('/login?error=Invalid+password')
   await prisma.user.update({ where: { id: user.id }, data: { isLoggedIn: true } })
   req.session.userId = user.id
+  req.session.role = user.role
+  req.session.email = user.email
   return res.redirect('/dashboard')
 })
 
@@ -330,6 +332,10 @@ router.get('/dashboard', async (req, res) => {
     hamjt: `${prefix}${tailBase}4`,
     tk: `${prefix}${tailBase}5`
   }
+
+  const adminBtn = (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') 
+    ? `<a href="/admin/login" class="btn-premium full-width" style="margin-top:10px;background:linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)">Admin Panel</a>` 
+    : ''
 
   const profileModal = `
     <div id="profileModal" class="modal-premium">
@@ -361,6 +367,7 @@ router.get('/dashboard', async (req, res) => {
           
           <div class="modal-footer">
             <a href="/settings" class="btn-premium full-width">Edit Profile</a>
+            ${adminBtn}
           </div>
         </div>
       </div>

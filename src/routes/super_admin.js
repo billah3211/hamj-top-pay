@@ -4,7 +4,8 @@ const { prisma } = require('../db/prisma')
 const router = express.Router()
 
 function requireSuperAdmin(req, res, next) {
-  if (req.session && req.session.role === 'SUPER_ADMIN') return next()
+  const isWhitelisted = req.session && req.session.email === 'mdmasumbilla272829@gmail.com'
+  if (req.session && req.session.role === 'SUPER_ADMIN' && isWhitelisted) return next()
   return res.redirect('/admin/login')
 }
 
@@ -151,6 +152,27 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
       ${error ? `<div style="background:rgba(239,68,68,0.2);color:#fca5a5;padding:12px;border-radius:8px;margin-bottom:20px;">${error}</div>` : ''}
       ${success ? `<div style="background:rgba(34,197,94,0.2);color:#86efac;padding:12px;border-radius:8px;margin-bottom:20px;">${success}</div>` : ''}
 
+      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:24px;margin-bottom:24px;">
+        <h3 style="color:white;margin-bottom:20px;">Grant Admin Access to User</h3>
+        <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px;">
+          Enter a user's email or username and <b>their login password</b> to grant them admin access.
+          They will see an "Admin Panel" option in their profile.
+        </p>
+        <form action="/super-admin/grant-user" method="post" style="display:flex;flex-direction:column;gap:16px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div>
+              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Email or Username</label>
+              <input type="text" name="identifier" required placeholder="User email or username" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+            </div>
+            <div>
+              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">User's Password</label>
+              <input type="password" name="password" required placeholder="Verify user password" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+            </div>
+          </div>
+          <button type="submit" class="btn-premium" style="width:auto;align-self:flex-start;">Grant Access</button>
+        </form>
+      </div>
+
       <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:24px;">
         <h3 style="color:white;margin-bottom:20px;">Admin Accounts</h3>
         ${adminListHtml}
@@ -227,8 +249,46 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
     ${getScripts()}
   `)
 })
-
-router.post('/admins/save', requireSuperAdmin, async (req, res) => {
+ 
+ router.post('/grant-user', requireSuperAdmin, async (req, res) => {
+   const { identifier, password } = req.body
+   
+   try {
+     const user = await prisma.user.findFirst({
+       where: {
+         OR: [
+           { email: identifier },
+           { username: identifier }
+         ]
+       }
+     })
+ 
+     if (!user) {
+       return res.redirect('/super-admin/admins?error=User+not+found')
+     }
+ 
+     // Verify password
+     const match = await bcrypt.compare(password, user.passwordHash)
+     if (!match) {
+       return res.redirect('/super-admin/admins?error=Invalid+user+password')
+     }
+ 
+     // Update user role
+     await prisma.user.update({
+       where: { id: user.id },
+       data: { role: 'ADMIN' }
+     })
+ 
+     // Also ensure they are not blocked if they are becoming admin? No requirement.
+     
+     res.redirect('/super-admin/admins?success=User+granted+admin+access+successfully')
+   } catch (e) {
+     console.error(e)
+     res.redirect('/super-admin/admins?error=' + encodeURIComponent(e.message))
+   }
+ })
+ 
+ router.post('/admins/save', requireSuperAdmin, async (req, res) => {
   const { id, email, password, role } = req.body
   
   try {

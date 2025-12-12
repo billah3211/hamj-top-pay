@@ -5,7 +5,7 @@ const router = express.Router()
 
 function requireAdmin(req, res, next) {
   if (req.session && (req.session.admin || req.session.role === 'ADMIN' || req.session.role === 'SUPER_ADMIN')) return next()
-  return res.redirect('/admin/login')
+  return res.status(400).send('400 Bad Request: Unauthorized Access')
 }
 
 function getSidebar(active, role) {
@@ -82,7 +82,29 @@ function getScripts() {
   `
 }
 
-router.get('/login', (req, res) => {
+router.get('/login', async (req, res) => {
+  // Check if user is already logged in as admin
+  if (req.session && (req.session.admin || req.session.role === 'ADMIN' || req.session.role === 'SUPER_ADMIN')) {
+     if (req.session.role === 'SUPER_ADMIN') return res.redirect('/super-admin/dashboard')
+     return res.redirect('/admin/dashboard')
+  }
+
+  // Security Check: Only allow if logged in as a user with ADMIN/SUPER_ADMIN role
+  if (!req.session || !req.session.userId) {
+     return res.status(400).send('400 Bad Request: Unauthorized Access')
+  }
+
+  try {
+     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+     const isSuperEmail = user && user.email === 'mdmasumbilla272829@gmail.com'
+     
+     if (!user || (!isSuperEmail && user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN')) {
+       return res.status(400).send('400 Bad Request: Unauthorized Access')
+     }
+   } catch(e) {
+    return res.status(400).send('400 Bad Request: System Error')
+  }
+
   const error = req.query.error || ''
   res.send(`
     <!doctype html>
@@ -138,46 +160,48 @@ router.get('/login', (req, res) => {
 })
 
 router.post('/auth/login', async (req, res) => {
-  const { email, password } = req.body
+  const { password } = req.body
   
+  // Strict Security: Must be logged in as user
+  if (!req.session || !req.session.userId) {
+     return res.status(400).send('400 Bad Request: Unauthorized Access')
+  }
+
   try {
-    const adminUser = await prisma.admin.findUnique({ where: { email } })
-    if (adminUser) {
-      const match = await bcrypt.compare(password, adminUser.passwordHash)
-      if (match) {
-        req.session.adminId = adminUser.id
-        req.session.role = adminUser.role
-        req.session.admin = true
-        if (adminUser.role === 'SUPER_ADMIN') return res.redirect('/super-admin/dashboard')
-        return res.redirect('/admin/dashboard')
-      } else {
-        return res.redirect('/admin/login?error=Invalid+credentials')
+    const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+    if (!user) return res.status(400).send('User not found')
+
+    // Whitelist check
+    const isSuperEmail = user.email === 'mdmasumbilla272829@gmail.com'
+
+    if (!isSuperEmail && user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') {
+      return res.status(400).send('Unauthorized')
+    }
+
+    const match = await bcrypt.compare(password, user.passwordHash)
+    if (match) {
+      req.session.admin = true
+      req.session.role = user.role
+      req.session.adminId = user.id // Use user ID as admin ID
+      req.session.email = user.email
+
+      // Auto-promote Super Admin
+      if (isSuperEmail) {
+        req.session.role = 'SUPER_ADMIN'
+        if (user.role !== 'SUPER_ADMIN') {
+          await prisma.user.update({ where: { id: user.id }, data: { role: 'SUPER_ADMIN' } })
+        }
       }
+
+      if (req.session.role === 'SUPER_ADMIN') return res.redirect('/super-admin/dashboard')
+      return res.redirect('/admin/dashboard')
+    } else {
+      return res.redirect('/admin/login?error=Invalid+credentials')
     }
   } catch (e) {
     console.error('Admin login db error:', e)
+    return res.redirect('/admin/login?error=System+error')
   }
-
-  // Default credentials for initial setup (Fallback)
-  const adminEmail = process.env.ADMIN_EMAIL || 'admin@hamjtoppay.com'
-  const plain = process.env.ADMIN_PASSWORD || 'admin123'
-  const hash = process.env.ADMIN_PASSWORD_HASH
-  
-  if (email === adminEmail) {
-    let ok = false
-    try {
-      if (hash) ok = await bcrypt.compare(password, hash)
-      else ok = password === plain
-    } catch (_) {}
-    
-    if (ok) {
-        req.session.admin = true
-        req.session.role = 'SUPER_ADMIN' // Fallback admin gets super powers
-        return res.redirect('/super-admin/dashboard')
-    }
-  }
-
-  return res.redirect('/admin/login?error=Invalid+credentials')
 })
 
 router.get('/logout', (req, res) => {
