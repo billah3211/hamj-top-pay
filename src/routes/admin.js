@@ -307,18 +307,47 @@ router.get('/users', requireAdmin, async (req, res) => {
     take: 50
   })
 
-  const userList = users.map(u => `
+  const userList = users.map(u => {
+    // Access Control Logic
+    const isTargetAdmin = u.role === 'ADMIN' || u.role === 'SUPER_ADMIN'
+    const isTargetMainAdmin = u.email === 'mdmasumbilla272829@gmail.com'
+    const isCurrentMainAdmin = req.session.email === 'mdmasumbilla272829@gmail.com'
+
+    // 1. Hide Main Admin from everyone except themselves
+    if (isTargetMainAdmin && !isCurrentMainAdmin) return ''
+
+    // 2. Determine Action Button
+    let actionBtn = ''
+    if (isTargetAdmin) {
+       // Only Main Admin can manage other admins
+       if (isCurrentMainAdmin) {
+          actionBtn = `<a href="/admin/user/${u.id}" class="btn-premium" style="padding:8px 16px;font-size:12px;">Manage</a>`
+       } else {
+          // Others just see label
+          actionBtn = `<span style="color:var(--text-muted);font-size:12px;background:rgba(255,255,255,0.1);padding:4px 8px;border-radius:4px;">${u.role}</span>`
+       }
+    } else {
+       // Everyone can manage normal users
+       actionBtn = `<a href="/admin/user/${u.id}" class="btn-premium" style="padding:8px 16px;font-size:12px;">Manage</a>`
+    }
+
+    return `
     <div class="user-row" style="background:rgba(255,255,255,0.05);padding:16px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
       <div style="display:flex;align-items:center;gap:12px;">
         <div style="width:40px;height:40px;border-radius:50%;background:#6366f1;display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;">${u.firstName[0]}</div>
         <div>
-          <div style="font-weight:600;color:white;">${u.firstName} ${u.lastName} ${u.isBlocked ? '<span style="color:red;font-size:12px">(Blocked)</span>' : ''}</div>
+          <div style="font-weight:600;color:white;">
+            ${u.firstName} ${u.lastName} 
+            ${u.isBlocked ? '<span style="color:red;font-size:12px">(Blocked)</span>' : ''}
+            ${isTargetAdmin ? `<span style="font-size:10px;background:#ec4899;padding:2px 6px;border-radius:4px;margin-left:6px;">${u.role}</span>` : ''}
+          </div>
           <div style="color:var(--text-muted);font-size:12px;">@${u.username} • ${u.email}</div>
         </div>
       </div>
-      <a href="/admin/user/${u.id}" class="btn-premium" style="padding:8px 16px;font-size:12px;">Manage</a>
+      ${actionBtn}
     </div>
-  `).join('')
+  `
+  }).join('')
   
   res.send(`
     ${getHead('User Management')}
@@ -350,6 +379,21 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
   const { id } = req.params
   const user = await prisma.user.findUnique({ where: { id: parseInt(id) } })
   if (!user) return res.send('User not found')
+
+  // Access Control: Protect Admin/Super Admin accounts
+  const isTargetAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN'
+  const isTargetMainAdmin = user.email === 'mdmasumbilla272829@gmail.com'
+  const isCurrentMainAdmin = req.session.email === 'mdmasumbilla272829@gmail.com'
+
+  // 1. Main Admin is invisible/untouchable to everyone else
+  if (isTargetMainAdmin && !isCurrentMainAdmin) {
+    return res.status(400).send('Unauthorized Access')
+  }
+
+  // 2. Only Main Admin can manage other Admins
+  if (isTargetAdmin && !isCurrentMainAdmin) {
+    return res.status(400).send('Unauthorized: Only Main Admin can manage other admins')
+  }
 
   res.send(`
     ${getHead('Manage ' + user.username)}
@@ -525,6 +569,14 @@ router.post('/user/:id/balance', requireAdmin, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: parseInt(id) } })
   if (!user) return res.send('User not found')
 
+  // Access Control
+  const isTargetAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN'
+  const isTargetMainAdmin = user.email === 'mdmasumbilla272829@gmail.com'
+  const isCurrentMainAdmin = req.session.email === 'mdmasumbilla272829@gmail.com'
+
+  if (isTargetMainAdmin && !isCurrentMainAdmin) return res.status(400).send('Unauthorized')
+  if (isTargetAdmin && !isCurrentMainAdmin) return res.status(400).send('Unauthorized')
+
   const updateData = {}
   if (action === 'add') {
     updateData[type] = { increment: val }
@@ -550,6 +602,18 @@ router.post('/user/:id/balance', requireAdmin, async (req, res) => {
 router.post('/user/:id/status', requireAdmin, async (req, res) => {
   const { id } = req.params
   const { action } = req.body
+  
+  const user = await prisma.user.findUnique({ where: { id: parseInt(id) } })
+  if (!user) return res.send('User not found')
+
+  // Access Control
+  const isTargetAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN'
+  const isTargetMainAdmin = user.email === 'mdmasumbilla272829@gmail.com'
+  const isCurrentMainAdmin = req.session.email === 'mdmasumbilla272829@gmail.com'
+
+  if (isTargetMainAdmin && !isCurrentMainAdmin) return res.status(400).send('Unauthorized')
+  if (isTargetAdmin && !isCurrentMainAdmin) return res.status(400).send('Unauthorized')
+
   await prisma.user.update({
     where: { id: parseInt(id) },
     data: { isBlocked: action === 'block' }
@@ -559,6 +623,18 @@ router.post('/user/:id/status', requireAdmin, async (req, res) => {
 
 router.post('/user/:id/delete', requireAdmin, async (req, res) => {
   const { id } = req.params
+  
+  const user = await prisma.user.findUnique({ where: { id: parseInt(id) } })
+  if (!user) return res.send('User not found')
+
+  // Access Control
+  const isTargetAdmin = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN'
+  const isTargetMainAdmin = user.email === 'mdmasumbilla272829@gmail.com'
+  const isCurrentMainAdmin = req.session.email === 'mdmasumbilla272829@gmail.com'
+
+  if (isTargetMainAdmin && !isCurrentMainAdmin) return res.status(400).send('Unauthorized')
+  if (isTargetAdmin && !isCurrentMainAdmin) return res.status(400).send('Unauthorized')
+
   await prisma.user.delete({ where: { id: parseInt(id) } })
   res.redirect('/admin/users')
 })
