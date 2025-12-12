@@ -153,17 +153,26 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
   })
   
   const renderRow = (admin) => `
-    <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
-      <td style="padding:16px;color:white">${admin.firstName} ${admin.lastName}</td>
-      <td style="padding:16px;color:var(--text-muted)">${admin.email}</td>
-      <td style="padding:16px"><span class="role-badge ${admin.role === 'SUPER_ADMIN' ? 'role-admin' : 'role-user'}" style="background:${admin.role === 'SUPER_ADMIN' ? '#ec4899' : '#3b82f6'}">${admin.role}</span></td>
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.05); transition: background 0.2s;">
+      <td style="padding:16px;">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:50%;background:${admin.role === 'SUPER_ADMIN' ? 'rgba(236, 72, 153, 0.2)' : 'rgba(59, 130, 246, 0.2)'};display:grid;place-items:center;color:${admin.role === 'SUPER_ADMIN' ? '#ec4899' : '#3b82f6'};font-weight:600;font-size:16px">
+            ${admin.firstName ? admin.firstName[0] : 'A'}
+          </div>
+          <div>
+            <div style="color:white;font-weight:500">${admin.firstName} ${admin.lastName}</div>
+            <div style="color:var(--text-muted);font-size:12px">${admin.email}</div>
+          </div>
+        </div>
+      </td>
+      <td style="padding:16px"><span class="role-badge" style="background:${admin.role === 'SUPER_ADMIN' ? 'rgba(236, 72, 153, 0.1)' : 'rgba(59, 130, 246, 0.1)'}; color:${admin.role === 'SUPER_ADMIN' ? '#ec4899' : '#3b82f6'}; padding: 4px 12px; border-radius: 20px; font-size: 12px; border: 1px solid ${admin.role === 'SUPER_ADMIN' ? 'rgba(236, 72, 153, 0.2)' : 'rgba(59, 130, 246, 0.2)'}">${admin.role.replace('_', ' ')}</span></td>
       <td style="padding:16px;text-align:right">
         ${admin.role !== 'SUPER_ADMIN' ? `
           <form action="/super-admin/revoke-access" method="POST" style="display:inline" onsubmit="return confirm('Revoke admin access?')">
             <input type="hidden" name="userId" value="${admin.id}">
-            <button class="btn-premium" style="padding:8px;font-size:12px;background:rgba(239,68,68,0.2);color:#fca5a5;border-color:rgba(239,68,68,0.3)">Revoke</button>
+            <button class="btn-premium" style="padding:8px 12px;font-size:12px;background:rgba(239,68,68,0.1);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);border-radius:6px;cursor:pointer;transition:all 0.2s">Revoke</button>
           </form>
-        ` : '<span style="color:var(--text-muted);font-size:12px">Protected</span>'}
+        ` : '<span style="color:var(--text-muted);font-size:12px;display:flex;align-items:center;justify-content:flex-end;gap:4px"><img src="https://api.iconify.design/lucide:lock.svg?color=%2394a3b8" width="12"> Protected</span>'}
       </td>
     </tr>
   `
@@ -172,10 +181,13 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
     ${getHead('Manage Admins')}
     ${getSidebar('admins')}
     <div class="main-content">
-      <div class="section-header">
+      <div class="section-header" style="background: linear-gradient(to right, rgba(59, 130, 246, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(59, 130, 246, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
+        <div style="background: rgba(59, 130, 246, 0.2); padding: 12px; border-radius: 12px;">
+           <img src="https://api.iconify.design/lucide:shield-check.svg?color=%233b82f6" width="32" height="32">
+        </div>
         <div>
-          <div class="section-title">Manage Admins</div>
-          <div style="color:var(--text-muted)">Control system access</div>
+          <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">Manage Admins</div>
+          <div style="color:var(--text-muted); font-size: 16px;">Control system access and roles</div>
         </div>
       </div>
       
@@ -186,13 +198,16 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
         
         <!-- Admin List -->
         <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;overflow:hidden">
+           <div style="padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 18px;">System Administrators</h3>
+            <span style="background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 20px; font-size: 12px;">${admins.length} admins</span>
+          </div>
           <table style="width:100%;border-collapse:collapse">
             <thead>
               <tr style="background:rgba(255,255,255,0.02);text-align:left">
-                <th style="padding:16px;color:var(--text-muted);font-weight:500">Name</th>
-                <th style="padding:16px;color:var(--text-muted);font-weight:500">Email</th>
-                <th style="padding:16px;color:var(--text-muted);font-weight:500">Role</th>
-                <th style="padding:16px;text-align:right;color:var(--text-muted);font-weight:500">Action</th>
+                <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:1px">Admin Info</th>
+                <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:1px">Role</th>
+                <th style="padding:16px;text-align:right;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:1px">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -202,8 +217,11 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
         </div>
 
         <!-- Grant Access Form -->
-        <div class="glass-panel">
-          <h3 style="margin-bottom:20px;font-size:18px">Grant Admin Access</h3>
+        <div class="glass-panel" style="padding: 24px; position: sticky; top: 24px;">
+          <h3 style="margin-bottom:20px;font-size:18px; display: flex; align-items: center; gap: 10px;">
+             <span style="background:rgba(236, 72, 153, 0.2); width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: #ec4899;"><img src="https://api.iconify.design/lucide:user-plus.svg?color=currentColor" width="16"></span>
+             Grant Access
+          </h3>
           <form action="/super-admin/grant-access" method="POST">
             <div class="form-group">
               <label class="form-label">User Email</label>
@@ -223,7 +241,10 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
               <input type="password" name="password" required placeholder="Confirm your password" class="form-input">
             </div>
 
-            <button type="submit" class="btn-premium full-width">Grant Access</button>
+            <button type="submit" class="btn-premium full-width" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+              <img src="https://api.iconify.design/lucide:check.svg?color=white" width="18" style="vertical-align: middle; margin-right: 8px;">
+              Grant Access
+            </button>
           </form>
         </div>
 
