@@ -224,7 +224,7 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
   
   res.send(`
     ${getHead('Admin Dashboard')}
-    ${getSidebar('dashboard')}
+    ${getSidebar('dashboard', req.session.role)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -293,7 +293,7 @@ router.get('/users', requireAdmin, async (req, res) => {
   
   res.send(`
     ${getHead('User Management')}
-    ${getSidebar('users')}
+    ${getSidebar('users', req.session.role)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -324,7 +324,7 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
 
   res.send(`
     ${getHead('Manage ' + user.username)}
-    ${getSidebar('users')}
+    ${getSidebar('users', req.session.role)}
     <style>
         .balance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
         .balance-card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 16px; border: 1px solid transparent; }
@@ -539,7 +539,7 @@ router.get('/balances', requireAdmin, async (req, res) => {
   
   res.send(`
     ${getHead('Balance Overview')}
-    ${getSidebar('balances')}
+    ${getSidebar('balances', req.session.role)}
     <div class="main-content">
       <div class="section-header">
         <div>
