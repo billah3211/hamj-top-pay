@@ -43,6 +43,7 @@ function getSidebar(active) {
         <li class="nav-item"><a href="/super-admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=${active === 'dashboard' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Dashboard</a></li>
         <li class="nav-item"><a href="/super-admin/admins" class="${active === 'admins' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shield-check.svg?color=${active === 'admins' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Admins</a></li>
         <li class="nav-item"><a href="/super-admin/store" class="${active === 'store' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=${active === 'store' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Store</a></li>
+        <li class="nav-item"><a href="/super-admin/promote-settings" class="${active === 'promote' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:settings.svg?color=${active === 'promote' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Promote Settings</a></li>
         <li class="nav-item" style="margin-top:10px;border-top:1px solid rgba(236, 72, 153, 0.2);padding-top:10px"><a href="/admin/dashboard"><img src="https://api.iconify.design/lucide:layout-template.svg?color=%2394a3b8" class="nav-icon"> Normal Panel</a></li>
         <li class="nav-item" style="margin-top:auto"><a href="/admin/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
       </ul>
@@ -98,29 +99,27 @@ function getCard(title, value, type = 'default') {
   let icon = 'layout-dashboard'
   
   if (type === 'users') { colorClass = 'card-blue'; icon = 'users'; }
-  else if (type === 'active') { colorClass = 'card-green'; icon = 'user-check'; }
-  else if (type === 'inactive') { colorClass = 'card-red'; icon = 'user-x'; }
-  else if (type === 'admin') { colorClass = 'card-pink'; icon = 'shield'; }
-
+  if (type === 'admins') { colorClass = 'card-pink'; icon = 'shield-check'; }
+  if (type === 'store') { colorClass = 'card-purple'; icon = 'shopping-bag'; }
+  
   return `
     <div class="stat-card-modern ${colorClass}">
-      <div class="icon-wrapper">
-        <img src="https://api.iconify.design/lucide:${icon}.svg?color=white" width="24" height="24">
+      <div class="stat-icon">
+        <img src="https://api.iconify.design/lucide:${icon}.svg?color=currentColor" width="24" height="24">
       </div>
-      <div>
+      <div class="stat-info">
         <div class="stat-value">${value}</div>
         <div class="stat-label">${title}</div>
       </div>
-      <img src="https://api.iconify.design/lucide:${icon}.svg?color=white" class="stat-bg-icon">
     </div>
   `
 }
 
+// Dashboard
 router.get('/dashboard', requireSuperAdmin, async (req, res) => {
-  const totalUsers = await prisma.user.count()
-  const activeUsers = await prisma.user.count({ where: { isLoggedIn: true } })
-  const inactiveUsers = await prisma.user.count({ where: { isLoggedIn: false } })
-  const totalAdmins = await prisma.admin.count()
+  const totalUsers = await prisma.user.count({ where: { role: 'USER' } })
+  const totalAdmins = await prisma.user.count({ where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } } })
+  const totalItems = await prisma.storeItem.count()
   
   res.send(`
     ${getHead('Super Admin Dashboard')}
@@ -128,64 +127,43 @@ router.get('/dashboard', requireSuperAdmin, async (req, res) => {
     <div class="main-content">
       <div class="section-header">
         <div>
-          <div class="section-title">Super Admin Dashboard</div>
-          <div style="color:var(--text-muted);font-size:14px">System Overview & Control</div>
+          <div class="section-title">Dashboard Overview</div>
+          <div style="color:var(--text-muted)">Welcome back, Super Admin</div>
         </div>
       </div>
-
-      <div class="stats-grid">
-        ${getCard('Total Users', totalUsers, 'users')}
-        ${getCard('Active Users', activeUsers, 'active')}
-        ${getCard('Inactive Users', inactiveUsers, 'inactive')}
-        ${getCard('Total Admins', totalAdmins, 'admin')}
-      </div>
       
-      <div style="margin-top:30px;background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:24px;">
-        <h3 style="color:white;margin-bottom:16px;">System Health</h3>
-        <p style="color:var(--text-muted)">All systems operational. Database connected.</p>
+      <div class="stats-grid-modern">
+        ${getCard('Total Users', totalUsers, 'users')}
+        ${getCard('Total Admins', totalAdmins, 'admins')}
+        ${getCard('Store Items', totalItems, 'store')}
       </div>
-
     </div>
     ${getScripts()}
   `)
 })
 
+// Manage Admins
 router.get('/admins', requireSuperAdmin, async (req, res) => {
   const admins = await prisma.user.findMany({ 
     where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } },
-    orderBy: { id: 'asc' }
+    orderBy: { createdAt: 'desc' }
   })
-  const error = req.query.error || ''
-  const success = req.query.success || ''
-  const currentUserId = req.session.userId
   
-  let adminListHtml = admins.map(user => {
-    const isMe = user.id === currentUserId
-    const isSuper = user.role === 'SUPER_ADMIN'
-    
-    // Do not show revoke button for self
-    const actionBtn = isMe 
-      ? `<span style="color:var(--text-muted);font-size:12px;">(You)</span>` 
-      : `<form action="/super-admin/revoke-access" method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to revoke admin access from this user?');">
-           <input type="hidden" name="userId" value="${user.id}">
-           <button type="submit" style="background:rgba(239,68,68,0.2);color:#fca5a5;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;font-weight:500">Revoke Access</button>
-         </form>`
-
-    return `
-    <div style="background:rgba(15,23,42,0.4);border:1px solid var(--glass-border);padding:16px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="width:40px;height:40px;border-radius:50%;background:#ec4899;display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;">${user.firstName[0]}</div>
-        <div>
-          <div style="color:white;font-weight:600">${user.firstName} ${user.lastName} <span style="font-size:12px;background:${isSuper?'#ec4899':'#6366f1'};padding:2px 6px;border-radius:4px;margin-left:8px;">${user.role}</span></div>
-          <div style="color:var(--text-muted);font-size:12px;">@${user.username} • ${user.email}</div>
-        </div>
-      </div>
-      <div>
-        ${actionBtn}
-      </div>
-    </div>
+  const renderRow = (admin) => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+      <td style="padding:16px;color:white">${admin.firstName} ${admin.lastName}</td>
+      <td style="padding:16px;color:var(--text-muted)">${admin.email}</td>
+      <td style="padding:16px"><span class="role-badge ${admin.role === 'SUPER_ADMIN' ? 'role-admin' : 'role-user'}" style="background:${admin.role === 'SUPER_ADMIN' ? '#ec4899' : '#3b82f6'}">${admin.role}</span></td>
+      <td style="padding:16px;text-align:right">
+        ${admin.role !== 'SUPER_ADMIN' ? `
+          <form action="/super-admin/revoke-access" method="POST" style="display:inline" onsubmit="return confirm('Revoke admin access?')">
+            <input type="hidden" name="userId" value="${admin.id}">
+            <button class="btn-premium" style="padding:8px;font-size:12px;background:rgba(239,68,68,0.2);color:#fca5a5;border-color:rgba(239,68,68,0.3)">Revoke</button>
+          </form>
+        ` : '<span style="color:var(--text-muted);font-size:12px">Protected</span>'}
+      </td>
+    </tr>
   `
-  }).join('')
 
   res.send(`
     ${getHead('Manage Admins')}
@@ -194,67 +172,70 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
       <div class="section-header">
         <div>
           <div class="section-title">Manage Admins</div>
-          <div style="color:var(--text-muted);font-size:14px">Grant or revoke admin access</div>
+          <div style="color:var(--text-muted)">Control system access</div>
         </div>
       </div>
+      
+      ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
+      ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
 
-      ${error ? `<div style="background:rgba(239,68,68,0.2);color:#fca5a5;padding:12px;border-radius:8px;margin-bottom:20px;">${error}</div>` : ''}
-      ${success ? `<div style="background:rgba(34,197,94,0.2);color:#86efac;padding:12px;border-radius:8px;margin-bottom:20px;">${success}</div>` : ''}
+      <div style="display:grid;grid-template-columns:1fr 350px;gap:24px;align-items:start">
+        
+        <!-- Admin List -->
+        <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;overflow:hidden">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:rgba(255,255,255,0.02);text-align:left">
+                <th style="padding:16px;color:var(--text-muted);font-weight:500">Name</th>
+                <th style="padding:16px;color:var(--text-muted);font-weight:500">Email</th>
+                <th style="padding:16px;color:var(--text-muted);font-weight:500">Role</th>
+                <th style="padding:16px;text-align:right;color:var(--text-muted);font-weight:500">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${admins.map(renderRow).join('')}
+            </tbody>
+          </table>
+        </div>
 
-      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:24px;margin-bottom:24px;">
-        <h3 style="color:white;margin-bottom:20px;">Grant Admin Access</h3>
-        <p style="color:var(--text-muted);font-size:14px;margin-bottom:16px;">
-          Enter a user's email or username, select their role, and <b>your password</b> to confirm.
-        </p>
-        <form action="/super-admin/grant-user" method="post" style="display:flex;flex-direction:column;gap:16px;">
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
-            <div>
-              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">User Email or Username</label>
-              <input type="text" name="identifier" required placeholder="Target user..." style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+        <!-- Grant Access Form -->
+        <div class="glass-panel">
+          <h3 style="margin-bottom:20px;font-size:18px">Grant Admin Access</h3>
+          <form action="/super-admin/grant-access" method="POST">
+            <div class="form-group">
+              <label class="form-label">User Email</label>
+              <input type="email" name="email" required placeholder="Enter user email" class="form-input">
             </div>
-            <div>
-              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Role to Assign</label>
-              <select name="role" required style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
-                <option value="ADMIN">Normal Admin</option>
+            
+            <div class="form-group">
+              <label class="form-label">Role</label>
+              <select name="role" class="form-input">
+                <option value="ADMIN">Admin</option>
                 <option value="SUPER_ADMIN">Super Admin</option>
               </select>
             </div>
-            <div>
-              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Your Password</label>
-              <input type="password" name="password" required placeholder="Confirm identity" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
-            </div>
-          </div>
-          <button type="submit" class="btn-premium" style="width:auto;align-self:flex-start;">Grant Access</button>
-        </form>
-      </div>
 
-      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:24px;">
-        <h3 style="color:white;margin-bottom:20px;">Current Administrators</h3>
-        ${adminListHtml}
+            <div class="form-group">
+              <label class="form-label">Your Password (Confirmation)</label>
+              <input type="password" name="password" required placeholder="Confirm your password" class="form-input">
+            </div>
+
+            <button type="submit" class="btn-premium full-width">Grant Access</button>
+          </form>
+        </div>
+
       </div>
     </div>
     ${getScripts()}
   `)
 })
- 
- router.post('/grant-user', requireSuperAdmin, async (req, res) => {
-   const { identifier, password, role } = req.body
-   
-   if (!['ADMIN', 'SUPER_ADMIN'].includes(role)) {
-     return res.redirect('/super-admin/admins?error=Invalid+role+selected')
-   }
 
-   try {
-     // Fetch target user
-    const targetUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: identifier },
-          { username: identifier }
-        ]
-      }
-    })
-
+router.post('/grant-access', requireSuperAdmin, async (req, res) => {
+  const { email, role, password } = req.body
+  
+  try {
+    const targetUser = await prisma.user.findUnique({ where: { email } })
+    
     if (!targetUser) {
       return res.redirect('/super-admin/admins?error=User+not+found')
     }
@@ -296,10 +277,6 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
       data: { role: 'USER' }
     })
     
-    // Note: This does not immediately kill their active session if stored in Redis without role checks on every request,
-    // but they will fail next time role is checked or on re-login.
-    // For stricter security, we could iterate sessions, but for now this suffices as per requirement.
-    
     res.redirect('/super-admin/admins?success=Admin+access+revoked+successfully')
   } catch (e) {
     console.error(e)
@@ -321,7 +298,6 @@ router.get('/store', requireSuperAdmin, async (req, res) => {
       </td>
       <td style="padding:16px;text-align:right">
         <div style="display:flex;gap:8px;justify-content:flex-end">
-          <button onclick="editItem(${item.id}, '${item.name}', ${item.price}, '${item.currency}', '${item.type}')" class="btn-premium" style="padding:8px;font-size:12px">Edit</button>
           <form action="/super-admin/store/delete" method="POST" onsubmit="return confirm('Delete this item?')" style="display:inline">
             <input type="hidden" name="id" value="${item.id}">
             <button class="btn-premium" style="padding:8px;font-size:12px;background:rgba(239,68,68,0.2);color:#fca5a5;border-color:rgba(239,68,68,0.3)">Del</button>
@@ -356,99 +332,67 @@ router.get('/store', requireSuperAdmin, async (req, res) => {
                 <th style="padding:16px;color:var(--text-muted);font-weight:500">Name</th>
                 <th style="padding:16px;color:var(--text-muted);font-weight:500">Type</th>
                 <th style="padding:16px;color:var(--text-muted);font-weight:500">Price</th>
-                <th style="padding:16px;color:var(--text-muted);font-weight:500;text-align:right">Actions</th>
+                <th style="padding:16px;text-align:right;color:var(--text-muted);font-weight:500">Action</th>
               </tr>
             </thead>
             <tbody>
-              ${items.length ? items.map(renderItemRow).join('') : '<tr><td colspan="5" style="padding:32px;text-align:center;color:var(--text-muted)">No items in store</td></tr>'}
+              ${items.map(renderItemRow).join('')}
             </tbody>
           </table>
         </div>
 
-        <!-- Upload/Edit Form -->
-        <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:24px;position:sticky;top:24px">
-          <h3 id="formTitle" style="color:white;margin-bottom:20px;font-size:18px">Upload New Item</h3>
-          
-          <form id="storeForm" action="/super-admin/store/upload" method="POST" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:16px;">
-            <input type="hidden" name="itemId" id="itemId">
-            
-            <div>
-              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Item Name</label>
-              <input type="text" name="name" id="itemName" required style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+        <!-- Add Item Form -->
+        <div class="glass-panel">
+          <h3 style="margin-bottom:20px;font-size:18px">Add New Item</h3>
+          <form action="/super-admin/store/add" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+              <label class="form-label">Item Name</label>
+              <input type="text" name="name" required placeholder="e.g. Blue Frame" class="form-input">
             </div>
-
-            <div>
-              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Item Type</label>
-              <select name="type" id="itemType" required style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
-                <option value="avatar">Profile Picture</option>
+            
+            <div class="form-group">
+              <label class="form-label">Type</label>
+              <select name="type" class="form-input">
+                <option value="avatar">Avatar Frame</option>
                 <option value="banner">Profile Banner</option>
               </select>
             </div>
 
-            <div>
-              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Price Type</label>
-              <select name="currency" id="itemCurrency" required onchange="togglePrice(this.value)" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+            <div class="form-group">
+              <label class="form-label">Currency</label>
+              <select name="currency" class="form-input" onchange="togglePrice(this.value)">
                 <option value="free">Free</option>
-                <option value="dk">Dollar Balance</option>
-                <option value="tk">Taka Balance</option>
+                <option value="dk">Dollar (DK)</option>
+                <option value="tk">Taka (TK)</option>
               </select>
             </div>
 
-            <div id="priceField" style="display:none">
-              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Price Amount</label>
-              <input type="number" name="price" id="itemPrice" min="1" value="0" style="width:100%;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);padding:12px;border-radius:8px;color:white;">
+            <div class="form-group" id="priceGroup" style="display:none">
+              <label class="form-label">Price</label>
+              <input type="number" name="price" placeholder="0" class="form-input">
             </div>
 
-            <div>
-              <label style="color:var(--text-muted);font-size:12px;margin-bottom:4px;display:block;">Image File (Max 20MB)</label>
-              <div style="position:relative;overflow:hidden;background:rgba(15,23,42,0.6);border:1px dashed var(--glass-border);border-radius:8px;padding:20px;text-align:center;">
-                <input type="file" name="image" id="itemImage" accept="image/*" style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;">
-                <div style="color:var(--text-muted);pointer-events:none">Click to upload</div>
-              </div>
+            <div class="form-group">
+              <label class="form-label">Image File</label>
+              <input type="file" name="image" required accept="image/*" class="form-input" style="padding:8px">
             </div>
 
-            <div style="display:flex;gap:10px;margin-top:10px">
-              <button type="submit" class="btn-premium" style="flex:1">Save Item</button>
-              <button type="button" onclick="resetForm()" class="btn-premium" style="background:transparent;border:1px solid var(--glass-border);width:auto;padding:0 12px">Reset</button>
-            </div>
+            <button type="submit" class="btn-premium full-width">Upload Item</button>
           </form>
         </div>
 
       </div>
     </div>
-    ${getScripts()}
     <script>
       function togglePrice(val) {
-        document.getElementById('priceField').style.display = val === 'free' ? 'none' : 'block';
-      }
-      
-      function editItem(id, name, price, currency, type) {
-        document.getElementById('formTitle').innerText = 'Edit Item';
-        document.getElementById('storeForm').action = '/super-admin/store/edit';
-        document.getElementById('itemId').value = id;
-        document.getElementById('itemName').value = name;
-        document.getElementById('itemType').value = type;
-        document.getElementById('itemCurrency').value = currency;
-        document.getElementById('itemPrice').value = price;
-        togglePrice(currency);
-        // Image is optional in edit
-        document.getElementById('itemImage').required = false;
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-
-      function resetForm() {
-        document.getElementById('formTitle').innerText = 'Upload New Item';
-        document.getElementById('storeForm').action = '/super-admin/store/upload';
-        document.getElementById('itemId').value = '';
-        document.getElementById('storeForm').reset();
-        togglePrice('free');
-        document.getElementById('itemImage').required = true;
+        document.getElementById('priceGroup').style.display = val === 'free' ? 'none' : 'block';
       }
     </script>
+    ${getScripts()}
   `)
 })
 
-router.post('/store/upload', requireSuperAdmin, upload.single('image'), async (req, res) => {
+router.post('/store/add', requireSuperAdmin, upload.single('image'), async (req, res) => {
   try {
     const { name, type, currency, price } = req.body
     const imageUrl = '/uploads/' + req.file.filename
@@ -462,35 +406,11 @@ router.post('/store/upload', requireSuperAdmin, upload.single('image'), async (r
         imageUrl
       }
     })
-    res.redirect('/super-admin/store?success=Item+uploaded+successfully')
-  } catch (e) {
-    console.error(e)
-    res.redirect('/super-admin/store?error=Upload+failed')
-  }
-})
-
-router.post('/store/edit', requireSuperAdmin, upload.single('image'), async (req, res) => {
-  try {
-    const { itemId, name, type, currency, price } = req.body
-    const data = {
-      name,
-      type,
-      currency,
-      price: currency === 'free' ? 0 : parseInt(price || 0)
-    }
     
-    if (req.file) {
-      data.imageUrl = '/uploads/' + req.file.filename
-    }
-
-    await prisma.storeItem.update({
-      where: { id: parseInt(itemId) },
-      data
-    })
-    res.redirect('/super-admin/store?success=Item+updated+successfully')
+    res.redirect('/super-admin/store?success=Item+added+successfully')
   } catch (e) {
     console.error(e)
-    res.redirect('/super-admin/store?error=Update+failed')
+    res.redirect('/super-admin/store?error=' + encodeURIComponent(e.message))
   }
 })
 
@@ -500,7 +420,6 @@ router.post('/store/delete', requireSuperAdmin, async (req, res) => {
     const item = await prisma.storeItem.findUnique({ where: { id: parseInt(id) } })
     
     if (item) {
-      // Try to delete the file if it exists
       if (item.imageUrl && item.imageUrl.startsWith('/uploads/')) {
         const filePath = path.join(__dirname, '../../public', item.imageUrl)
         if (fs.existsSync(filePath)) {
@@ -516,6 +435,67 @@ router.post('/store/delete', requireSuperAdmin, async (req, res) => {
     console.error(e)
     res.redirect('/super-admin/store?error=Delete+failed:+This+item+might+be+in+use+by+users')
   }
+})
+
+// Promote Settings Route
+router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
+  const timer = await prisma.systemSetting.findUnique({ where: { key: 'visit_timer' } })
+  const screenshotCount = await prisma.systemSetting.findUnique({ where: { key: 'screenshot_count' } })
+
+  const timerVal = timer ? timer.value : '50'
+  const screenshotVal = screenshotCount ? screenshotCount.value : '2'
+
+  res.send(`
+    ${getHead('Promote Settings')}
+    ${getSidebar('promote')}
+    <div class="main-content">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Promote Settings</div>
+          <div style="color:var(--text-muted)">Configure visit timer and screenshot requirements</div>
+        </div>
+      </div>
+
+      ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
+
+      <div class="glass-panel" style="max-width:500px">
+        <form action="/super-admin/promote-settings" method="POST">
+          <div class="form-group" style="margin-bottom:20px">
+            <label class="form-label" style="display:block;margin-bottom:8px">Visit Timer (Seconds)</label>
+            <input type="number" name="timer" value="${timerVal}" class="form-input" style="width:100%;padding:12px;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);border-radius:8px;color:white">
+            <div style="font-size:12px;color:var(--text-muted);margin-top:5px">Default: 50 seconds</div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:20px">
+            <label class="form-label" style="display:block;margin-bottom:8px">Required Screenshots</label>
+            <input type="number" name="screenshots" value="${screenshotVal}" class="form-input" style="width:100%;padding:12px;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);border-radius:8px;color:white">
+            <div style="font-size:12px;color:var(--text-muted);margin-top:5px">Default: 2 screenshots</div>
+          </div>
+
+          <button type="submit" class="btn-premium">Save Settings</button>
+        </form>
+      </div>
+    </div>
+    ${getScripts()}
+  `)
+})
+
+router.post('/promote-settings', requireSuperAdmin, async (req, res) => {
+  const { timer, screenshots } = req.body
+  
+  await prisma.systemSetting.upsert({
+    where: { key: 'visit_timer' },
+    update: { value: timer.toString() },
+    create: { key: 'visit_timer', value: timer.toString() }
+  })
+
+  await prisma.systemSetting.upsert({
+    where: { key: 'screenshot_count' },
+    update: { value: screenshots.toString() },
+    create: { key: 'screenshot_count', value: screenshots.toString() }
+  })
+
+  res.redirect('/super-admin/promote-settings?success=Settings+updated')
 })
 
 module.exports = router

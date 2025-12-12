@@ -16,6 +16,7 @@ const authRoutes = require('./routes/auth')
 const adminRoutes = require('./routes/admin')
 const superAdminRoutes = require('./routes/super_admin')
 const storeRoutes = require('./routes/store')
+const promoteRoutes = require('./routes/promote')
 
 const app = express()
 app.set('trust proxy', 1) // Trust Render proxy for secure cookies
@@ -62,6 +63,7 @@ app.use('/', authRoutes)
 app.use('/admin', adminRoutes)
 app.use('/super-admin', superAdminRoutes)
 app.use('/store', storeRoutes)
+app.use('/promote', promoteRoutes)
 
 const port = process.env.PORT || 3000
 app.listen(port, () => {

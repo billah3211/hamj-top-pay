@@ -33,6 +33,8 @@ model User {
   tasks     Task[]
   notifications Notification[]
   items     UserItem[]
+  promotedLinks PromotedLink[]
+  linkSubmissions LinkSubmission[]
 }
 
 model StoreItem {
@@ -80,4 +82,34 @@ model Admin {
   role         String   @default("admin") // "SUPER_ADMIN", "ADMIN"
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model PromotedLink {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  user            User     @relation(fields: [userId], references: [id])
+  title           String
+  url             String
+  targetVisits    Int
+  completedVisits Int      @default(0)
+  status          String   @default("ACTIVE") // ACTIVE, COMPLETED, BLOCKED
+  createdAt       DateTime @default(now())
+  submissions     LinkSubmission[]
+}
+
+model LinkSubmission {
+  id             Int          @id @default(autoincrement())
+  promotedLinkId Int
+  promotedLink   PromotedLink @relation(fields: [promotedLinkId], references: [id], onDelete: Cascade)
+  visitorId      Int
+  visitor        User         @relation(fields: [visitorId], references: [id])
+  screenshots    String[]     // Array of URLs handled by Prisma as String[] (requires PostgreSQL)
+  status         String       @default("PENDING") // PENDING, APPROVED, REJECTED
+  submittedAt    DateTime     @default(now())
+}
+
+model SystemSetting {
+  id    Int    @id @default(autoincrement())
+  key   String @unique
+  value String
 }
