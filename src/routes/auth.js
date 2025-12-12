@@ -303,6 +303,7 @@ router.post('/login', async (req, res) => {
   if (!identifier || !password) return res.redirect('/login?error=Missing+credentials')
   const user = await prisma.user.findFirst({ where: { OR: [ { email: identifier }, { username: identifier }, { phone: identifier } ] } })
   if (!user) return res.redirect('/login?error=User+not+found')
+  if (user.isBlocked) return res.redirect('/login?error=Account+blocked+by+admin')
   const ok = await bcrypt.compare(password, user.passwordHash)
   if (!ok) return res.redirect('/login?error=Invalid+password')
   await prisma.user.update({ where: { id: user.id }, data: { isLoggedIn: true } })
@@ -313,6 +314,10 @@ router.post('/login', async (req, res) => {
 router.get('/dashboard', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login')
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  if (user.isBlocked) {
+    req.session.destroy()
+    return res.redirect('/login?error=Account+blocked')
+  }
   
   // Generate Codes for Cards
   const digitsPhone = String(user.phone || '').replace(/\D/g,'')
@@ -368,6 +373,7 @@ router.get('/dashboard', async (req, res) => {
       <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
       <ul class="nav-links">
         <li class="nav-item"><a href="/dashboard" class="active"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
+        <li class="nav-item"><a href="/notifications"><img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications</a></li>
         <li class="nav-item"><a href="/settings"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
         <li class="nav-item"><a href="#" id="menuProfile"><img src="https://api.iconify.design/lucide:user.svg?color=%2394a3b8" class="nav-icon"> Profile</a></li>
         <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
@@ -397,7 +403,8 @@ router.get('/dashboard', async (req, res) => {
               <div class="section-title">Welcome back, ${user.firstName}</div>
               <div style="color:var(--text-muted);font-size:14px">Here's your wallet overview</div>
             </div>
-            <div class="actions">
+            <div class="actions" style="display:flex;gap:12px;">
+              <a href="/notifications" class="btn-premium" style="padding:10px;"><img src="https://api.iconify.design/lucide:bell.svg?color=white" width="20"></a>
               <a href="/settings" class="btn-premium">Edit Profile</a>
             </div>
           </div>
@@ -477,6 +484,121 @@ router.get('/dashboard', async (req, res) => {
     </html>
   `
   res.send(html)
+})
+
+  res.send(`
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>Notifications - HaMJ toP PaY</title>
+      <link rel="stylesheet" href="/style.css">
+    </head>
+    <body>
+      <button class="menu-trigger" id="mobileMenuBtn">☰</button>
+      <div class="app-layout">
+        ${sidebar}
+        <div class="main-content">
+          <div class="section-header">
+            <div class="section-title">Notifications</div>
+            <div style="color:var(--text-muted)">Your recent updates</div>
+          </div>
+          <div class="glass-panel" style="padding:20px;text-align:center;color:var(--text-muted)">No notifications yet</div>
+        </div>
+      </div>
+      <script>
+        const menuBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+        document.addEventListener('click', (e) => {
+          if (!sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('open')) {
+            sidebar.classList.remove('open');
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `)
+})
+
+router.get('/notifications', async (req, res) => {
+  if (!req.session.userId) return res.redirect('/login')
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  if (user.isBlocked) return res.redirect('/login?error=Account+blocked')
+
+  const notifs = await prisma.notification.findMany({
+    where: { userId: user.id },
+    orderBy: { createdAt: 'desc' },
+    take: 50
+  })
+
+  // Mark all as read
+  await prisma.notification.updateMany({
+    where: { userId: user.id, isRead: false },
+    data: { isRead: true }
+  })
+
+  const sidebar = `
+    <nav class="sidebar-premium" id="sidebar">
+      <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
+      <ul class="nav-links">
+        <li class="nav-item"><a href="/dashboard"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
+        <li class="nav-item"><a href="/notifications" class="active"><img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications</a></li>
+        <li class="nav-item"><a href="/settings"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
+        <li class="nav-item"><a href="#" id="menuProfile"><img src="https://api.iconify.design/lucide:user.svg?color=%2394a3b8" class="nav-icon"> Profile</a></li>
+        <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
+      </ul>
+    </nav>
+  `
+
+  const list = notifs.map(n => `
+    <div style="background:rgba(255,255,255,0.05);padding:16px;border-radius:12px;margin-bottom:12px;border-left:4px solid ${n.type === 'credit' ? '#22c55e' : (n.type === 'debit' ? '#ef4444' : '#6366f1')}">
+      <div style="font-size:14px;color:white;margin-bottom:4px;">${n.message}</div>
+      <div style="font-size:12px;color:var(--text-muted);">${new Date(n.createdAt).toLocaleString()}</div>
+    </div>
+  `).join('')
+
+  res.send(`
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>Notifications - HaMJ toP PaY</title>
+      <link rel="stylesheet" href="/style.css">
+    </head>
+    <body>
+      <button class="menu-trigger" id="mobileMenuBtn">☰</button>
+      <div class="app-layout">
+        ${sidebar}
+        <div class="main-content">
+          <div class="section-header">
+            <div class="section-title">Notifications</div>
+            <div style="color:var(--text-muted)">Your recent updates</div>
+          </div>
+          <div class="notif-list">
+            ${list || '<div class="glass-panel" style="padding:20px;text-align:center;color:var(--text-muted)">No notifications yet</div>'}
+          </div>
+        </div>
+      </div>
+      <script>
+        const menuBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+        document.addEventListener('click', (e) => {
+          if (!sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('open')) {
+            sidebar.classList.remove('open');
+          }
+        });
+        
+        // Profile Modal Logic
+        const profileTrigger = document.getElementById('menuProfile');
+        // (Simplified for this page, usually we include the full modal script)
+      </script>
+    </body>
+    </html>
+  `)
 })
 
 router.get('/settings', async (req, res) => {

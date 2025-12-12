@@ -225,9 +225,37 @@ router.get('/api/stats', requireAdmin, async (req, res) => {
 })
 
 router.get('/users', requireAdmin, async (req, res) => {
-  const totalUsers = await prisma.user.count()
-  const activeUsers = await prisma.user.count({ where: { isLoggedIn: true } })
-  const inactiveUsers = await prisma.user.count({ where: { isLoggedIn: false } })
+  const { q } = req.query
+  let where = {}
+  if (q) {
+    where = {
+      OR: [
+        { username: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+        { firstName: { contains: q, mode: 'insensitive' } },
+        { lastName: { contains: q, mode: 'insensitive' } }
+      ]
+    }
+  }
+
+  const users = await prisma.user.findMany({ 
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: 50
+  })
+
+  const userList = users.map(u => `
+    <div class="user-row" style="background:rgba(255,255,255,0.05);padding:16px;border-radius:12px;display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;border-radius:50%;background:#6366f1;display:flex;align-items:center;justify-content:center;font-weight:bold;color:white;">${u.firstName[0]}</div>
+        <div>
+          <div style="font-weight:600;color:white;">${u.firstName} ${u.lastName} ${u.isBlocked ? '<span style="color:red;font-size:12px">(Blocked)</span>' : ''}</div>
+          <div style="color:var(--text-muted);font-size:12px;">@${u.username} • ${u.email}</div>
+        </div>
+      </div>
+      <a href="/admin/user/${u.id}" class="btn-premium" style="padding:8px 16px;font-size:12px;">Manage</a>
+    </div>
+  `).join('')
   
   res.send(`
     ${getHead('User Management')}
@@ -240,21 +268,204 @@ router.get('/users', requireAdmin, async (req, res) => {
         </div>
       </div>
 
-      <div class="balance-section">
-        <div class="cards-scroll" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
-          ${getCard('Total Users', totalUsers, 'users')}
-          ${getCard('Active Users', activeUsers, 'active')}
-          ${getCard('Inactive Users', inactiveUsers, 'inactive')}
-        </div>
+      <div class="glass-panel" style="padding: 20px; margin-bottom: 24px;">
+        <form action="/admin/users" method="get" style="display:flex;gap:12px;">
+          <input type="text" name="q" value="${q || ''}" placeholder="Search by name, username, email..." class="form-input" style="flex:1;">
+          <button type="submit" class="btn-premium">Search</button>
+        </form>
       </div>
-      
-      <!-- Future: Add User List Table Here -->
-      <div class="glass-panel" style="padding: 20px; text-align: center; color: var(--text-muted);">
-        User list table coming soon...
+
+      <div class="user-list">
+        ${userList || '<div style="color:var(--text-muted);text-align:center;padding:20px;">No users found</div>'}
       </div>
     </div>
     ${getScripts()}
   `)
+})
+
+router.get('/user/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params
+  const user = await prisma.user.findUnique({ where: { id: parseInt(id) } })
+  if (!user) return res.send('User not found')
+
+  res.send(`
+    ${getHead('Manage ' + user.username)}
+    ${getSidebar('users')}
+    <style>
+        .balance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+        .balance-card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 16px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
+        .balance-card:hover { border-color: var(--primary); background: rgba(99, 102, 241, 0.1); }
+        .balance-title { color: var(--text-muted); font-size: 14px; margin-bottom: 8px; }
+        .balance-val { font-size: 24px; font-weight: 700; color: white; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .modal.open { opacity: 1; pointer-events: auto; }
+        .modal-bg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); }
+        .modal-box { position: relative; background: #0f172a; padding: 24px; border-radius: 16px; width: 90%; max-width: 400px; border: 1px solid rgba(255,255,255,0.1); transform: scale(0.9); transition: transform 0.3s; }
+        .modal.open .modal-box { transform: scale(1); }
+    </style>
+    <div class="main-content">
+      <div class="section-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div class="section-title">${user.firstName} ${user.lastName}</div>
+          <div style="color:var(--text-muted)">@${user.username} • ${user.email}</div>
+        </div>
+        <a href="/admin/users" class="btn-premium">Back</a>
+      </div>
+
+      <div class="section-title" style="font-size:18px;margin-bottom:16px;">Balances (Click to Edit)</div>
+      <div class="balance-grid">
+        <div class="balance-card" onclick="openModal('diamond', ${user.diamond})">
+          <div class="balance-title">Diamond 💎</div>
+          <div class="balance-val">${user.diamond}</div>
+        </div>
+        <div class="balance-card" onclick="openModal('dk', ${user.dk})">
+          <div class="balance-title">Dollar 💵</div>
+          <div class="balance-val">$${user.dk}</div>
+        </div>
+        <div class="balance-card" onclick="openModal('coin', ${user.coin})">
+          <div class="balance-title">Coin 🪙</div>
+          <div class="balance-val">${user.coin}</div>
+        </div>
+        <div class="balance-card" onclick="openModal('lora', ${user.lora})">
+          <div class="balance-title">HaMJ T 🔷</div>
+          <div class="balance-val">${user.lora}</div>
+        </div>
+        <div class="balance-card" onclick="openModal('tk', ${user.tk})">
+          <div class="balance-title">Tk ৳</div>
+          <div class="balance-val">${user.tk}</div>
+        </div>
+      </div>
+
+      <div class="section-title" style="font-size:18px;margin-bottom:16px;color:#ef4444;">Danger Zone</div>
+      <div style="display:flex;gap:16px;">
+        <form action="/admin/user/${user.id}/status" method="post" onsubmit="return confirm('Are you sure?')">
+          <input type="hidden" name="action" value="${user.isBlocked ? 'unblock' : 'block'}">
+          <button class="btn-premium" style="background:${user.isBlocked ? '#22c55e' : '#ef4444'};border:none;">
+            ${user.isBlocked ? 'Unblock User' : 'Block User'}
+          </button>
+        </form>
+        <form action="/admin/user/${user.id}/delete" method="post" onsubmit="return confirm('Delete this user permanently? This cannot be undone.')">
+          <button class="btn-premium" style="background:#dc2626;border:none;">Delete Account</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Balance Modal -->
+      <div id="balanceModal" class="modal">
+        <div class="modal-bg" onclick="closeModal()"></div>
+        <div class="modal-box">
+          <h3 style="margin-top:0;color:white;margin-bottom:16px;">Update Balance</h3>
+          <form action="/admin/user/${user.id}/balance" method="post">
+            <input type="hidden" name="type" id="balType">
+            
+            <div style="margin-bottom:16px;">
+              <label class="form-label">Current Balance: <span id="currentBal" style="color:var(--primary)"></span></label>
+            </div>
+
+            <div style="margin-bottom:16px;">
+              <label class="form-label">Action</label>
+              <div style="display:flex;gap:8px;">
+                <label style="flex:1;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;cursor:pointer;text-align:center;">
+                  <input type="radio" name="action" value="add" checked> Add
+                </label>
+                <label style="flex:1;background:rgba(255,255,255,0.05);padding:10px;border-radius:8px;cursor:pointer;text-align:center;">
+                  <input type="radio" name="action" value="cut"> Cut
+                </label>
+              </div>
+            </div>
+
+            <div style="margin-bottom:16px;">
+              <label class="form-label">Amount</label>
+              <input type="number" name="amount" class="form-input" required min="1">
+            </div>
+
+            <div style="margin-bottom:24px;">
+              <label class="form-label">Reason (Notification Message)</label>
+              <textarea name="message" class="form-input" required placeholder="Why are you changing the balance?"></textarea>
+            </div>
+
+            <button type="submit" class="btn-premium" style="width:100%">Update Balance</button>
+          </form>
+        </div>
+      </div>
+
+    <script>
+        const modal = document.getElementById('balanceModal');
+        const balType = document.getElementById('balType');
+        const currentBal = document.getElementById('currentBal');
+
+        function openModal(type, current) {
+          balType.value = type;
+          currentBal.innerText = current;
+          modal.classList.add('open');
+        }
+        function closeModal() {
+          modal.classList.remove('open');
+        }
+        
+        // Mobile menu logic is already in getScripts() but we need to ensure it works
+        const menuBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        if(menuBtn && sidebar) {
+            menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+            document.addEventListener('click', (e) => {
+                if (!sidebar.contains(e.target) && !menuBtn.contains(e.target) && sidebar.classList.contains('open')) {
+                    sidebar.classList.remove('open');
+                }
+            });
+        }
+    </script>
+    </body>
+    </html>
+  `)
+})
+
+router.post('/user/:id/balance', requireAdmin, async (req, res) => {
+  const { id } = req.params
+  const { type, action, amount, message } = req.body
+  const val = parseInt(amount)
+  
+  if (isNaN(val) || val <= 0) return res.redirect('/admin/user/'+id)
+
+  const user = await prisma.user.findUnique({ where: { id: parseInt(id) } })
+  if (!user) return res.send('User not found')
+
+  const updateData = {}
+  if (action === 'add') {
+    updateData[type] = { increment: val }
+  } else {
+    if (user[type] < val) return res.send('Insufficient balance to cut')
+    updateData[type] = { decrement: val }
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: parseInt(id) }, data: updateData }),
+    prisma.notification.create({
+      data: {
+        userId: parseInt(id),
+        message: \`Balance Update: \${action === 'add' ? '+' : '-'}\${val} \${type.toUpperCase()}. Reason: \${message}\`,
+        type: action === 'add' ? 'credit' : 'debit'
+      }
+    })
+  ])
+
+  res.redirect('/admin/user/'+id)
+})
+
+router.post('/user/:id/status', requireAdmin, async (req, res) => {
+  const { id } = req.params
+  const { action } = req.body
+  await prisma.user.update({
+    where: { id: parseInt(id) },
+    data: { isBlocked: action === 'block' }
+  })
+  res.redirect('/admin/user/'+id)
+})
+
+router.post('/user/:id/delete', requireAdmin, async (req, res) => {
+  const { id } = req.params
+  await prisma.user.delete({ where: { id: parseInt(id) } })
+  res.redirect('/admin/users')
 })
 
 router.get('/balances', requireAdmin, async (req, res) => {

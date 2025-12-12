@@ -21,15 +21,26 @@ model User {
   lora      Int      @default(0)
   tk        Int      @default(0)
   isLoggedIn Boolean @default(false)
+  isBlocked Boolean  @default(false)
   createdAt DateTime @default(now())
   tasks     Task[]
+  notifications Notification[]
 }
 
 model Task {
   id        Int      @id @default(autoincrement())
   title     String
-  done      Boolean  @default(false)
+  reward    Int
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  message   String
+  type      String   @default("info") // info, credit, debit, alert
+  isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
