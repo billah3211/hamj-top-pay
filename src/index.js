@@ -65,4 +65,5 @@ app.use('/store', storeRoutes)
 const port = process.env.PORT || 3000
 app.listen(port, () => {
   console.log('server listening on ' + port)
+  console.log('Store routes registered and uploads directory checked.')
 })
