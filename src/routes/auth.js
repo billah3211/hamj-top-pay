@@ -38,7 +38,12 @@ function getUserCard(title, value, type, code) {
       <div style="flex:1">
         <div class="stat-value">${value}</div>
         <div class="stat-label">${title}</div>
-        <div style="font-family:monospace;opacity:0.6;font-size:12px;margin-top:4px;letter-spacing:1px">${code}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <div style="font-family:monospace;opacity:0.6;font-size:12px;letter-spacing:1px">${code}</div>
+          <button onclick="copyToClipboard('${code}')" style="background:rgba(255,255,255,0.1);border:none;cursor:pointer;padding:4px;border-radius:4px;display:flex;align-items:center;transition:0.2s" title="Copy Code">
+             <img src="https://api.iconify.design/lucide:copy.svg?color=white" width="12" height="12">
+          </button>
+        </div>
       </div>
       <img src="https://api.iconify.design/lucide:${icon}.svg?color=white" class="stat-bg-icon">
     </div>
@@ -476,6 +481,36 @@ router.get('/dashboard', async (req, res) => {
         if(profileTrigger) profileTrigger.addEventListener('click', (e) => { e.preventDefault(); openProfile(); });
         if(profileBack) profileBack.addEventListener('click', closeProfile);
         if(profileOverlay) profileOverlay.addEventListener('click', closeProfile);
+
+        function copyToClipboard(text) {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+              const toast = document.createElement('div');
+              toast.textContent = 'Copied!';
+              toast.style.position = 'fixed';
+              toast.style.bottom = '20px';
+              toast.style.left = '50%';
+              toast.style.transform = 'translateX(-50%)';
+              toast.style.background = '#22c55e';
+              toast.style.color = 'white';
+              toast.style.padding = '8px 16px';
+              toast.style.borderRadius = '20px';
+              toast.style.zIndex = '1000';
+              toast.style.fontSize = '14px';
+              toast.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+              document.body.appendChild(toast);
+              setTimeout(() => toast.remove(), 2000);
+            }).catch(e => console.error(e));
+          } else {
+             const ta = document.createElement('textarea');
+             ta.value = text;
+             document.body.appendChild(ta);
+             ta.select();
+             document.execCommand('copy');
+             document.body.removeChild(ta);
+             alert('Copied!');
+          }
+        }
 
         // Device Skin Logic (Preserved)
         (function(){
