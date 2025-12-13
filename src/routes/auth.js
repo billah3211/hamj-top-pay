@@ -358,10 +358,10 @@ router.get('/dashboard', async (req, res) => {
 
   const profileModal = `
     <div id="profileModal" class="modal-premium">
-      <div class="modal-content" style="padding: 0; background: #1a1a2e; overflow: hidden; border-radius: 20px; border: 1px solid rgba(168, 85, 247, 0.2); max-width: 600px;">
+      <div class="modal-content" style="padding: 0; background: #1a1a2e; overflow: hidden; border-radius: 20px; border: 1px solid rgba(168, 85, 247, 0.2); width: 100%; max-width: 420px; margin: auto;">
         
         <!-- Top Purple Banner -->
-        <div style="height: 180px; width: 100%; background: ${user.currentBanner ? `url('${user.currentBanner}') center/cover no-repeat` : 'linear-gradient(135deg, #6b21a8 0%, #a855f7 100%)'}; position: relative; border-bottom-right-radius: 50% 20px; border-bottom-left-radius: 50% 20px;">
+        <div style="height: 200px; width: 100%; background: ${user.currentBanner ? `url('${user.currentBanner}') center/cover no-repeat` : 'linear-gradient(135deg, #6b21a8 0%, #a855f7 100%)'}; position: relative; border-bottom-right-radius: 50% 20px; border-bottom-left-radius: 50% 20px;">
           <button class="modal-close" id="profileBack" style="color: white; font-size: 24px; top: 16px; right: 20px; background: rgba(0,0,0,0.2); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; z-index: 10;">×</button>
         </div>
         
