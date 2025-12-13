@@ -344,40 +344,97 @@ router.get('/dashboard', async (req, res) => {
 
   const profileModal = `
     <div id="profileModal" class="modal-premium">
-      <div class="modal-content">
-        <div class="modal-header ${user.currentBanner ? 'has-banner' : ''}" style="${user.currentBanner ? `background-image:url('${user.currentBanner}')` : ''}">
-          <button class="modal-close" id="profileBack">×</button>
-          <div class="profile-avatar">
-            ${user.currentAvatar ? `<img src="${user.currentAvatar}" alt="Profile">` : `${user.firstName[0]}${user.lastName[0]}`}
-          </div>
-          <div class="profile-title">
-            <div class="name">${user.firstName} ${user.lastName}</div>
-            <div class="username">@${user.username}</div>
-          </div>
+      <div class="modal-content" style="padding: 0; background: #1a1a2e; overflow: hidden; border-radius: 20px; border: 1px solid rgba(168, 85, 247, 0.2); max-width: 600px;">
+        
+        <!-- Top Purple Banner -->
+        <div style="height: 180px; background: linear-gradient(135deg, #6b21a8 0%, #a855f7 100%); position: relative; border-bottom-right-radius: 50% 20px; border-bottom-left-radius: 50% 20px;">
+          <button class="modal-close" id="profileBack" style="color: white; font-size: 24px; top: 16px; right: 20px; background: rgba(0,0,0,0.2); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; z-index: 10;">×</button>
         </div>
         
-        <div class="modal-body">
-          <div class="info-group">
-            <div class="label">Email Address</div>
-            <div class="value">${user.email}</div>
-          </div>
-          <div class="info-group">
-            <div class="label">Role</div>
-            <div class="value" style="color:var(--primary);font-weight:600">${user.role}</div>
-          </div>
-          <div class="info-group">
-            <div class="label">Phone Number</div>
-            <div class="value">${user.phone}</div>
-          </div>
-          <div class="info-group">
-            <div class="label">Country</div>
-            <div class="value">${user.country}</div>
-          </div>
-          
-          <div class="modal-footer">
-            <a href="/settings" class="btn-premium full-width">Edit Profile</a>
-            ${adminBtn}
-          </div>
+        <div style="display: flex; flex-wrap: wrap; position: relative; padding-bottom: 40px;">
+           
+           <!-- Left Avatar Section -->
+           <div style="width: 100%; max-width: 200px; position: relative; margin-top: -90px; text-align: center; display: flex; flex-direction: column; align-items: center; padding: 0 20px;">
+              <div style="
+                  width: 150px; 
+                  height: 150px; 
+                  border-radius: 50%; 
+                  border: 6px solid #8b5cf6; 
+                  padding: 6px; 
+                  background: #1a1a2e; 
+                  display: flex; align-items: center; justify-content: center;
+                  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+              ">
+                 <div style="
+                     width: 100%; 
+                     height: 100%; 
+                     border-radius: 50%; 
+                     background: #334155; 
+                     overflow: hidden;
+                     border: 4px solid #fff;
+                     display: flex; align-items: center; justify-content: center; font-size: 48px; color: white; font-weight: bold;
+                 ">
+                    ${user.currentAvatar ? `<img src="${user.currentAvatar}" alt="Profile" style="width:100%;height:100%;object-fit:cover">` : `${user.firstName[0]}${user.lastName[0]}`}
+                 </div>
+              </div>
+              
+              <div style="color: white; font-weight: 800; margin-top: 16px; font-size: 20px; letter-spacing: 0.5px;">${user.firstName} ${user.lastName}</div>
+              <div style="color: #a855f7; font-size: 14px; font-weight: 500;">@${user.username}</div>
+              <div style="margin-top: 8px; font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.4);">Meet Our User</div>
+           </div>
+
+           <!-- Right Info Section -->
+           <div style="flex: 1; padding: 20px 30px 0 10px; display: flex; flex-direction: column; gap: 14px; min-width: 280px;">
+              
+              <!-- Name Pill -->
+              <div style="background: linear-gradient(90deg, #4c1d95, #7c3aed); padding: 2px; border-radius: 30px;">
+                 <div style="background: rgba(0,0,0,0.2); padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; color: white;">
+                    <span style="opacity: 0.9; width: 80px; font-weight: 700; font-size: 14px; text-transform: uppercase;">Name:</span>
+                    <span style="font-weight: 500; font-size: 15px;">${user.firstName} ${user.lastName}</span>
+                 </div>
+              </div>
+
+              <!-- Email Pill -->
+              <div style="background: linear-gradient(90deg, #4c1d95, #7c3aed); padding: 2px; border-radius: 30px;">
+                 <div style="background: rgba(0,0,0,0.2); padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; color: white;">
+                    <span style="opacity: 0.9; width: 80px; font-weight: 700; font-size: 14px; text-transform: uppercase;">Email:</span>
+                    <span style="font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${user.email}</span>
+                 </div>
+              </div>
+
+              <!-- Country Pill -->
+              <div style="background: linear-gradient(90deg, #4c1d95, #7c3aed); padding: 2px; border-radius: 30px;">
+                 <div style="background: rgba(0,0,0,0.2); padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; color: white;">
+                    <span style="opacity: 0.9; width: 80px; font-weight: 700; font-size: 14px; text-transform: uppercase;">Country:</span>
+                    <span style="font-weight: 500; font-size: 15px;">${user.country}</span>
+                 </div>
+              </div>
+
+              <!-- Phone Pill -->
+              <div style="background: linear-gradient(90deg, #4c1d95, #7c3aed); padding: 2px; border-radius: 30px;">
+                 <div style="background: rgba(0,0,0,0.2); padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; color: white;">
+                    <span style="opacity: 0.9; width: 80px; font-weight: 700; font-size: 14px; text-transform: uppercase;">Number:</span>
+                    <span style="font-weight: 500; font-size: 15px;">${user.phone}</span>
+                 </div>
+              </div>
+
+              <!-- Role Pill -->
+              <div style="background: linear-gradient(90deg, #4c1d95, #7c3aed); padding: 2px; border-radius: 30px;">
+                 <div style="background: rgba(0,0,0,0.2); padding: 10px 20px; border-radius: 30px; display: flex; align-items: center; color: white;">
+                    <span style="opacity: 0.9; width: 80px; font-weight: 700; font-size: 14px; text-transform: uppercase;">Role:</span>
+                    <span style="font-weight: 500; font-size: 15px; color: #facc15;">${user.role}</span>
+                 </div>
+              </div>
+
+           </div>
+        </div>
+        
+        <!-- Footer Actions -->
+        <div style="padding: 24px; text-align: center; border-top: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2);">
+            <div style="display: flex; gap: 10px; justify-content: center;">
+              <a href="/settings" class="btn-premium" style="flex: 1; max-width: 200px; justify-content: center;">Edit Profile</a>
+              ${adminBtn ? `<a href="/admin/login" class="btn-premium" style="flex: 1; max-width: 200px; justify-content: center; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);">Admin Panel</a>` : ''}
+            </div>
         </div>
       </div>
     </div>
