@@ -26,18 +26,68 @@ const upload = multer({
 })
 
 // Middleware
-function requireLogin(req, res, next) {
+async function requireLogin(req, res, next) {
   if (!req.session.userId) return res.redirect('/login')
+  // Trigger auto-approval check (non-blocking)
+  checkAutoApprovals().catch(err => console.error('AutoApprove Error:', err))
   next()
 }
 
 // Helper: Get System Settings
 async function getSettings() {
-  const timer = await prisma.systemSetting.findUnique({ where: { key: 'visit_timer' } })
-  const screenshotCount = await prisma.systemSetting.findUnique({ where: { key: 'screenshot_count' } })
+  const keys = ['visit_timer', 'screenshot_count', 'promote_packages', 'promote_reward', 'promote_auto_approve_minutes']
+  const settings = await prisma.systemSetting.findMany({ where: { key: { in: keys } } })
+  
+  const getVal = (k, def) => {
+    const s = settings.find(s => s.key === k)
+    return s ? s.value : def
+  }
+
+  const pkgDefault = JSON.stringify([
+    { visits: 500, coin: 200, diamond: 50 },
+    { visits: 1000, coin: 400, diamond: 100 },
+    { visits: 2000, coin: 800, diamond: 200 },
+    { visits: 5000, coin: 2000, diamond: 500 },
+    { visits: 10000, coin: 4000, diamond: 1000 }
+  ])
+  const rewardDefault = JSON.stringify({ coin: 5, diamond: 0, tk: 0 })
+
   return {
-    timer: timer ? parseInt(timer.value) : 50,
-    screenshotCount: screenshotCount ? parseInt(screenshotCount.value) : 2
+    timer: parseInt(getVal('visit_timer', '50')),
+    screenshotCount: parseInt(getVal('screenshot_count', '2')),
+    packages: JSON.parse(getVal('promote_packages', pkgDefault)),
+    rewards: JSON.parse(getVal('promote_reward', rewardDefault)),
+    autoApproveMinutes: parseInt(getVal('promote_auto_approve_minutes', '2880'))
+  }
+}
+
+async function checkAutoApprovals() {
+  const settings = await getSettings()
+  const cutoff = new Date(Date.now() - settings.autoApproveMinutes * 60000)
+  
+  const expired = await prisma.linkSubmission.findMany({
+    where: { status: 'PENDING', submittedAt: { lt: cutoff } },
+    take: 5
+  })
+
+  for (const sub of expired) {
+    await prisma.$transaction(async (tx) => {
+      const current = await tx.linkSubmission.findUnique({ where: { id: sub.id } })
+      if (!current || current.status !== 'PENDING') return
+
+      await tx.linkSubmission.update({ where: { id: sub.id }, data: { status: 'APPROVED' } })
+      
+      await tx.user.update({ 
+        where: { id: sub.visitorId }, 
+        data: { 
+          coin: { increment: settings.rewards.coin },
+          diamond: { increment: settings.rewards.diamond },
+          tk: { increment: settings.rewards.tk }
+        } 
+      })
+      
+      await tx.promotedLink.update({ where: { id: sub.promotedLinkId }, data: { completedVisits: { increment: 1 } } })
+    })
   }
 }
 
@@ -142,8 +192,11 @@ router.get('/', requireLogin, (req, res) => {
 // 2. Create Promotion
 router.get('/create', requireLogin, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  const settings = await getSettings()
   const today = new Date().toISOString().split('T')[0]
   
+  const packageOptions = settings.packages.map(p => `<option value="${p.visits}">${p.visits} Visits</option>`).join('')
+
   res.send(`
     ${getHead('Promote Your Link')}
     ${getSidebar('promote')}
@@ -182,27 +235,16 @@ router.get('/create', requireLogin, async (req, res) => {
           <div class="form-group" style="margin-bottom:20px">
             <label class="form-label" style="display:block;margin-bottom:8px;color:var(--text-muted)">Visit Requirement</label>
             <select name="visits" id="visits" onchange="calcCost()" class="form-input" style="width:100%;padding:12px;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);border-radius:8px;color:white">
-              <option value="500">500 Visits</option>
-              <option value="1000">1000 Visits</option>
-              <option value="1500">1500 Visits</option>
-              <option value="2000">2000 Visits</option>
-              <option value="2500">2500 Visits</option>
-              <option value="3000">3000 Visits</option>
-              <option value="4000">4000 Visits</option>
-              <option value="5000">5000 Visits</option>
-              <option value="6000">6000 Visits</option>
-              <option value="7000">7000 Visits</option>
-              <option value="8000">8000 Visits</option>
-              <option value="9000">9000 Visits</option>
-              <option value="10000">10000 Visits</option>
+              <option value="">Select Package</option>
+              ${packageOptions}
             </select>
           </div>
 
           <div style="background:rgba(99,102,241,0.1);padding:15px;border-radius:8px;margin-bottom:24px;border:1px solid rgba(99,102,241,0.2)">
             <div style="color:var(--text-muted);font-size:14px;margin-bottom:5px">Total Cost:</div>
             <div style="font-size:18px;font-weight:bold">
-              <span id="costCoin" style="color:#fb923c">200</span> Coins + 
-              <span id="costDiamond" style="color:#a855f7">50</span> Diamonds
+              <span id="costCoin" style="color:#fb923c">0</span> Coins + 
+              <span id="costDiamond" style="color:#a855f7">0</span> Diamonds
             </div>
             <div style="font-size:12px;color:var(--text-muted);margin-top:5px">Your Balance: ${user.coin} Coins, ${user.diamond} Diamonds</div>
           </div>
@@ -212,12 +254,19 @@ router.get('/create', requireLogin, async (req, res) => {
       </div>
     </div>
     <script>
+      const packages = ${JSON.stringify(settings.packages)};
       function calcCost() {
         const v = parseInt(document.getElementById('visits').value);
-        const units = v / 500;
-        document.getElementById('costCoin').innerText = units * 200;
-        document.getElementById('costDiamond').innerText = units * 50;
+        const pkg = packages.find(p => p.visits === v);
+        if (pkg) {
+          document.getElementById('costCoin').innerText = pkg.coin;
+          document.getElementById('costDiamond').innerText = pkg.diamond;
+        } else {
+          document.getElementById('costCoin').innerText = 0;
+          document.getElementById('costDiamond').innerText = 0;
+        }
       }
+      calcCost();
     </script>
     ${getFooter()}
   `)
@@ -227,16 +276,14 @@ router.post('/create', requireLogin, async (req, res) => {
   try {
     const { title, url, visits } = req.body
     const visitCount = parseInt(visits)
+    const settings = await getSettings()
+    const pkg = settings.packages.find(p => p.visits === visitCount)
     
-    if (visitCount % 500 !== 0) return res.redirect('/promote/create?error=Invalid+visit+amount')
-
-    const units = visitCount / 500
-    const costCoin = units * 200
-    const costDiamond = units * 50
+    if (!pkg) return res.redirect('/promote/create?error=Invalid+package')
 
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
 
-    if (user.coin < costCoin || user.diamond < costDiamond) {
+    if (user.coin < pkg.coin || user.diamond < pkg.diamond) {
       return res.redirect('/promote/create?error=Insufficient+balance')
     }
 
@@ -245,8 +292,8 @@ router.post('/create', requireLogin, async (req, res) => {
       await tx.user.update({
         where: { id: user.id },
         data: {
-          coin: { decrement: costCoin },
-          diamond: { decrement: costDiamond }
+          coin: { decrement: pkg.coin },
+          diamond: { decrement: pkg.diamond }
         }
       })
 
@@ -445,23 +492,44 @@ router.get('/history/:id', requireLogin, async (req, res) => {
 
 // Approve Logic
 router.post('/submission/:id/approve', requireLogin, async (req, res) => {
-  const subId = parseInt(req.params.id)
-  
-  // Transaction: Update status, Add reward to visitor, Increment completedVisits
-  await prisma.$transaction(async (tx) => {
-    const sub = await tx.linkSubmission.findUnique({ where: { id: subId }, include: { promotedLink: true } })
-    if (sub.status !== 'PENDING') return
+  try {
+    const subId = parseInt(req.params.id)
+    const settings = await getSettings()
 
-    await tx.linkSubmission.update({ where: { id: subId }, data: { status: 'APPROVED' } })
-    
-    // Reward visitor (5 coins)
-    await tx.user.update({ where: { id: sub.visitorId }, data: { coin: { increment: 5 } } })
-    
-    // Update link progress
-    await tx.promotedLink.update({ where: { id: sub.promotedLinkId }, data: { completedVisits: { increment: 1 } } })
-  })
+    await prisma.$transaction(async (tx) => {
+      const submission = await tx.linkSubmission.findUnique({ where: { id: subId }, include: { promotedLink: true } })
+      
+      // Security: Check if current user owns the link
+      if (submission.promotedLink.userId !== req.session.userId) throw new Error('Unauthorized')
+      if (submission.status !== 'PENDING') return
 
-  res.redirect('back')
+      await tx.linkSubmission.update({
+        where: { id: subId },
+        data: { status: 'APPROVED' }
+      })
+
+      // Reward User
+      await tx.user.update({
+        where: { id: submission.visitorId },
+        data: { 
+          coin: { increment: settings.rewards.coin },
+          diamond: { increment: settings.rewards.diamond },
+          tk: { increment: settings.rewards.tk }
+        }
+      })
+
+      // Increment completed visits
+      await tx.promotedLink.update({
+        where: { id: submission.promotedLinkId },
+        data: { completedVisits: { increment: 1 } }
+      })
+    })
+
+    res.redirect('back')
+  } catch (e) {
+    console.error(e)
+    res.redirect('back')
+  }
 })
 
 router.post('/submission/:id/reject', requireLogin, async (req, res) => {
@@ -470,17 +538,42 @@ router.post('/submission/:id/reject', requireLogin, async (req, res) => {
 })
 
 router.post('/link/:id/approve-all', requireLogin, async (req, res) => {
-  const linkId = parseInt(req.params.id)
-  const pending = await prisma.linkSubmission.findMany({ where: { promotedLinkId: linkId, status: 'PENDING' } })
+  try {
+    const linkId = parseInt(req.params.id)
+    const settings = await getSettings()
 
-  for (const sub of pending) {
     await prisma.$transaction(async (tx) => {
-      await tx.linkSubmission.update({ where: { id: sub.id }, data: { status: 'APPROVED' } })
-      await tx.user.update({ where: { id: sub.visitorId }, data: { coin: { increment: 5 } } })
-      await tx.promotedLink.update({ where: { id: linkId }, data: { completedVisits: { increment: 1 } } })
+      const link = await tx.promotedLink.findUnique({ where: { id: linkId } })
+      if (link.userId !== req.session.userId) throw new Error('Unauthorized')
+
+      const submissions = await tx.linkSubmission.findMany({
+        where: { promotedLinkId: linkId, status: 'PENDING' }
+      })
+
+      for (const sub of submissions) {
+        await tx.linkSubmission.update({ where: { id: sub.id }, data: { status: 'APPROVED' } })
+        
+        await tx.user.update({
+          where: { id: sub.visitorId },
+          data: { 
+            coin: { increment: settings.rewards.coin },
+            diamond: { increment: settings.rewards.diamond },
+            tk: { increment: settings.rewards.tk }
+          }
+        })
+      }
+      
+      await tx.promotedLink.update({
+        where: { id: linkId },
+        data: { completedVisits: { increment: submissions.length } }
+      })
     })
+
+    res.redirect('back')
+  } catch (e) {
+    console.error(e)
+    res.redirect('back')
   }
-  res.redirect('back')
 })
 
 // 4. Visit & Earn
@@ -498,12 +591,17 @@ router.get('/earn', requireLogin, async (req, res) => {
     l.completedVisits < l.targetVisits
   ).slice(0, 1) // Show only 1 task at a time
 
+  const settings = await getSettings()
+  
   const renderTask = (link) => `
     <div class="glass-panel" style="padding:24px;margin-bottom:12px;text-align:center">
       <div style="margin-bottom:16px">
         <div style="font-weight:bold;font-size:20px;margin-bottom:8px">${link.title}</div>
         <div style="font-size:14px;color:var(--text-muted)">
-          Reward: <span style="color:#fb923c;font-weight:bold;font-size:16px">5 Coins</span>
+          Reward: 
+          ${settings.rewards.coin > 0 ? `<span style="color:#fb923c;font-weight:bold;margin-right:8px">${settings.rewards.coin} Coins</span>` : ''}
+          ${settings.rewards.diamond > 0 ? `<span style="color:#a855f7;font-weight:bold;margin-right:8px">${settings.rewards.diamond} Diamonds</span>` : ''}
+          ${settings.rewards.tk > 0 ? `<span style="color:#22c55e;font-weight:bold">${settings.rewards.tk} Tk</span>` : ''}
         </div>
       </div>
       <a href="/promote/visit/${link.id}" class="btn-premium full-width" style="background:#22c55e;border:none;padding:12px;font-size:16px;justify-content:center">Start Task</a>

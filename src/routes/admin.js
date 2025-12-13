@@ -21,6 +21,7 @@ function getSidebar(active, role) {
         <li class="nav-item"><a href="/admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
         <li class="nav-item"><a href="/admin/users" class="${active === 'users' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Users</a></li>
         <li class="nav-item"><a href="/admin/balances" class="${active === 'balances' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=%2394a3b8" class="nav-icon"> Balances</a></li>
+        <li class="nav-item"><a href="/admin/promote-settings" class="${active === 'promote-settings' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Settings</a></li>
         <li class="nav-item" style="margin-top:auto"><a href="/admin/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
       </ul>
     </nav>
@@ -665,6 +666,191 @@ router.get('/balances', requireAdmin, async (req, res) => {
     </div>
     ${getScripts()}
   `)
+})
+
+// Promote Settings
+router.get('/promote-settings', requireAdmin, async (req, res) => {
+  // Fetch settings
+  const pkgSetting = await prisma.systemSetting.findUnique({ where: { key: 'promote_packages' } })
+  const rewardSetting = await prisma.systemSetting.findUnique({ where: { key: 'promote_reward' } })
+  const autoApproveSetting = await prisma.systemSetting.findUnique({ where: { key: 'promote_auto_approve_minutes' } })
+  const timerSetting = await prisma.systemSetting.findUnique({ where: { key: 'visit_timer' } })
+  const ssCountSetting = await prisma.systemSetting.findUnique({ where: { key: 'screenshot_count' } })
+
+  // Defaults
+  let packages = pkgSetting ? JSON.parse(pkgSetting.value) : [
+    { visits: 500, coin: 200, diamond: 50 },
+    { visits: 1000, coin: 400, diamond: 100 },
+    { visits: 2000, coin: 800, diamond: 200 },
+    { visits: 5000, coin: 2000, diamond: 500 },
+    { visits: 10000, coin: 4000, diamond: 1000 }
+  ]
+  
+  let rewards = rewardSetting ? JSON.parse(rewardSetting.value) : { coin: 5, diamond: 0, tk: 0 }
+  let autoApproveMinutes = autoApproveSetting ? parseInt(autoApproveSetting.value) : 2880 // 48 hours
+  let visitTimer = timerSetting ? parseInt(timerSetting.value) : 50
+  let screenshotCount = ssCountSetting ? parseInt(ssCountSetting.value) : 2
+
+  // Generate Package Rows
+  const packageRows = packages.map((pkg, index) => `
+    <div class="package-row" style="display:flex;gap:10px;margin-bottom:10px;align-items:center">
+      <input type="number" name="pkg_visits[]" value="${pkg.visits}" placeholder="Visits" class="form-input" style="width:100px">
+      <span style="color:var(--text-muted)">=</span>
+      <input type="number" name="pkg_coin[]" value="${pkg.coin}" placeholder="Coins" class="form-input" style="width:100px">
+      <span style="color:#fb923c">Coins</span>
+      <span style="color:var(--text-muted)">+</span>
+      <input type="number" name="pkg_diamond[]" value="${pkg.diamond}" placeholder="Diamonds" class="form-input" style="width:100px">
+      <span style="color:#a855f7">Diamonds</span>
+      <button type="button" onclick="this.parentElement.remove()" class="btn-premium" style="background:#ef4444;padding:4px 8px">×</button>
+    </div>
+  `).join('')
+
+  res.send(`
+    ${getHead('Promote Settings')}
+    ${getSidebar('promote-settings', req.session.role)}
+    <div class="main-content">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Promote System Settings</div>
+          <div style="color:var(--text-muted);font-size:14px">Configure costs, rewards, and automation</div>
+        </div>
+      </div>
+
+      <form action="/admin/promote-settings" method="POST">
+        
+        <!-- 1. Reward Settings -->
+        <div class="glass-panel" style="padding:24px;margin-bottom:24px">
+          <h3 class="section-title" style="margin-bottom:20px;font-size:18px">Visitor Rewards (Per Visit)</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:20px">
+            <div class="form-group">
+              <label class="form-label" style="display:block;margin-bottom:8px">Coins 🪙</label>
+              <input type="number" name="reward_coin" value="${rewards.coin}" class="form-input" style="width:100%">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="display:block;margin-bottom:8px">Diamonds 💎</label>
+              <input type="number" name="reward_diamond" value="${rewards.diamond}" class="form-input" style="width:100%">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="display:block;margin-bottom:8px">Taka/Cash ৳</label>
+              <input type="number" name="reward_tk" value="${rewards.tk}" class="form-input" style="width:100%">
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Automation & Requirements -->
+        <div class="glass-panel" style="padding:24px;margin-bottom:24px">
+          <h3 class="section-title" style="margin-bottom:20px;font-size:18px">Automation & Rules</h3>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:20px">
+            <div class="form-group">
+              <label class="form-label" style="display:block;margin-bottom:8px">Visit Timer (Seconds)</label>
+              <input type="number" name="visit_timer" value="${visitTimer}" class="form-input" style="width:100%">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="display:block;margin-bottom:8px">Screenshots Required</label>
+              <input type="number" name="screenshot_count" value="${screenshotCount}" class="form-input" style="width:100%">
+            </div>
+            <div class="form-group">
+              <label class="form-label" style="display:block;margin-bottom:8px">Auto-Approve After (Minutes)</label>
+              <input type="number" name="auto_approve_minutes" value="${autoApproveMinutes}" class="form-input" style="width:100%">
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">1 day = 1440 min, 2 days = 2880 min</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Package Costs -->
+        <div class="glass-panel" style="padding:24px;margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+            <h3 class="section-title" style="font-size:18px;margin:0">Promotion Packages</h3>
+            <button type="button" onclick="addPackageRow()" class="btn-premium" style="font-size:12px">+ Add Package</button>
+          </div>
+          <div id="packageContainer">
+            ${packageRows}
+          </div>
+        </div>
+
+        <button type="submit" class="btn-premium full-width" style="font-size:16px;padding:12px">Save Settings</button>
+      </form>
+    </div>
+    ${getScripts()}
+    <script>
+      function addPackageRow() {
+        const div = document.createElement('div');
+        div.className = 'package-row';
+        div.style.cssText = 'display:flex;gap:10px;margin-bottom:10px;align-items:center';
+        div.innerHTML = \`
+          <input type="number" name="pkg_visits[]" placeholder="Visits" class="form-input" style="width:100px">
+          <span style="color:var(--text-muted)">=</span>
+          <input type="number" name="pkg_coin[]" placeholder="Coins" class="form-input" style="width:100px">
+          <span style="color:#fb923c">Coins</span>
+          <span style="color:var(--text-muted)">+</span>
+          <input type="number" name="pkg_diamond[]" placeholder="Diamonds" class="form-input" style="width:100px">
+          <span style="color:#a855f7">Diamonds</span>
+          <button type="button" onclick="this.parentElement.remove()" class="btn-premium" style="background:#ef4444;padding:4px 8px">×</button>
+        \`;
+        document.getElementById('packageContainer').appendChild(div);
+      }
+    </script>
+  `)
+})
+
+router.post('/promote-settings', requireAdmin, async (req, res) => {
+  try {
+    const { 
+      reward_coin, reward_diamond, reward_tk,
+      visit_timer, screenshot_count, auto_approve_minutes,
+      pkg_visits, pkg_coin, pkg_diamond
+    } = req.body
+
+    // Process Rewards
+    const rewards = {
+      coin: parseInt(reward_coin) || 0,
+      diamond: parseInt(reward_diamond) || 0,
+      tk: parseInt(reward_tk) || 0
+    }
+
+    // Process Packages
+    let packages = []
+    if (pkg_visits) {
+      // If single item, it might not be an array, ensure array
+      const visits = Array.isArray(pkg_visits) ? pkg_visits : [pkg_visits]
+      const coins = Array.isArray(pkg_coin) ? pkg_coin : [pkg_coin]
+      const diamonds = Array.isArray(pkg_diamond) ? pkg_diamond : [pkg_diamond]
+
+      for (let i = 0; i < visits.length; i++) {
+        if (visits[i] && (coins[i] || diamonds[i])) {
+          packages.push({
+            visits: parseInt(visits[i]),
+            coin: parseInt(coins[i]) || 0,
+            diamond: parseInt(diamonds[i]) || 0
+          })
+        }
+      }
+    }
+    // Sort packages by visits
+    packages.sort((a, b) => a.visits - b.visits)
+
+    // Save all settings
+    const upsert = async (key, val) => {
+      await prisma.systemSetting.upsert({
+        where: { key },
+        update: { value: val },
+        create: { key, value: val }
+      })
+    }
+
+    await prisma.$transaction([
+      prisma.systemSetting.upsert({ where: { key: 'promote_reward' }, update: { value: JSON.stringify(rewards) }, create: { key: 'promote_reward', value: JSON.stringify(rewards) } }),
+      prisma.systemSetting.upsert({ where: { key: 'promote_packages' }, update: { value: JSON.stringify(packages) }, create: { key: 'promote_packages', value: JSON.stringify(packages) } }),
+      prisma.systemSetting.upsert({ where: { key: 'promote_auto_approve_minutes' }, update: { value: auto_approve_minutes.toString() }, create: { key: 'promote_auto_approve_minutes', value: auto_approve_minutes.toString() } }),
+      prisma.systemSetting.upsert({ where: { key: 'visit_timer' }, update: { value: visit_timer.toString() }, create: { key: 'visit_timer', value: visit_timer.toString() } }),
+      prisma.systemSetting.upsert({ where: { key: 'screenshot_count' }, update: { value: screenshot_count.toString() }, create: { key: 'screenshot_count', value: screenshot_count.toString() } })
+    ])
+
+    res.redirect('/admin/promote-settings?success=Settings+Saved')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/admin/promote-settings?error=Save+Failed')
+  }
 })
 
 module.exports = router
