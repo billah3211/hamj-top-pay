@@ -485,29 +485,28 @@ router.post('/link/:id/approve-all', requireLogin, async (req, res) => {
 
 // 4. Visit & Earn
 router.get('/earn', requireLogin, async (req, res) => {
-  // Find active links that haven't reached target AND user hasn't visited yet
-  // This is a bit complex in Prisma raw or need filtering. 
-  // For simplicity: fetch active links, then filter in JS or simpler query.
-  // Better: fetch links where completed < target.
-  
   const links = await prisma.promotedLink.findMany({
     where: { status: 'ACTIVE' },
     include: { user: true, submissions: { where: { visitorId: req.session.userId } } },
     orderBy: { createdAt: 'desc' }
   })
 
-  // Filter out links user has already submitted (any status)
-  const availableLinks = links.filter(l => l.submissions.length === 0 && l.completedVisits < l.targetVisits)
+  // Filter out links user has already submitted (any status) AND their own links
+  const availableLinks = links.filter(l => 
+    l.userId !== req.session.userId && 
+    l.submissions.length === 0 && 
+    l.completedVisits < l.targetVisits
+  ).slice(0, 1) // Show only 1 task at a time
 
   const renderTask = (link) => `
-    <div class="glass-panel" style="padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:15px">
-      <div style="flex:1">
-        <div style="font-weight:bold;font-size:16px">${link.title}</div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
-          Owner: ${link.user.username} | Reward: <span style="color:#fb923c;font-weight:bold">5 Coins</span>
+    <div class="glass-panel" style="padding:24px;margin-bottom:12px;text-align:center">
+      <div style="margin-bottom:16px">
+        <div style="font-weight:bold;font-size:20px;margin-bottom:8px">${link.title}</div>
+        <div style="font-size:14px;color:var(--text-muted)">
+          Reward: <span style="color:#fb923c;font-weight:bold;font-size:16px">5 Coins</span>
         </div>
       </div>
-      <a href="/promote/visit/${link.id}" class="btn-premium" style="background:#22c55e;border:none;padding:8px 24px">Visit Now</a>
+      <a href="/promote/visit/${link.id}" class="btn-premium full-width" style="background:#22c55e;border:none;padding:12px;font-size:16px;justify-content:center">Start Task</a>
     </div>
   `
 
@@ -518,47 +517,81 @@ router.get('/earn', requireLogin, async (req, res) => {
       <div class="section-header">
         <div>
           <div class="section-title">Visit & Earn</div>
-          <div style="color:var(--text-muted)">Complete tasks to earn coins</div>
+          <div style="color:var(--text-muted)">Complete tasks one by one to earn coins</div>
         </div>
       </div>
-      ${availableLinks.length ? availableLinks.map(renderTask).join('') : '<div class="empty-state">No tasks available</div>'}
+      ${availableLinks.length ? availableLinks.map(renderTask).join('') : '<div class="empty-state">No tasks available right now. Please check back later!</div>'}
     </div>
     ${getFooter()}
   `)
 })
 
 router.get('/visit/:id', requireLogin, async (req, res) => {
-  const link = await prisma.promotedLink.findUnique({ where: { id: parseInt(req.params.id) } })
+  const linkId = parseInt(req.params.id)
+  const link = await prisma.promotedLink.findUnique({ 
+    where: { id: linkId },
+    include: { submissions: { where: { visitorId: req.session.userId } } }
+  })
+
+  // Security checks
+  if (!link) return res.redirect('/promote/earn')
+  if (link.userId === req.session.userId) return res.redirect('/promote/earn?error=You+cannot+visit+your+own+link')
+  if (link.submissions.length > 0) return res.redirect('/promote/earn?error=You+already+visited+this+link')
+
   const settings = await getSettings()
+  
+  // Generate file inputs based on count
+  let fileInputs = ''
+  for(let i = 1; i <= settings.screenshotCount; i++) {
+    fileInputs += `
+      <div style="margin-bottom:12px">
+        <label style="display:block;margin-bottom:6px;font-size:14px;color:var(--text-muted)">Screenshot ${i}</label>
+        <input type="file" name="screenshots" accept="image/*" required class="form-input" style="width:100%;background:rgba(255,255,255,0.05)">
+      </div>
+    `
+  }
   
   res.send(`
     ${getHead('Visiting ' + link.title)}
     <div class="app-layout" style="display:block;padding:20px;text-align:center;max-width:600px;margin:0 auto">
       <h2 style="margin-bottom:20px">Visit Task</h2>
+      
+      ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
+
       <div class="glass-panel" style="padding:40px">
         <div id="timerDisplay" style="font-size:48px;font-weight:900;margin-bottom:20px;color:var(--primary)">${settings.timer}</div>
-        <div style="color:var(--text-muted);margin-bottom:30px">Please visit the link and stay for the duration.</div>
+        <div id="instructionText" style="color:var(--text-muted);margin-bottom:30px">Click "Visit Link" to start the timer. Stay on the page until the timer ends.</div>
         
-        <a id="visitBtn" href="${link.url}" target="_blank" onclick="startTimer()" class="btn-premium full-width" style="justify-content:center;margin-bottom:20px">Visit Link</a>
+        <a id="visitBtn" href="${link.url}" target="_blank" onclick="startTimer()" class="btn-premium full-width" style="justify-content:center;margin-bottom:20px;font-size:18px;padding:16px">Visit Link</a>
         
         <form id="uploadForm" action="/promote/submit/${link.id}" method="POST" enctype="multipart/form-data" class="hidden">
-          <div style="margin-bottom:20px;text-align:left">
-            <label style="display:block;margin-bottom:10px">Upload ${settings.screenshotCount} Proof Screenshots</label>
-            <input type="file" name="screenshots" multiple accept="image/*" required class="form-input" style="width:100%;background:rgba(255,255,255,0.1)">
-            <div style="font-size:12px;color:var(--text-muted);margin-top:5px">Make sure to upload exactly ${settings.screenshotCount} images.</div>
+          <div style="margin-bottom:24px;text-align:left;background:rgba(255,255,255,0.02);padding:20px;border-radius:12px;border:1px solid rgba(255,255,255,0.05)">
+            <h3 style="margin-bottom:16px;font-size:16px">Upload Proof</h3>
+            ${fileInputs}
+            <div style="font-size:12px;color:#fb923c;margin-top:10px;background:rgba(251,146,60,0.1);padding:8px;border-radius:4px">
+              ⚠️ Upload exactly ${settings.screenshotCount} screenshots as proof.
+            </div>
           </div>
-          <button class="btn-premium full-width">Submit Proof</button>
+          <button type="submit" class="btn-premium full-width" style="background:#22c55e;border:none">Submit Work</button>
         </form>
       </div>
     </div>
     <script>
       let time = ${settings.timer};
+      let timerRunning = false;
+      
       function startTimer() {
+        if(timerRunning) return;
+        timerRunning = true;
+        
         const btn = document.getElementById('visitBtn');
         const display = document.getElementById('timerDisplay');
         const form = document.getElementById('uploadForm');
+        const instruction = document.getElementById('instructionText');
         
-        // btn.style.display = 'none'; // Optional: hide button after click
+        btn.style.opacity = '0.5';
+        btn.style.pointerEvents = 'none';
+        btn.innerText = 'Visiting...';
         
         const interval = setInterval(() => {
           time--;
@@ -566,6 +599,9 @@ router.get('/visit/:id', requireLogin, async (req, res) => {
           if (time <= 0) {
             clearInterval(interval);
             display.innerText = "Time's Up!";
+            display.style.color = '#22c55e';
+            instruction.innerText = "Please upload the required screenshots below.";
+            btn.style.display = 'none';
             form.classList.remove('hidden');
           }
         }, 1000);
@@ -603,7 +639,8 @@ router.post('/submit/:id', requireLogin, upload.array('screenshots', 10), async 
     }
   })
   
-  res.redirect('/promote/tasks?success=Proof+submitted+successfully')
+  // Redirect to earn page to show next task if available
+  res.redirect('/promote/earn?success=Proof+submitted+successfully.+Here+is+your+next+task!')
 })
 
 // 5. My Tasks
