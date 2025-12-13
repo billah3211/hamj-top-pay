@@ -204,20 +204,25 @@ router.get('/my', requireLogin, async (req, res) => {
     </nav>
   `
 
-  const renderMyItem = (item) => `
-    <div class="store-card owned">
+  const renderMyItem = (item) => {
+    const isEquipped = (item.type === 'avatar' && user.currentAvatar === item.imageUrl) || 
+                       (item.type === 'banner' && user.currentBanner === item.imageUrl)
+    return `
+    <div class="store-card owned" style="${isEquipped ? 'border: 1px solid #22c55e;' : ''}">
       <div class="store-card-image ${item.type}">
         <img src="${item.imageUrl}" alt="${item.name}">
       </div>
       <div class="store-card-info">
         <div class="name">${item.name}</div>
-        <div class="status-tag">Owned</div>
+        <div class="status-tag" style="${isEquipped ? 'background:#22c55e;color:white' : ''}">${isEquipped ? 'Applied' : 'Owned'}</div>
       </div>
-      <form action="/store/equip/${item.id}" method="POST">
-        <button type="submit" class="btn-store btn-apply">Apply</button>
-      </form>
+      ${isEquipped 
+        ? '<button class="btn-store" disabled style="background:#22c55e;opacity:0.8;cursor:default">Applied</button>'
+        : `<form action="/store/equip/${item.id}" method="POST"><button type="submit" class="btn-store btn-apply">Apply</button></form>`
+      }
     </div>
   `
+  }
 
   res.send(`
     <!doctype html>

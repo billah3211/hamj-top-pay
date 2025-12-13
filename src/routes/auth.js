@@ -1,7 +1,21 @@
 const express = require('express')
 const bcrypt = require('bcryptjs')
 const { prisma } = require('../db/prisma')
+const multer = require('multer')
+const path = require('path')
 const router = express.Router()
+
+// Configure Multer
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(process.cwd(), 'public/uploads'))
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+    cb(null, 'avatar-' + uniqueSuffix + path.extname(file.originalname))
+  }
+})
+const upload = multer({ storage: storage })
 
 function makeBaseUsername(firstName, lastName) {
   const a = (firstName || '').toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -347,7 +361,7 @@ router.get('/dashboard', async (req, res) => {
       <div class="modal-content" style="padding: 0; background: #1a1a2e; overflow: hidden; border-radius: 20px; border: 1px solid rgba(168, 85, 247, 0.2); max-width: 600px;">
         
         <!-- Top Purple Banner -->
-        <div style="height: 180px; background: linear-gradient(135deg, #6b21a8 0%, #a855f7 100%); position: relative; border-bottom-right-radius: 50% 20px; border-bottom-left-radius: 50% 20px;">
+        <div style="height: 180px; width: 100%; background: ${user.currentBanner ? `url('${user.currentBanner}') center/cover no-repeat` : 'linear-gradient(135deg, #6b21a8 0%, #a855f7 100%)'}; position: relative; border-bottom-right-radius: 50% 20px; border-bottom-left-radius: 50% 20px;">
           <button class="modal-close" id="profileBack" style="color: white; font-size: 24px; top: 16px; right: 20px; background: rgba(0,0,0,0.2); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; z-index: 10;">×</button>
         </div>
         
@@ -774,7 +788,11 @@ router.get('/settings', async (req, res) => {
               <div style="color:var(--text-muted)">Update your profile information</div>
             </div>
 
-            <form method="post" action="/settings">
+            <form method="post" action="/settings" enctype="multipart/form-data">
+              <div class="form-group">
+                <label class="form-label">Profile Picture</label>
+                <input type="file" name="avatar" class="form-input" accept="image/*">
+              </div>
               <div class="form-grid">
                 <div class="form-group">
                   <label class="form-label">First Name</label>
@@ -875,11 +893,17 @@ router.get('/settings', async (req, res) => {
   `)
 })
 
-router.post('/settings', async (req, res) => {
+router.post('/settings', upload.single('avatar'), async (req, res) => {
   if (!req.session.userId) return res.redirect('/login')
   const { firstName, lastName, username, email, country, phone } = req.body
+  
+  const data = { firstName, lastName, username, email, country, phone }
+  if (req.file) {
+    data.currentAvatar = '/uploads/' + req.file.filename
+  }
+
   try {
-    await prisma.user.update({ where: { id: req.session.userId }, data: { firstName, lastName, username, email, country, phone } })
+    await prisma.user.update({ where: { id: req.session.userId }, data })
     return res.redirect('/dashboard')
   } catch (e) {
     return res.status(400).send('Update failed')
