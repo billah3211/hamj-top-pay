@@ -38,6 +38,7 @@ model User {
   items     UserItem[]
   promotedLinks PromotedLink[]
   linkSubmissions LinkSubmission[]
+  topUpRequests TopUpRequest[]
 }
 
 model StoreItem {
@@ -101,18 +102,50 @@ model PromotedLink {
 }
 
 model LinkSubmission {
-  id             Int          @id @default(autoincrement())
-  promotedLinkId Int
-  promotedLink   PromotedLink @relation(fields: [promotedLinkId], references: [id], onDelete: Cascade)
-  visitorId      Int
-  visitor        User         @relation(fields: [visitorId], references: [id])
-  screenshots    String[]     // Array of URLs handled by Prisma as String[] (requires PostgreSQL)
-  status         String       @default("PENDING") // PENDING, APPROVED, REJECTED
-  submittedAt    DateTime     @default(now())
+  id        Int      @id @default(autoincrement())
+  linkId    Int
+  link      PromotedLink @relation(fields: [linkId], references: [id])
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  proof     String
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt DateTime @default(now())
 }
 
-model SystemSetting {
-  id    Int    @id @default(autoincrement())
-  key   String @unique
-  value String
+// Top Up System Models
+
+model TopUpPackage {
+  id            Int      @id @default(autoincrement())
+  name          String
+  price         Int
+  diamondAmount Int
+  countries     String   // "All" or comma-separated list like "Bangladesh,India"
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  requests      TopUpRequest[]
+}
+
+model TopUpWallet {
+  id            Int      @id @default(autoincrement())
+  name          String
+  adminNumber   String
+  instruction   String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  requests      TopUpRequest[]
+}
+
+model TopUpRequest {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id])
+  packageId     Int
+  package       TopUpPackage @relation(fields: [packageId], references: [id])
+  walletId      Int
+  wallet        TopUpWallet @relation(fields: [walletId], references: [id])
+  senderNumber  String
+  trxId         String   @unique
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt     DateTime @default(now())
+  processedAt   DateTime?
 }

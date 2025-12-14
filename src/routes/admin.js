@@ -19,6 +19,7 @@ function getSidebar(active, role) {
       <ul class="nav-links">
         ${superLink}
         <li class="nav-item"><a href="/admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
+        <li class="nav-item"><a href="/admin/topup-requests" class="${active === 'topup-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:inbox.svg?color=%2394a3b8" class="nav-icon"> TopUp Requests</a></li>
         <li class="nav-item"><a href="/admin/users" class="${active === 'users' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Users</a></li>
         <li class="nav-item"><a href="/admin/balances" class="${active === 'balances' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=%2394a3b8" class="nav-icon"> Balances</a></li>
         <li class="nav-item"><a href="/admin/promote-settings" class="${active === 'promote-settings' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Settings</a></li>
@@ -850,6 +851,133 @@ router.post('/promote-settings', requireAdmin, async (req, res) => {
   } catch (e) {
     console.error(e)
     res.redirect('/admin/promote-settings?error=Save+Failed')
+  }
+})
+
+// ----------------------------------------------------------------------
+// TOP UP REQUEST MANAGEMENT
+// ----------------------------------------------------------------------
+
+router.get('/topup-requests', requireAdmin, async (req, res) => {
+  const requests = await prisma.topUpRequest.findMany({
+    where: { status: 'PENDING' },
+    include: { user: true, package: true, wallet: true },
+    orderBy: { createdAt: 'desc' }
+  })
+
+  res.send(`
+    ${getHead('Top Up Requests')}
+    ${getSidebar('topup-requests', req.session.role)}
+    <div class="main-content">
+      <div class="section-header">
+        <div>
+           <div class="section-title">Pending Requests</div>
+           <div style="color:var(--text-muted)">Manage incoming top up requests</div>
+        </div>
+      </div>
+
+      <div class="glass-panel" style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="text-align: left; border-bottom: 1px solid var(--glass-border);">
+              <th style="padding: 12px; color: var(--text-muted);">User</th>
+              <th style="padding: 12px; color: var(--text-muted);">Package</th>
+              <th style="padding: 12px; color: var(--text-muted);">Details</th>
+              <th style="padding: 12px; color: var(--text-muted);">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${requests.map(req => `
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="padding: 12px;">
+                  <div style="font-weight: 600; color: white;">${req.user.firstName} ${req.user.lastName}</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">${req.user.email}</div>
+                </td>
+                <td style="padding: 12px;">
+                  <div style="font-weight: 700; color: #60a5fa;">${req.package.diamondAmount} 💎</div>
+                  <div style="font-size: 13px; color: #fff;">${req.package.price} TK</div>
+                </td>
+                <td style="padding: 12px;">
+                  <div style="font-size: 13px; color: var(--text-muted);">Wallet: <span style="color:white">${req.wallet.name}</span></div>
+                  <div style="font-size: 13px; color: var(--text-muted);">Sender: <span style="color:white">${req.senderNumber}</span></div>
+                  <div style="font-size: 13px; color: var(--text-muted);">TrxID: <span style="color:#facc15; font-family: monospace;">${req.trxId}</span></div>
+                </td>
+                <td style="padding: 12px;">
+                  <div style="display: flex; gap: 8px;">
+                     <form action="/admin/topup/action" method="POST" style="display:inline;">
+                        <input type="hidden" name="reqId" value="${req.id}">
+                        <input type="hidden" name="action" value="approve">
+                        <button class="btn-premium" style="padding: 6px 12px; background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(34, 197, 94, 0.3);">Approve</button>
+                     </form>
+                     <form action="/admin/topup/action" method="POST" style="display:inline;">
+                        <input type="hidden" name="reqId" value="${req.id}">
+                        <input type="hidden" name="action" value="reject">
+                        <button class="btn-premium" style="padding: 6px 12px; background: rgba(239, 68, 68, 0.2); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3);">Reject</button>
+                     </form>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+            ${requests.length === 0 ? '<tr><td colspan="4" style="text-align:center; padding: 30px;">No pending requests</td></tr>' : ''}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ${getScripts()}
+  `)
+})
+
+router.post('/topup/action', requireAdmin, async (req, res) => {
+  const { reqId, action } = req.body
+  
+  try {
+    const request = await prisma.topUpRequest.findUnique({ 
+      where: { id: parseInt(reqId) },
+      include: { package: true, user: true }
+    })
+
+    if (!request || request.status !== 'PENDING') return res.redirect('/admin/topup-requests')
+
+    if (action === 'approve') {
+       // Transaction: Update status + Add Diamonds + Notify
+       await prisma.$transaction([
+         prisma.topUpRequest.update({
+           where: { id: request.id },
+           data: { status: 'APPROVED', processedAt: new Date() }
+         }),
+         prisma.user.update({
+           where: { id: request.userId },
+           data: { diamond: { increment: request.package.diamondAmount } }
+         }),
+         prisma.notification.create({
+           data: {
+             userId: request.userId,
+             message: `Top Up Approved! ${request.package.diamondAmount} Diamonds added to your account.`,
+             type: 'credit'
+           }
+         })
+       ])
+    } else {
+       // Reject
+       await prisma.$transaction([
+         prisma.topUpRequest.update({
+           where: { id: request.id },
+           data: { status: 'REJECTED', processedAt: new Date() }
+         }),
+         prisma.notification.create({
+           data: {
+             userId: request.userId,
+             message: `Top Up Rejected. Transaction ID ${request.trxId} was invalid or not found.`,
+             type: 'alert'
+           }
+         })
+       ])
+    }
+
+    res.redirect('/admin/topup-requests')
+  } catch (error) {
+    console.error(error)
+    res.status(500).send('Server Error')
   }
 })
 
