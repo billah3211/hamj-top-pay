@@ -103,8 +103,8 @@ model PromotedLink {
 
 model LinkSubmission {
   id        Int      @id @default(autoincrement())
-  linkId    Int
-  link      PromotedLink @relation(fields: [linkId], references: [id])
+  linkId    Int?
+  link      PromotedLink? @relation(fields: [linkId], references: [id])
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
   proof     String
