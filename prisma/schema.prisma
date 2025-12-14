@@ -29,6 +29,9 @@ model User {
   
   currentAvatar String?
   currentBanner String?
+  bio           String?
+  website       String?
+  social        String?
   
   tasks     Task[]
   notifications Notification[]

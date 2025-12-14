@@ -811,6 +811,24 @@ router.get('/settings', async (req, res) => {
                 </div>
               </div>
 
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Bio</label>
+                  <input class="form-input" name="bio" value="${user.bio || ''}">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Website</label>
+                  <input class="form-input" name="website" value="${user.website || ''}">
+                </div>
+              </div>
+
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label">Social</label>
+                  <input class="form-input" name="social" value="${user.social || ''}">
+                </div>
+              </div>
+
               <div style="margin-top: 32px; display: flex; gap: 16px; justify-content: flex-end;">
                 <button type="button" class="btn-premium" style="background:transparent;border:1px solid var(--glass-border);box-shadow:none" onclick="window.location.href='/dashboard'">Cancel</button>
                 <button type="submit" class="btn-premium">Save Changes</button>
@@ -880,9 +898,9 @@ router.get('/settings', async (req, res) => {
 
 router.post('/settings', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login')
-  const { firstName, lastName, username, email, country, phone } = req.body
+  const { firstName, lastName, username, email, country, phone, bio, website, social } = req.body
   
-  const data = { firstName, lastName, username, email, country, phone }
+  const data = { firstName, lastName, username, email, country, phone, bio, website, social }
 
   try {
     await prisma.user.update({ where: { id: req.session.userId }, data })
