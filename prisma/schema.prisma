@@ -107,7 +107,7 @@ model LinkSubmission {
   link      PromotedLink? @relation(fields: [linkId], references: [id])
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
-  proof     String
+  proof     String?
   status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
   createdAt DateTime @default(now())
 }
