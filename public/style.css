@@ -644,6 +644,64 @@ body.menu-open { overflow: hidden; }
   border-color: rgba(255,255,255,0.15);
 }
 
+/* Custom Profile Fullscreen Modal (image-inspired) */
+.profile-modal .modal-content {
+  max-width: 900px;
+  width: 95%;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #2b0e4a 0%, #1b1326 100%);
+  border: 2px solid rgba(160, 120, 255, 0.08);
+  overflow: hidden;
+}
+
+.profile-panel {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  padding: 30px;
+}
+
+.pf-left { flex: 0 0 320px; position: relative; }
+.pf-right { flex: 1 1 1px; }
+
+.pf-rings {
+  position: relative;
+  width: 280px;
+  height: 280px;
+  margin: 0 auto 8px auto;
+  display:flex;align-items:center;justify-content:center;
+}
+.pf-rings::before,
+.pf-rings::after{
+  content: '';
+  position: absolute;
+  border-radius: 50%;
+}
+.pf-rings::before{
+  width: 280px; height: 280px; background: radial-gradient(circle at 20% 20%, rgba(167,139,250,0.18), transparent 40%);
+}
+.pf-rings::after{
+  width: 220px; height: 220px; background: linear-gradient(90deg,#6b21a8,#a78bfa); transform: translateX(-10px);
+}
+.pf-avatar {
+  width: 160px; height:160px; border-radius:50%; overflow:hidden; border:8px solid white; box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+}
+.pf-avatar img{ width:100%;height:100%;object-fit:cover;display:block }
+
+.pf-badges{ text-align:center; color: #ddd; font-weight:700; margin-top:10px }
+
+.pf-field { background: linear-gradient(90deg,#6b21a8,#7c3aed); padding:4px; border-radius:30px; margin-bottom:12px }
+.pf-field .inner{ background: rgba(0,0,0,0.18); padding:12px 18px; border-radius:26px; display:flex; align-items:center; gap:12px; color:white }
+.pf-field .label{ width:120px; font-weight:800; text-transform:lowercase; opacity:0.95 }
+.pf-actions { display:flex; gap:12px; margin-top:18px }
+.pf-actions .btn { padding:10px 18px; border-radius:12px; background: linear-gradient(135deg,#ef4444,#8b5cf6); color:white; text-decoration:none }
+
+@media (max-width: 800px){
+  .profile-panel{ flex-direction:column; align-items:center }
+  .pf-left{ order: -1 }
+  .pf-right{ width:100% }
+}
+
 .info-group .label {
   font-size: 13px;
   text-transform: uppercase;
