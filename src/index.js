@@ -71,4 +71,19 @@ const port = process.env.PORT || 3000
 app.listen(port, () => {
   console.log('server listening on ' + port)
   console.log('Store routes registered and uploads directory checked.')
+  
+  // Run DB migrations in background after server starts to avoid timeout
+  const { exec } = require('child_process');
+  console.log('Starting background DB migration...');
+  exec('npx prisma db push --accept-data-loss', (error, stdout, stderr) => {
+    if (error) {
+      console.error(`DB Migration Error: ${error.message}`);
+      return;
+    }
+    if (stderr) {
+      console.error(`DB Migration Stderr: ${stderr}`);
+      return;
+    }
+    console.log(`DB Migration Success: ${stdout}`);
+  });
 })
