@@ -38,6 +38,7 @@ model User {
   items     UserItem[]
   promotedLinks PromotedLink[]
   linkSubmissions LinkSubmission[]
+  topUpRequests TopUpRequest[]
 }
 
 model StoreItem {
