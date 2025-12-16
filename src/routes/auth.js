@@ -2,6 +2,7 @@ const express = require('express')
 const bcrypt = require('bcryptjs')
 const { prisma } = require('../db/prisma')
 const path = require('path')
+const countries = require('../data/countries')
 const router = express.Router()
 
 function makeBaseUsername(firstName, lastName) {
@@ -80,6 +81,7 @@ router.get('/get-start', (req, res) => {
         </div>
       </div>
 
+
       <script>(function(){var dt=document.querySelectorAll('.device-toggle-settings .tab');function applySkin(m){document.body.classList.remove('skin-desktop','skin-mobile');document.body.classList.add('skin-'+m);if(dt.length){dt.forEach(function(b){b.classList.toggle('active',b.getAttribute('data-device')===m)})}try{localStorage.setItem('siteSkin',m)}catch(e){}}if(dt.length){dt.forEach(function(b){b.addEventListener('click',function(){applySkin(b.getAttribute('data-device'))})})}var init='desktop';try{init=localStorage.getItem('siteSkin')||'desktop';if(init!=='desktop'&&init!=='mobile'){init='mobile'}}catch(e){}applySkin(init);})();</script>
     </body>
     </html>
@@ -151,24 +153,14 @@ router.get('/signup', (req, res) => {
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Country</label>
-                <select class="form-input" name="country">
-                  <option ${defaultCountry==='Bangladesh'?'selected':''}>Bangladesh</option>
-                  <option>India</option>
-                  <option>Pakistan</option>
-                  <option>Nepal</option>
-                  <option>Sri Lanka</option>
-                  <option>USA</option>
+                <select class="form-input" name="country" id="countrySelect">
+                  ${countries.map(c => `<option value="${c.name}" data-code="${c.code}" ${c.name === defaultCountry ? 'selected' : ''}>${c.flag} ${c.name}</option>`).join('')}
                 </select>
               </div>
               <div class="form-group">
                 <label class="form-label">Country Code</label>
-                <select class="form-input" name="countryCode">
-                  <option value="+880" selected>+880 (BD)</option>
-                  <option value="+91">+91 (IN)</option>
-                  <option value="+92">+92 (PK)</option>
-                  <option value="+977">+977 (NP)</option>
-                  <option value="+94">+94 (LK)</option>
-                  <option value="+1">+1 (US)</option>
+                <select class="form-input" name="countryCode" id="countryCodeSelect">
+                  ${countries.map(c => `<option value="${c.code}" ${c.name === defaultCountry ? 'selected' : ''}>${c.flag} ${c.code} (${c.iso})</option>`).join('')}
                 </select>
               </div>
             </div>
@@ -195,6 +187,15 @@ router.get('/signup', (req, res) => {
               Already have an account? <a href="/login" style="color:var(--primary);text-decoration:none;font-weight:600">Log in</a>
             </div>
           </form>
+          <script>
+            var cSel = document.getElementById('countrySelect');
+            if(cSel){
+              cSel.addEventListener('change', function() {
+                var code = this.options[this.selectedIndex].getAttribute('data-code');
+                if(code) document.getElementById('countryCodeSelect').value = code;
+              });
+            }
+          </script>
         </div>
       </div>
 
