@@ -6,7 +6,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "start": "node src/index.js",
+    "start": "npm install && npx prisma generate && node src/index.js",
     "dev": "nodemon src/index.js",
     "build": "node -e \"console.log('Build step OK')\"",
     "postinstall": "npx prisma generate || echo 'Prisma generate skipped'",
