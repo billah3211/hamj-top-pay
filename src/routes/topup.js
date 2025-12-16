@@ -99,7 +99,14 @@ const renderLayout = (title, content, user) => `
 router.get('/', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
-    const packages = await prisma.topUpPackage.findMany({ where: { isActive: true }, orderBy: { price: 'asc' } })
+    let packages = await prisma.topUpPackage.findMany({ where: { isActive: true }, orderBy: { price: 'asc' } })
+    
+    // Filter packages based on user country
+    packages = packages.filter(pkg => {
+      if (pkg.countries === 'All') return true
+      if (pkg.countries === 'Bangladesh' && user.country === 'Bangladesh') return true
+      return false
+    })
     
     const content = `
       <div class="section-header">

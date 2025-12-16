@@ -106,6 +106,7 @@ model TopUpPackage {
   name         String
   price        Int
   diamondAmount Int
+  currency     String        @default("BDT")
   countries    String
   isActive     Boolean       @default(true)
   createdAt    DateTime      @default(now())
@@ -127,9 +128,9 @@ model TopUpRequest {
   userId       Int
   user         User         @relation(fields: [userId], references: [id])
   packageId    Int
-  package      TopUpPackage @relation(fields: [packageId], references: [id])
+  package      TopUpPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
   walletId     Int
-  wallet       TopUpWallet  @relation(fields: [walletId], references: [id])
+  wallet       TopUpWallet  @relation(fields: [walletId], references: [id], onDelete: Cascade)
   senderNumber String
   trxId        String       @unique
   status       String       @default("PENDING")

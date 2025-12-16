@@ -666,9 +666,11 @@ router.get('/topup-packages', requireSuperAdmin, async (req, res) => {
             </div>
 
             <div class="form-group">
-              <label class="form-label">Allowed Countries</label>
-              <input type="text" name="countries" required placeholder="e.g. Bangladesh,India or All" class="form-input">
-              <div style="font-size: 12px; color: var(--text-muted); margin-top: 6px;">Use 'All' for everywhere, or comma separated list.</div>
+              <label class="form-label">Currency & Region</label>
+              <select name="currency" class="form-input">
+                <option value="BDT">Taka (BDT) - Bangladesh Only</option>
+                <option value="USD">Dollar (USD) - All Countries</option>
+              </select>
             </div>
 
             <button type="submit" class="btn-premium full-width" style="background: linear-gradient(135deg, #ec4899, #be185d);">
@@ -686,14 +688,18 @@ router.get('/topup-packages', requireSuperAdmin, async (req, res) => {
 
 router.post('/topup-packages/add', requireSuperAdmin, async (req, res) => {
   try {
-    const { name, price, diamondAmount, countries } = req.body
+    const { name, price, diamondAmount, currency } = req.body
     
+    // Auto-set countries based on currency
+    const countries = currency === 'BDT' ? 'Bangladesh' : 'All'
+
     await prisma.topUpPackage.create({
       data: {
         name,
         price: parseInt(price),
         diamondAmount: parseInt(diamondAmount),
-        countries: countries || 'All'
+        currency: currency || 'BDT',
+        countries: countries
       }
     })
     
@@ -835,6 +841,7 @@ router.post('/topup-wallets/delete', requireSuperAdmin, async (req, res) => {
     await prisma.topUpWallet.delete({ where: { id: parseInt(id) } })
     res.redirect('/super-admin/topup-wallets?success=Wallet+deleted')
   } catch (e) {
+    console.error('Delete Wallet Error:', e)
     res.redirect('/super-admin/topup-wallets?error=Cannot+delete+wallet+in+use')
   }
 })
