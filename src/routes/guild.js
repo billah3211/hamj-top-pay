@@ -40,7 +40,7 @@ const getHead = (title) => `
       .guild-badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
       .badge-user { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
       .badge-youtuber { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
-      .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+      .guild-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); opacity: 1; pointer-events: auto; }
       .modal-content { background: #1e293b; padding: 24px; border-radius: 16px; width: 90%; max-width: 500px; border: 1px solid rgba(255,255,255,0.1); max-height: 90vh; overflow-y: auto; }
     </style>
   </head>
@@ -229,7 +229,7 @@ router.get('/', requireLogin, async (req, res) => {
     </div>
 
     <!-- Create Modal -->
-    <div id="createModal" class="modal" onclick="if(event.target===this)this.style.display='none'">
+    <div id="createModal" class="guild-modal" onclick="if(event.target===this)this.style.display='none'">
       <div class="modal-content">
         <h3 style="margin-bottom:20px; text-align:center">Create New Guild</h3>
         
