@@ -1,5 +1,6 @@
 const express = require('express')
 const bcrypt = require('bcryptjs')
+const fs = require('fs')
 const { prisma } = require('../db/prisma')
 const router = express.Router()
 
@@ -22,6 +23,7 @@ function getSidebar(active, role) {
         <li class="nav-item"><a href="/admin/topup-requests" class="${active === 'topup-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:inbox.svg?color=%2394a3b8" class="nav-icon"> TopUp Requests</a></li>
         <li class="nav-item"><a href="/admin/users" class="${active === 'users' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Users</a></li>
         <li class="nav-item"><a href="/admin/balances" class="${active === 'balances' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=%2394a3b8" class="nav-icon"> Balances</a></li>
+        <li class="nav-item"><a href="/admin/task-reports" class="${active === 'task-reports' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:alert-octagon.svg?color=%2394a3b8" class="nav-icon"> Task Reports</a></li>
         <li class="nav-item"><a href="/admin/promote-settings" class="${active === 'promote-settings' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Settings</a></li>
         <li class="nav-item" style="margin-top:auto"><a href="/admin/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
       </ul>
@@ -979,6 +981,158 @@ router.post('/topup/action', requireAdmin, async (req, res) => {
   } catch (error) {
     console.error(error)
     res.status(500).send('Server Error')
+  }
+})
+
+// Task Reports
+router.get('/task-reports', requireAdmin, async (req, res) => {
+  const reports = await prisma.linkSubmission.findMany({
+    where: { status: 'REPORTED' },
+    include: { 
+      promotedLink: { include: { user: true } }, 
+      visitor: true 
+    },
+    orderBy: { reportedAt: 'asc' }
+  })
+
+  const renderReport = (report) => `
+    <tr>
+      <td>
+        <div style="font-weight:bold">${report.visitor.username}</div>
+        <div style="font-size:12px;color:var(--text-muted)">User (Visitor)</div>
+      </td>
+      <td>
+        <div style="font-weight:bold">${report.promotedLink.user.username}</div>
+        <div style="font-size:12px;color:var(--text-muted)">Link Owner</div>
+      </td>
+      <td>
+        <div style="color:#fca5a5;font-size:13px;margin-bottom:4px">Owner Reason: "${report.rejectionReason}"</div>
+        <div style="color:#c4b5fd;font-size:13px">User Report: "${report.reportMessage}"</div>
+      </td>
+      <td>
+         <div style="display:flex;gap:4px;flex-wrap:wrap">
+            ${report.screenshots.map(url => `<a href="${url}" target="_blank"><img src="${url}" style="height:40px;width:40px;object-fit:cover;border-radius:4px"></a>`).join('')}
+         </div>
+      </td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <form action="/admin/report/${report.id}/resolve" method="POST" style="display:inline">
+            <input type="hidden" name="decision" value="APPROVE">
+            <button class="btn-premium" style="background:#22c55e;padding:6px 10px;font-size:12px">User Wins</button>
+          </form>
+          <form action="/admin/report/${report.id}/resolve" method="POST" style="display:inline">
+            <input type="hidden" name="decision" value="REJECT">
+            <button class="btn-premium" style="background:#ef4444;padding:6px 10px;font-size:12px">Owner Wins</button>
+          </form>
+        </div>
+      </td>
+    </tr>
+  `
+
+  res.send(`
+    ${getHead('Task Reports')}
+    ${getSidebar('task-reports', req.session.role)}
+    <div class="main-content">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Task Reports</div>
+          <div style="color:var(--text-muted)">Resolve disputes between users and link owners</div>
+        </div>
+      </div>
+      
+      <div class="glass-panel" style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Visitor</th>
+              <th>Owner</th>
+              <th>Dispute Details</th>
+              <th>Proof</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${reports.length ? reports.map(renderReport).join('') : '<tr><td colspan="5" style="text-align:center;padding:30px">No pending reports</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ${getScripts()}
+  `)
+})
+
+router.post('/report/:id/resolve', requireAdmin, async (req, res) => {
+  const { id } = req.params
+  const { decision } = req.body // APPROVE (User Wins) or REJECT (Owner Wins)
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const sub = await tx.linkSubmission.findUnique({ where: { id: parseInt(id) } })
+      if (!sub || sub.status !== 'REPORTED') return
+
+      // Get rewards config
+      const settingsKey = await tx.systemSetting.findUnique({ where: { key: 'promote_reward' } })
+      const rewards = settingsKey ? JSON.parse(settingsKey.value) : { coin: 5, diamond: 0, tk: 0 }
+
+      if (decision === 'APPROVE') {
+         // User Wins
+         // 1. Status -> ADMIN_APPROVED
+         // 2. Reward User
+         // 3. Visit remains CONSUMED (Locked). It was already incremented on rejection. We keep it that way.
+         
+         await tx.linkSubmission.update({ where: { id: sub.id }, data: { status: 'ADMIN_APPROVED' } })
+         
+         // Delete Screenshots
+         if(sub.screenshots && sub.screenshots.length) {
+           sub.screenshots.forEach(p => {
+             try { fs.unlinkSync('public' + p) } catch(e) {}
+           })
+         }
+
+         await tx.user.update({
+           where: { id: sub.visitorId },
+           data: {
+             coin: { increment: rewards.coin },
+             diamond: { increment: rewards.diamond },
+             tk: { increment: rewards.tk }
+           }
+         })
+         
+         await tx.notification.create({
+            data: {
+              userId: sub.visitorId,
+              message: `Dispute Resolved: Your task #${sub.id} has been approved by Admin! You received ${rewards.coin} coins.`,
+              type: 'credit'
+            }
+         })
+
+      } else {
+         // Owner Wins
+         // 1. Status -> ADMIN_REJECTED
+         // 2. No Reward
+         // 3. Visit RETURNED (Unlock). We decrement completedVisits.
+         
+         await tx.linkSubmission.update({ where: { id: sub.id }, data: { status: 'ADMIN_REJECTED' } })
+         
+         await tx.promotedLink.update({
+            where: { id: sub.promotedLinkId },
+            data: { completedVisits: { decrement: 1 } }
+         })
+
+         await tx.notification.create({
+            data: {
+              userId: sub.visitorId,
+              message: `Dispute Resolved: Your task #${sub.id} was rejected by Admin.`,
+              type: 'alert'
+            }
+         })
+      }
+    })
+    
+    res.redirect('/admin/task-reports')
+  } catch (e) {
+    console.error(e)
+    res.status(500).send('Error resolving report')
   }
 })
 

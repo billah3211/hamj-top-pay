@@ -65,6 +65,7 @@ async function checkAutoApprovals() {
   const settings = await getSettings()
   const cutoff = new Date(Date.now() - settings.autoApproveMinutes * 60000)
   
+  // Auto Approve Pending
   const expired = await prisma.linkSubmission.findMany({
     where: { status: 'PENDING', submittedAt: { lt: cutoff } },
     take: 5
@@ -87,6 +88,29 @@ async function checkAutoApprovals() {
       })
       
       await tx.promotedLink.update({ where: { id: sub.promotedLinkId }, data: { completedVisits: { increment: 1 } } })
+    })
+  }
+
+  // Auto Cleanup Rejected (3 Days Rule)
+  const rejectCutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
+  const expiredRejected = await prisma.linkSubmission.findMany({
+    where: { status: 'REJECTED', submittedAt: { lt: rejectCutoff } },
+    take: 5
+  })
+
+  for (const sub of expiredRejected) {
+    await prisma.$transaction(async (tx) => {
+       const current = await tx.linkSubmission.findUnique({ where: { id: sub.id } })
+       if (!current || current.status !== 'REJECTED') return
+
+       // Delete history
+       await tx.linkSubmission.delete({ where: { id: sub.id } })
+
+       // Release Lock (Decrement completedVisits because it was incremented on rejection)
+       await tx.promotedLink.update({ 
+         where: { id: sub.promotedLinkId }, 
+         data: { completedVisits: { decrement: 1 } } 
+       })
     })
   }
 }
@@ -464,9 +488,7 @@ router.get('/history/:id', requireLogin, async (req, res) => {
         <form action="/promote/submission/${sub.id}/approve" method="POST" style="flex:1">
           <button class="btn-premium" style="width:100%;background:#22c55e;border:none">Approve</button>
         </form>
-        <form action="/promote/submission/${sub.id}/reject" method="POST" style="flex:1">
-          <button class="btn-premium" style="width:100%;background:#ef4444;border:none">Reject</button>
-        </form>
+        <button onclick="openRejectModal(${sub.id})" class="btn-premium" style="flex:1;background:#ef4444;border:none;justify-content:center">Reject</button>
       </div>
     </div>
   `
@@ -485,8 +507,31 @@ router.get('/history/:id', requireLogin, async (req, res) => {
         </form>
       </div>
 
+      ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
       ${pendingSubs.length ? pendingSubs.map(renderSub).join('') : '<div class="empty-state">No pending screenshots</div>'}
     </div>
+
+    <!-- Reject Modal -->
+    <div id="rejectModal" class="modal-overlay hidden">
+      <div class="glass-panel" style="max-width:400px;width:100%;padding:24px;position:relative">
+        <button onclick="document.getElementById('rejectModal').classList.add('hidden')" style="position:absolute;top:10px;right:10px;background:none;border:none;color:white;font-size:24px;cursor:pointer">×</button>
+        <h3 style="margin-bottom:16px;color:#f87171">Reject Submission</h3>
+        <form id="rejectForm" method="POST">
+          <div class="form-group" style="margin-bottom:20px">
+            <label class="form-label" style="display:block;margin-bottom:8px">Reason (Required)</label>
+            <textarea name="reason" required placeholder="e.g., Video not watched fully..." class="form-input" style="width:100%;padding:12px;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);border-radius:8px;color:white;min-height:80px"></textarea>
+          </div>
+          <button type="submit" class="btn-premium full-width" style="background:#ef4444">Confirm Reject</button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      function openRejectModal(id) {
+        document.getElementById('rejectForm').action = '/promote/submission/' + id + '/reject';
+        document.getElementById('rejectModal').classList.remove('hidden');
+      }
+    </script>
     ${getFooter()}
   `)
 })
@@ -508,6 +553,13 @@ router.post('/submission/:id/approve', requireLogin, async (req, res) => {
         where: { id: subId },
         data: { status: 'APPROVED' }
       })
+
+      // Delete Screenshots (Save Space)
+      if(submission.screenshots && submission.screenshots.length) {
+        submission.screenshots.forEach(p => {
+          try { fs.unlinkSync('public' + p) } catch(e) {}
+        })
+      }
 
       // Reward User
       await tx.user.update({
@@ -534,8 +586,40 @@ router.post('/submission/:id/approve', requireLogin, async (req, res) => {
 })
 
 router.post('/submission/:id/reject', requireLogin, async (req, res) => {
-  await prisma.linkSubmission.update({ where: { id: parseInt(req.params.id) }, data: { status: 'REJECTED' } })
-  res.redirect('back')
+  try {
+    const { reason } = req.body
+    if(!reason) return res.redirect('back?error=Reason+is+required')
+
+    const subId = parseInt(req.params.id)
+
+    await prisma.$transaction(async (tx) => {
+      const sub = await tx.linkSubmission.findUnique({ where: { id: subId }, include: { promotedLink: true } })
+      
+      // Security Check
+      if (!sub || sub.promotedLink.userId !== req.session.userId) throw new Error('Unauthorized')
+      if (sub.status !== 'PENDING') return
+
+      // Reject
+      await tx.linkSubmission.update({
+        where: { id: subId },
+        data: { 
+          status: 'REJECTED',
+          rejectionReason: reason
+        }
+      })
+
+      // Lock Logic: Increment completedVisits so it remains "occupied" until resolved
+      await tx.promotedLink.update({
+        where: { id: sub.promotedLinkId },
+        data: { completedVisits: { increment: 1 } }
+      })
+    })
+
+    res.redirect('back')
+  } catch (e) {
+    console.error(e)
+    res.redirect('back?error=Error+rejecting+task')
+  }
 })
 
 router.post('/link/:id/approve-all', requireLogin, async (req, res) => {
@@ -554,6 +638,13 @@ router.post('/link/:id/approve-all', requireLogin, async (req, res) => {
       for (const sub of submissions) {
         await tx.linkSubmission.update({ where: { id: sub.id }, data: { status: 'APPROVED' } })
         
+        // Delete Screenshots
+        if(sub.screenshots && sub.screenshots.length) {
+          sub.screenshots.forEach(p => {
+            try { fs.unlinkSync('public' + p) } catch(e) {}
+          })
+        }
+
         await tx.user.update({
           where: { id: sub.visitorId },
           data: { 
@@ -742,26 +833,100 @@ router.post('/submit/:id', requireLogin, upload.array('screenshots', 10), async 
   res.redirect('/promote/earn?success=Proof+submitted+successfully.+Here+is+your+next+task!')
 })
 
-// 5. My Tasks
+// 5. My Tasks Enhanced
 router.get('/tasks', requireLogin, async (req, res) => {
+  const userId = req.session.userId
+  const settings = await getSettings()
+  
   const tasks = await prisma.linkSubmission.findMany({
-    where: { visitorId: req.session.userId },
+    where: { visitorId: userId },
     include: { promotedLink: true },
     orderBy: { submittedAt: 'desc' }
   })
   
-  const renderTask = (task) => `
-    <div class="glass-panel" style="padding:16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-weight:bold">${task.promotedLink.title}</div>
-        <div style="font-size:12px;color:var(--text-muted)">${new Date(task.submittedAt).toLocaleDateString()}</div>
+  // Calculate Stats
+  const approved = tasks.filter(t => t.status === 'APPROVED' || t.status === 'ADMIN_APPROVED').length
+  const rejected = tasks.filter(t => t.status === 'REJECTED' || t.status === 'ADMIN_REJECTED').length
+  const pending = tasks.filter(t => t.status === 'PENDING' || t.status === 'REPORTED').length
+  const earnedCoins = approved * settings.rewards.coin // Estimate based on current reward settings
+
+  const getStatusBadge = (status) => {
+    let color = 'gray', bg = 'rgba(255,255,255,0.1)'
+    if(status.includes('APPROVED')) { color = '#4ade80'; bg = 'rgba(34,197,94,0.1)'; }
+    if(status.includes('REJECTED')) { color = '#f87171'; bg = 'rgba(248,113,113,0.1)'; }
+    if(status === 'PENDING') { color = '#fb923c'; bg = 'rgba(251,146,60,0.1)'; }
+    if(status === 'REPORTED') { color = '#c084fc'; bg = 'rgba(192,132,252,0.1)'; }
+    return `<span style="background:${bg};color:${color};padding:4px 8px;border-radius:4px;font-size:12px;font-weight:600">${status.replace('_', ' ')}</span>`
+  }
+
+  const renderTask = (task) => {
+    const isRejected = task.status === 'REJECTED' || task.status === 'ADMIN_REJECTED'
+    const diffTime = Math.abs(new Date() - new Date(task.submittedAt));
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    const isReportable = task.status === 'REJECTED' && diffDays <= 3
+    
+    // Logic: Approved tasks hide screenshot (simulated deletion view)
+    const showProof = task.status !== 'APPROVED' && task.status !== 'ADMIN_APPROVED'
+
+    return `
+      <div class="glass-panel" style="padding:20px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:16px;gap:10px">
+          <div>
+            <div style="font-weight:bold;font-size:16px;margin-bottom:4px">Task #${task.id}</div>
+            <div style="color:var(--text-muted);font-size:14px;margin-bottom:4px">${task.promotedLink.title}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${new Date(task.submittedAt).toLocaleString()}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            ${getStatusBadge(task.status)}
+            <div style="margin-top:6px;font-weight:bold;color:#fb923c;font-size:14px">+${settings.rewards.coin} 🪙</div>
+          </div>
+        </div>
+
+        ${isRejected ? `
+          <div style="background:rgba(239,68,68,0.1);padding:12px;border-radius:8px;margin-bottom:16px;border:1px solid rgba(239,68,68,0.2)">
+            <div style="font-weight:bold;color:#fca5a5;font-size:13px;margin-bottom:4px;display:flex;align-items:center;gap:6px">
+              <img src="https://api.iconify.design/lucide:alert-circle.svg?color=%23fca5a5" width="14"> Rejection Reason:
+            </div>
+            <div style="color:white;font-size:14px;line-height:1.4">${task.rejectionReason || 'No reason provided by link owner.'}</div>
+          </div>
+        ` : ''}
+
+        ${showProof ? `
+          <div style="margin-bottom:16px;background:rgba(0,0,0,0.2);padding:12px;border-radius:8px">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Proof Screenshots:</div>
+            <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px">
+              ${task.screenshots.map(url => `
+                <a href="${url}" target="_blank" style="flex-shrink:0">
+                  <img src="${url}" style="height:60px;width:60px;object-fit:cover;border-radius:6px;border:1px solid rgba(255,255,255,0.1);transition:transform 0.2s">
+                </a>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        ${isReportable ? `
+          <button onclick="openReportModal(${task.id})" class="btn-premium" style="width:100%;justify-content:center;background:linear-gradient(135deg, #7c3aed, #6d28d9);border:none;padding:10px">
+            ⚠️ Report Issue
+          </button>
+          <div style="text-align:center;margin-top:8px;font-size:11px;color:var(--text-muted)">
+            You can report this rejection within 3 days.
+          </div>
+        ` : ''}
+        
+        ${task.status === 'REPORTED' ? `
+          <div style="background:rgba(124,58,237,0.1);padding:10px;border-radius:8px;text-align:center;color:#c4b5fd;font-size:13px;border:1px solid rgba(124,58,237,0.2)">
+            <div style="font-weight:600;margin-bottom:4px">Under Review</div>
+            <div>"${task.reportMessage}"</div>
+          </div>
+        ` : ''}
       </div>
-      <div class="status-tag" style="
-        background:${task.status==='APPROVED'?'rgba(34,197,94,0.2)':task.status==='REJECTED'?'rgba(239,68,68,0.2)':'rgba(251,146,60,0.2)'};
-        color:${task.status==='APPROVED'?'#4ade80':task.status==='REJECTED'?'#fca5a5':'#fb923c'}
-      ">
-        ${task.status}
-      </div>
+    `
+  }
+
+  const statCard = (label, val, color) => `
+    <div style="background:rgba(255,255,255,0.03);padding:16px;border-radius:12px;text-align:center;border:1px solid rgba(255,255,255,0.05)">
+      <div style="font-size:24px;font-weight:bold;color:${color};margin-bottom:4px">${val}</div>
+      <div style="font-size:12px;color:var(--text-muted)">${label}</div>
     </div>
   `
 
@@ -772,14 +937,83 @@ router.get('/tasks', requireLogin, async (req, res) => {
       <div class="section-header">
         <div>
           <div class="section-title">My Tasks</div>
-          <div style="color:var(--text-muted)">History of your completed visits</div>
+          <div style="color:var(--text-muted)">Track your work and earnings</div>
         </div>
       </div>
+      
+      <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:12px;margin-bottom:24px">
+        ${statCard('Approved', approved, '#4ade80')}
+        ${statCard('Rejected', rejected, '#f87171')}
+        ${statCard('Pending', pending, '#fb923c')}
+        ${statCard('Earned Coins', earnedCoins, '#facc15')}
+      </div>
+
       ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
-      ${tasks.length ? tasks.map(renderTask).join('') : '<div class="empty-state">No tasks found</div>'}
+      ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
+
+      <div class="task-list">
+        ${tasks.length ? tasks.map(renderTask).join('') : '<div class="empty-state">No tasks found</div>'}
+      </div>
     </div>
+
+    <!-- Report Modal -->
+    <div id="reportModal" class="modal-overlay hidden">
+      <div class="glass-panel" style="max-width:400px;width:100%;padding:24px;position:relative">
+        <button onclick="document.getElementById('reportModal').classList.add('hidden')" style="position:absolute;top:10px;right:10px;background:none;border:none;color:white;font-size:24px;cursor:pointer">×</button>
+        <h3 style="margin-bottom:16px;color:#f87171">Report Rejection</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">
+          Tell us why you think this rejection is incorrect. Admins will review the screenshots.
+        </p>
+        <form action="/promote/tasks/report" method="POST">
+          <input type="hidden" name="taskId" id="reportTaskId">
+          <div class="form-group" style="margin-bottom:20px">
+            <label class="form-label" style="display:block;margin-bottom:8px">Reason / Message</label>
+            <textarea name="message" required placeholder="I completed the task correctly..." class="form-input" style="width:100%;padding:12px;background:rgba(15,23,42,0.6);border:1px solid var(--glass-border);border-radius:8px;color:white;min-height:80px"></textarea>
+          </div>
+          <button type="submit" class="btn-premium full-width" style="background:#ef4444">Submit Report</button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      function openReportModal(id) {
+        document.getElementById('reportTaskId').value = id;
+        document.getElementById('reportModal').classList.remove('hidden');
+      }
+    </script>
     ${getFooter()}
   `)
+})
+
+router.post('/tasks/report', requireLogin, async (req, res) => {
+  const { taskId, message } = req.body
+  const userId = req.session.userId
+
+  try {
+    const task = await prisma.linkSubmission.findUnique({ where: { id: parseInt(taskId) } })
+    
+    if (!task || task.visitorId !== userId) return res.redirect('/promote/tasks?error=Unauthorized')
+    
+    const diffTime = Math.abs(new Date() - new Date(task.submittedAt));
+    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+    
+    if (diffDays > 3) return res.redirect('/promote/tasks?error=Report+period+expired')
+    if (task.status !== 'REJECTED') return res.redirect('/promote/tasks?error=Only+rejected+tasks+can+be+reported')
+
+    await prisma.linkSubmission.update({
+      where: { id: parseInt(taskId) },
+      data: {
+        status: 'REPORTED',
+        reportMessage: message,
+        reportedAt: new Date()
+      }
+    })
+
+    res.redirect('/promote/tasks?success=Report+submitted+successfully')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/promote/tasks?error=Something+went+wrong')
+  }
 })
 
 module.exports = router

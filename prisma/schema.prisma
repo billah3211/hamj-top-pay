@@ -144,9 +144,12 @@ model LinkSubmission {
   promotedLink   PromotedLink @relation(fields: [promotedLinkId], references: [id], onDelete: Cascade)
   visitorId      Int?
   visitor        User?        @relation(fields: [visitorId], references: [id])
-  screenshots    String[]     // Array of URLs handled by Prisma as String[] (requires PostgreSQL)
-  status         String       @default("PENDING") // PENDING, APPROVED, REJECTED
-  submittedAt    DateTime     @default(now())
+  screenshots    String[]
+  status         String       @default("PENDING") // PENDING, APPROVED, REJECTED, REPORTED
+  rejectionReason String?
+  reportMessage   String?
+  reportedAt      DateTime?
+  submittedAt     DateTime     @default(now())
 }
 
 model SystemSetting {
