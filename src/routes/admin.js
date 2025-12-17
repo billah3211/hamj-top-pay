@@ -942,24 +942,52 @@ router.post('/topup/action', requireAdmin, async (req, res) => {
     if (!request || request.status !== 'PENDING') return res.redirect('/admin/topup-requests')
 
     if (action === 'approve') {
-       // Transaction: Update status + Add Diamonds + Notify
-       await prisma.$transaction([
-         prisma.topUpRequest.update({
+       // Transaction: Update status + Add Diamonds + Notify + Guild Commission
+       await prisma.$transaction(async (tx) => {
+         // 1. Update Request
+         await tx.topUpRequest.update({
            where: { id: request.id },
            data: { status: 'APPROVED', processedAt: new Date() }
-         }),
-         prisma.user.update({
+         })
+
+         // 2. Add Diamonds to User & Get Guild Info
+         const updatedUser = await tx.user.update({
            where: { id: request.userId },
-           data: { diamond: { increment: request.package.diamondAmount } }
-         }),
-         prisma.notification.create({
+           data: { diamond: { increment: request.package.diamondAmount } },
+           include: { guild: true }
+         })
+
+         // 3. Notify User
+         await tx.notification.create({
            data: {
              userId: request.userId,
              message: `Top Up Approved! ${request.package.diamondAmount} Diamonds added to your account.`,
              type: 'credit'
            }
          })
-       ])
+
+         // 4. Guild Commission
+         if (updatedUser.guild && updatedUser.guild.status === 'APPROVED') {
+           const rate = updatedUser.guild.commissionRate
+           // Commission based on Package Price (TK)
+           const commission = Math.floor(request.package.price * (rate / 100))
+           
+           if (commission > 0) {
+             await tx.user.update({
+               where: { id: updatedUser.guild.leaderId },
+               data: { tk: { increment: commission } }
+             })
+             
+             await tx.notification.create({
+               data: {
+                 userId: updatedUser.guild.leaderId,
+                 message: `Guild Bonus: You earned ${commission} TK from a member's Top-Up!`,
+                 type: 'credit'
+               }
+             })
+           }
+         }
+       })
     } else {
        // Reject
        await prisma.$transaction([
@@ -1133,6 +1161,129 @@ router.post('/report/:id/resolve', requireAdmin, async (req, res) => {
   } catch (e) {
     console.error(e)
     res.status(500).send('Error resolving report')
+  }
+})
+
+// ----------------------------------------------------------------------
+// GUILD MANAGEMENT
+// ----------------------------------------------------------------------
+
+router.get('/guild-requests', requireAdmin, async (req, res) => {
+  const requests = await prisma.guild.findMany({
+    where: { status: 'PENDING', type: 'YOUTUBER' },
+    include: { leader: true }
+  })
+
+  res.send(`
+    ${getHead('Guild Requests')}
+    ${getSidebar('guild-requests', req.session.role)}
+    <div class="main-content">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Guild Requests</div>
+          <div style="color:var(--text-muted)">Review YouTuber Guild applications</div>
+        </div>
+      </div>
+
+      <div class="glass-panel" style="overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Guild Info</th>
+              <th>Leader Details</th>
+              <th>Requirements</th>
+              <th>Contacts</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${requests.map(req => `
+              <tr>
+                <td style="padding:12px">
+                  <div style="font-weight:bold">${req.name}</div>
+                  <div style="font-size:12px;color:var(--text-muted)">@${req.username}</div>
+                </td>
+                <td style="padding:12px">
+                  <div style="font-weight:bold">${req.leader.firstName} ${req.leader.lastName}</div>
+                  <div style="font-size:12px;color:var(--text-muted)">${req.leader.email}</div>
+                </td>
+                <td style="padding:12px">
+                  <a href="${req.youtubeChannelLink}" target="_blank" class="btn-premium" style="display:block;margin-bottom:4px;font-size:11px;padding:4px;text-align:center">📺 Channel</a>
+                  <a href="${req.videoLink}" target="_blank" class="btn-premium" style="display:block;font-size:11px;padding:4px;text-align:center;background:rgba(255,255,255,0.05)">🎬 Video</a>
+                </td>
+                <td style="padding:12px">
+                  <div style="font-size:12px">📧 ${req.contactEmail}</div>
+                  <div style="font-size:12px">📞 ${req.contactPhone}</div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Verify: ${req.verificationContact}</div>
+                </td>
+                <td style="padding:12px">
+                  <div style="display:flex;gap:6px">
+                    <form action="/admin/guild/${req.id}/approve" method="POST">
+                      <button class="btn-premium" style="background:#22c55e;padding:6px 10px;font-size:12px">Approve</button>
+                    </form>
+                    <form action="/admin/guild/${req.id}/reject" method="POST">
+                      <button class="btn-premium" style="background:#ef4444;padding:6px 10px;font-size:12px">Reject</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+            ${requests.length === 0 ? '<tr><td colspan="5" style="text-align:center;padding:30px">No pending requests</td></tr>' : ''}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ${getScripts()}
+  `)
+})
+
+router.post('/guild/:id/approve', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    await prisma.guild.update({
+      where: { id },
+      data: { status: 'APPROVED' }
+    })
+    
+    // Notify Leader (Optional)
+    const guild = await prisma.guild.findUnique({ where: { id } })
+    await prisma.notification.create({
+      data: {
+        userId: guild.leaderId,
+        message: `Your YouTuber Guild "${guild.name}" has been approved!`,
+        type: 'info'
+      }
+    })
+
+    res.redirect('/admin/guild-requests?success=Approved')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/admin/guild-requests?error=Error')
+  }
+})
+
+router.post('/guild/:id/reject', requireAdmin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    // Delete guild and update user
+    const guild = await prisma.guild.findUnique({ where: { id } })
+    
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: guild.leaderId }, data: { guildId: null } }),
+      prisma.guild.delete({ where: { id } }),
+      prisma.notification.create({
+        data: {
+          userId: guild.leaderId,
+          message: `Your YouTuber Guild "${guild.name}" was rejected. Please check requirements and try again.`,
+          type: 'alert'
+        }
+      })
+    ])
+
+    res.redirect('/admin/guild-requests?success=Rejected')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/admin/guild-requests?error=Error')
   }
 })
 

@@ -39,6 +39,33 @@ model User {
   promotedLinks PromotedLink[]
   linkSubmissions LinkSubmission[]
   topUpRequests TopUpRequest[]
+
+  guildId       Int?
+  guild         Guild?   @relation(fields: [guildId], references: [id])
+  ownedGuild    Guild?   @relation("GuildLeader")
+}
+
+model Guild {
+  id              Int      @id @default(autoincrement())
+  name            String
+  username        String   @unique
+  description     String?
+  type            String   @default("USER") // USER, YOUTUBER
+  leaderId        Int      @unique
+  leader          User     @relation("GuildLeader", fields: [leaderId], references: [id])
+  status          String   @default("APPROVED") // PENDING, APPROVED, REJECTED
+  memberLimit     Int      @default(50)
+  commissionRate  Float    @default(1.0)
+  
+  // YouTuber Specific
+  youtubeChannelLink String?
+  videoLink          String?
+  contactEmail       String?
+  contactPhone       String?
+  verificationContact String?
+
+  createdAt       DateTime @default(now())
+  members         User[]
 }
 
 model StoreItem {
