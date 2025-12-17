@@ -8,40 +8,56 @@ const requireLogin = (req, res, next) => {
   res.redirect('/login')
 }
 
-// Layout Helpers (Simulated based on existing code style)
-const getHead = (title) => `
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>${title} - HaMJ toP PaY</title>
-  <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-  <style>
-    .guild-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-    .guild-badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
-    .badge-user { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
-    .badge-youtuber { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
-    .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
-    .modal-content { background: #1e293b; padding: 24px; border-radius: 16px; width: 90%; max-width: 500px; border: 1px solid rgba(255,255,255,0.1); max-height: 90vh; overflow-y: auto; }
-  </style>
-</head>
-<body style="padding-bottom: 80px;">
+// Layout Helpers
+const getSidebar = (active) => `
+  <nav class="sidebar-premium" id="sidebar">
+    <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
+    <ul class="nav-links">
+      <li class="nav-item"><a href="/dashboard"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
+      <li class="nav-item"><a href="/promote"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Link</a></li>
+      <li class="nav-item"><a href="/store"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=%2394a3b8" class="nav-icon"> Store</a></li>
+      <li class="nav-item"><a href="/store/my"><img src="https://api.iconify.design/lucide:briefcase.svg?color=%2394a3b8" class="nav-icon"> My Store</a></li>
+      <li class="nav-item"><a href="/topup"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up</a></li>
+      <li class="nav-item"><a href="/guild" class="active"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Guild</a></li>
+      <li class="nav-item"><a href="/notifications"><img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications</a></li>
+      <li class="nav-item"><a href="/settings"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
+      <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
+    </ul>
+  </nav>
 `
-// Note: Assuming getSidebar and getFooter are available or I need to recreate/import them. 
-// Since I can't easily import functions from other route files unless they are in a shared lib, 
-// and the user didn't show a shared lib, I'll assume I need to replicate simple nav or just rely on a shared layout if it existed.
-// However, looking at promote.js, it uses getHead/getSidebar. I will try to replicate minimal versions or use what's available.
-// I'll stick to a simple consistent layout.
 
-const getNav = () => `
-  <div class="bottom-nav">
-    <a href="/" class="nav-item"><i class="fas fa-home"></i><span>Home</span></a>
-    <a href="/promote" class="nav-item"><i class="fas fa-bullhorn"></i><span>Promote</span></a>
-    <a href="/guild" class="nav-item active"><i class="fas fa-users"></i><span>Guild</span></a>
-    <a href="/profile" class="nav-item"><i class="fas fa-user"></i><span>Profile</span></a>
-  </div>
+const getHead = (title) => `
+  <!doctype html>
+  <html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>${title} - HaMJ toP PaY</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+      .guild-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+      .guild-badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+      .badge-user { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+      .badge-youtuber { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+      .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+      .modal-content { background: #1e293b; padding: 24px; border-radius: 16px; width: 90%; max-width: 500px; border: 1px solid rgba(255,255,255,0.1); max-height: 90vh; overflow-y: auto; }
+    </style>
+  </head>
+  <body>
+    <button class="menu-trigger" id="mobileMenuBtn">☰</button>
+    <div class="app-layout">
+`
+
+const getFooter = () => `
+    </div>
+    <script>
+      const menuBtn = document.getElementById('mobileMenuBtn');
+      const sidebar = document.getElementById('sidebar');
+      if(menuBtn) menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+    </script>
+  </body>
+  </html>
 `
 
 // ----------------------------------------------------------------------
@@ -62,23 +78,20 @@ router.get('/', requireLogin, async (req, res) => {
     if (guild.status === 'PENDING') {
       return res.send(`
         ${getHead('Guild Pending')}
-        <div class="container" style="padding:20px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; height:80vh;">
-          <div style="font-size:48px; margin-bottom:20px;">⏳</div>
-          <h2 style="margin-bottom:10px">Application Pending</h2>
-          <p style="color:var(--text-muted); margin-bottom:20px">Your YouTuber Guild application is currently under review by the admin. Please wait 24-48 hours.</p>
-          <div class="glass-panel" style="padding:16px; width:100%">
-            <div>Guild Name: <b>${guild.name}</b></div>
-            <div>Submitted: ${new Date(guild.createdAt).toLocaleDateString()}</div>
+        ${getSidebar('guild')}
+        <div class="main-content">
+          <div class="container" style="padding:20px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; height:80vh;">
+            <div style="font-size:48px; margin-bottom:20px">⏳</div>
+            <h2 style="margin-bottom:10px">Application Pending</h2>
+            <p style="color:var(--text-muted); margin-bottom:20px">Your YouTuber Guild application is currently under review by the admin. Please wait 24-48 hours.</p>
+            <div class="glass-panel" style="padding:16px; width:100%">
+              <div>Guild Name: <b>${guild.name}</b></div>
+              <div>Submitted: ${new Date(guild.createdAt).toLocaleDateString()}</div>
+            </div>
           </div>
         </div>
-        ${getNav()}
-      </body></html>
+        ${getFooter()}
       `)
-    }
-
-    if (guild.status === 'REJECTED') {
-      // Allow leaving/clearing rejected status to try again
-       // Assuming we should show rejection and allow leave
     }
 
     // Active Guild Dashboard
@@ -87,7 +100,8 @@ router.get('/', requireLogin, async (req, res) => {
     
     return res.send(`
       ${getHead('My Guild')}
-      <div class="main-content" style="padding:20px">
+      ${getSidebar('guild')}
+      <div class="main-content">
         <div class="section-header">
           <div>
             <div class="section-title">${guild.name}</div>
@@ -123,7 +137,7 @@ router.get('/', requireLogin, async (req, res) => {
           `}
         </div>
 
-        <!-- Member List (Optional, just showing top few or summary) -->
+        <!-- Member List -->
         <h3 style="margin-bottom:12px; font-size:16px">Members</h3>
         <div class="member-list">
           ${guild.members.map(m => `
@@ -140,8 +154,7 @@ router.get('/', requireLogin, async (req, res) => {
         </div>
 
       </div>
-      ${getNav()}
-    </body></html>
+      ${getFooter()}
     `)
   }
 
@@ -170,7 +183,8 @@ router.get('/', requireLogin, async (req, res) => {
 
   res.send(`
     ${getHead('Guilds')}
-    <div class="main-content" style="padding:20px">
+    ${getSidebar('guild')}
+    <div class="main-content">
       <div class="section-header">
         <div>
           <div class="section-title">Guilds</div>
@@ -298,8 +312,7 @@ router.get('/', requireLogin, async (req, res) => {
         document.getElementById('btn-youtuber').style.background = type === 'youtuber' ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.05)';
       }
     </script>
-    ${getNav()}
-  </body></html>
+    ${getFooter()}
   `)
 })
 
