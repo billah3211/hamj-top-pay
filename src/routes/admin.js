@@ -25,6 +25,7 @@ function getSidebar(active, role) {
         <li class="nav-item"><a href="/admin/guild-requests" class="${active === 'guild-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:flag.svg?color=%2394a3b8" class="nav-icon"> Guild Requests</a></li>
         <li class="nav-item"><a href="/admin/balances" class="${active === 'balances' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=%2394a3b8" class="nav-icon"> Balances</a></li>
         <li class="nav-item"><a href="/admin/task-reports" class="${active === 'task-reports' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:alert-octagon.svg?color=%2394a3b8" class="nav-icon"> Task Reports</a></li>
+        <li class="nav-item"><a href="/admin/guild-settings" class="${active === 'guild-settings' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:settings-2.svg?color=%2394a3b8" class="nav-icon"> Guild Settings</a></li>
         <li class="nav-item"><a href="/admin/promote-settings" class="${active === 'promote-settings' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Settings</a></li>
         <li class="nav-item" style="margin-top:auto"><a href="/admin/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
       </ul>
@@ -1286,6 +1287,54 @@ router.post('/guild/:id/reject', requireAdmin, async (req, res) => {
     console.error(e)
     res.redirect('/admin/guild-requests?error=Error')
   }
+})
+
+// ----------------------------------------------------------------------
+// GUILD SETTINGS
+// ----------------------------------------------------------------------
+
+router.get('/guild-settings', requireAdmin, async (req, res) => {
+  let setting = await prisma.systemSetting.findUnique({
+    where: { key: 'guild_requirements_youtuber' }
+  })
+  if (!setting) {
+    setting = { value: '2,000+ Subscribers\n1,000+ Views on 1 video\n1 video about Hamj Top Pay\n2 videos/month required' }
+  }
+
+  res.send(`
+    ${getHead('Guild Settings')}
+    ${getSidebar('guild-settings', req.session.role)}
+    <div class="main-content">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Guild Settings</div>
+          <div style="color:var(--text-muted)">Configure guild requirements and settings</div>
+        </div>
+      </div>
+
+      <div class="glass-panel" style="padding:24px; max-width:600px">
+        <form action="/admin/guild-settings" method="POST">
+          <div class="form-group" style="margin-bottom:20px">
+            <label class="form-label" style="display:block; margin-bottom:8px">YouTuber Guild Requirements</label>
+            <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px">Enter each requirement on a new line.</div>
+            <textarea name="requirements" class="form-input" style="width:100%; height:150px; background:rgba(0,0,0,0.2); color:white; border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:12px; font-family:inherit; resize:vertical">${setting.value}</textarea>
+          </div>
+          <button class="btn-premium">Save Changes</button>
+        </form>
+      </div>
+    </div>
+    ${getScripts()}
+  `)
+})
+
+router.post('/guild-settings', requireAdmin, async (req, res) => {
+  const { requirements } = req.body
+  await prisma.systemSetting.upsert({
+    where: { key: 'guild_requirements_youtuber' },
+    update: { value: requirements },
+    create: { key: 'guild_requirements_youtuber', value: requirements }
+  })
+  res.redirect('/admin/guild-settings')
 })
 
 module.exports = router

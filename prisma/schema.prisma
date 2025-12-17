@@ -45,6 +45,8 @@ model User {
   ownedGuild    Guild?   @relation("GuildLeader")
 }
 
+
+
 model Guild {
   id              Int      @id @default(autoincrement())
   name            String

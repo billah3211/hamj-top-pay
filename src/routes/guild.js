@@ -70,6 +70,15 @@ router.get('/', requireLogin, async (req, res) => {
     include: { guild: { include: { leader: true, members: true } } }
   })
 
+  // Get Requirements Text
+  let reqSetting = await prisma.systemSetting.findUnique({ where: { key: 'guild_requirements_youtuber' } })
+  const defaultReq = '2,000+ Subscribers\n1,000+ Views on 1 video\n1 video about Hamj Top Pay\n2 videos/month required'
+  const rawText = reqSetting ? reqSetting.value : defaultReq
+  const requirementsText = rawText.split('\n')
+    .filter(line => line.trim() !== '')
+    .map(line => `<div style="display:flex; gap:8px; margin-bottom:4px; align-items:flex-start"><span style="color:#fca5a5">•</span><span>${line.replace(/^[•\-\*]\s*/, '')}</span></div>`)
+    .join('')
+
   // 1. User is in a Guild (or Leader of one)
   if (user.guild) {
     const guild = user.guild
@@ -262,10 +271,7 @@ router.get('/', requireLogin, async (req, res) => {
           <input type="hidden" name="type" value="YOUTUBER">
           <div class="alert info" style="font-size:12px; margin-bottom:16px; border-color:#fca5a5; background:rgba(239,68,68,0.1)">
             <b>Requirements:</b><br>
-            • 2,000+ Subscribers<br>
-            • 1,000+ Views on 1 video<br>
-            • 1 video about Hamj Top Pay<br>
-            • 2 videos/month required
+            ${requirementsText}
           </div>
           
           <div class="form-group" style="margin-bottom:12px">
