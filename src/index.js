@@ -22,7 +22,7 @@ const topupRoutes = require('./routes/topup')
 const app = express()
 app.set('trust proxy', 1) // Trust Render proxy for secure cookies
 app.use(express.json())
-app.use(express.urlencoded({ extended: false }))
+app.use(express.urlencoded({ extended: true }))
 
 // Initialize Redis client connection with error handling
 const redisStore = new RedisStore({
