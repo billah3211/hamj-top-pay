@@ -291,9 +291,10 @@ router.get('/api/stats', requireAdmin, async (req, res) => {
 
 router.get('/users', requireAdmin, async (req, res) => {
   const { q } = req.query
-  let where = {}
+  let users = []
+
   if (q) {
-    where = {
+    const where = {
       OR: [
         { username: { contains: q, mode: 'insensitive' } },
         { email: { contains: q, mode: 'insensitive' } },
@@ -301,13 +302,13 @@ router.get('/users', requireAdmin, async (req, res) => {
         { lastName: { contains: q, mode: 'insensitive' } }
       ]
     }
-  }
 
-  const users = await prisma.user.findMany({ 
-    where,
-    orderBy: { createdAt: 'desc' },
-    take: 50
-  })
+    users = await prisma.user.findMany({ 
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 50
+    })
+  }
 
   const userList = users.map(u => {
     // Access Control Logic
