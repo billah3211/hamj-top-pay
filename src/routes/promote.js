@@ -945,7 +945,7 @@ router.get('/tasks', requireLogin, async (req, res) => {
       </div>
       
       <div style="display:grid;grid-template-columns:repeat(2, 1fr);gap:12px;margin-bottom:24px">
-        ${statCard('Approved', approved, '#4ade80', "toggleHistory()")}
+        ${statCard('Approved', approved, '#4ade80')}
         ${statCard('Rejected', rejected, '#f87171')}
         ${statCard('Pending', pending, '#fb923c')}
         ${statCard('Earned Coins', earnedCoins, '#facc15')}
@@ -955,18 +955,8 @@ router.get('/tasks', requireLogin, async (req, res) => {
       ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
 
       <div class="task-list">
-        ${activeTasks.length ? activeTasks.map(renderTask).join('') : (approvedTasks.length ? '' : '<div class="empty-state">No pending or rejected tasks</div>')}
+        ${activeTasks.length ? activeTasks.map(renderTask).join('') : '<div class="empty-state">No pending or rejected tasks</div>'}
       </div>
-      
-      ${approvedTasks.length ? `
-        <div id="historySection" class="hidden" style="margin-top:24px;border-top:1px solid var(--glass-border);padding-top:24px">
-           <h3 style="margin-bottom:16px;font-size:16px;color:var(--text-muted)">Approved History</h3>
-           ${approvedTasks.map(renderTask).join('')}
-        </div>
-        <div id="historyHint" style="text-align:center;margin-top:20px;color:var(--text-muted);font-size:12px">
-           Click "Approved" card to view history
-        </div>
-      ` : ''}
     </div>
 
     <!-- Report Modal -->
@@ -992,14 +982,6 @@ router.get('/tasks', requireLogin, async (req, res) => {
       function openReportModal(id) {
         document.getElementById('reportTaskId').value = id;
         document.getElementById('reportModal').classList.remove('hidden');
-      }
-      function toggleHistory() {
-        const section = document.getElementById('historySection');
-        const hint = document.getElementById('historyHint');
-        if(section) {
-           section.classList.toggle('hidden');
-           if(hint) hint.style.display = section.classList.contains('hidden') ? 'block' : 'none';
-        }
       }
     </script>
     ${getFooter()}
