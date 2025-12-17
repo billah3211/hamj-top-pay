@@ -272,14 +272,25 @@ router.get('/:pkgId/pay/:walletId', requireAuth, async (req, res) => {
 // 4. Handle Submission
 router.post('/submit', requireAuth, async (req, res) => {
   try {
-    const { pkgId, walletId, senderNumber, trxId } = req.body
+    let { pkgId, walletId, senderNumber, trxId } = req.body
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
     
-    // Check if TrxID exists
+    // Normalize Input
+    trxId = trxId ? trxId.trim().toUpperCase() : ''
+    senderNumber = senderNumber ? senderNumber.trim() : ''
+
+    if (!trxId || !senderNumber) {
+       return res.send(renderLayout('Error', `
+         <div class="alert error">Please provide all required details.</div>
+         <a href="/topup/${pkgId}/pay/${walletId}" class="btn-premium">Try Again</a>
+       `, user))
+    }
+    
+    // Check if TrxID exists (Case Insensitive via normalization)
     const existing = await prisma.topUpRequest.findUnique({ where: { trxId } })
     if (existing) {
        return res.send(renderLayout('Error', `
-         <div class="alert error">Transaction ID already used! Please check again.</div>
+         <div class="alert error">Transaction ID '${trxId}' already used! Please check again.</div>
          <a href="/topup/${pkgId}/pay/${walletId}" class="btn-premium">Try Again</a>
        `, user))
     }
@@ -297,6 +308,14 @@ router.post('/submit', requireAuth, async (req, res) => {
     res.redirect('/topup/history')
 
   } catch (error) {
+    // Handle Unique Constraint Violation if race condition occurs
+    if (error.code === 'P2002') {
+       const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+       return res.send(renderLayout('Error', `
+         <div class="alert error">Transaction ID already used! Please check again.</div>
+         <a href="/topup" class="btn-premium">Try Again</a>
+       `, user))
+    }
     console.error(error)
     res.status(500).send('Server Error')
   }
