@@ -184,7 +184,71 @@ router.get('/', requireLogin, async (req, res) => {
 
       </div>
 
+      <!-- User Profile Modal -->
+      <div id="userProfileModal" class="guild-modal" style="display:none; align-items: center; justify-content: center; padding: 20px;">
+        <div class="modal-content" style="background: transparent; border: none; box-shadow: none; width: 100%; max-width: 600px; padding: 0;">
+          <div style="position: relative;">
+              <button class="modal-close" onclick="document.getElementById('userProfileModal').style.display='none'" style="position: absolute; top: -15px; right: -15px; background: rgba(0,0,0,0.5); color: white; border: 2px solid rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; z-index: 100; font-size: 20px; display: flex; align-items: center; justify-content: center;">×</button>
+              <div style="background: linear-gradient(135deg, #065f46 0%, #10b981 100%); padding: 30px 20px 20px; border-radius: 24px; position: relative; overflow: visible; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);">
+                  <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
+                     <div id="upName" style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">Loading...</div>
+                     <div id="upUsername" style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@...</div>
+                     <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
+                         <div id="upEmail">📧 ...</div>
+                         <div id="upJoined">📅 Joined: ...</div>
+                     </div>
+                  </div>
+                  <div style="display: flex; gap: 20px; align-items: flex-start;">
+                      <div style="width: 110px; height: 110px; border-radius: 50%; border: 6px solid #000; overflow: hidden; background: #1a1a2e; flex-shrink: 0; z-index: 10; margin-top: -10px; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
+                          <img id="upAvatar" src="" style="width: 100%; height: 100%; object-fit: cover;">
+                      </div>
+                      <div style="background: #000; padding: 20px; border-radius: 16px; flex-grow: 1; border: 1px solid rgba(255,255,255,0.1);">
+                          <div style="display: flex; flex-direction: column; gap: 8px;">
+                              <div style="font-size: 13px; color: #e2e8f0;">
+                                  <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Country</span><br>
+                                  <span id="upCountry">...</span>
+                              </div>
+                              <div style="font-size: 13px; color: #e2e8f0;">
+                                  <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Bio</span><br>
+                                  <span id="upBio">...</span>
+                              </div>
+                              <div style="font-size: 13px; color: #e2e8f0;">
+                                  <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Website</span><br>
+                                  <span id="upWebsite">...</span>
+                              </div>
+                              <div style="font-size: 13px; color: #e2e8f0;">
+                                  <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Social</span><br>
+                                  <span id="upSocial">...</span>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+        </div>
+      </div>
+
       <script>
+        async function openUserProfile(username) {
+            const modal = document.getElementById('userProfileModal');
+            modal.style.display = 'flex';
+            document.getElementById('upName').innerText = 'Loading...';
+            try {
+                const res = await fetch('/api/profile/' + username);
+                const user = await res.json();
+                if(user.error) { alert(user.error); modal.style.display = 'none'; return; }
+                document.getElementById('upName').innerText = user.firstName + ' ' + user.lastName;
+                document.getElementById('upUsername').innerText = '@' + user.username;
+                document.getElementById('upEmail').innerText = '📧 ' + user.email;
+                document.getElementById('upJoined').innerText = '📅 Joined: ' + new Date(user.createdAt).toLocaleDateString();
+                document.getElementById('upAvatar').src = user.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white';
+                document.getElementById('upCountry').innerText = user.country;
+                document.getElementById('upBio').innerHTML = user.bio || '<span style="opacity:0.5">No bio added</span>';
+                document.getElementById('upWebsite').innerHTML = user.website ? `<a href="${user.website}" target="_blank" style="color:#60a5fa">${user.website}</a>` : '<span style="opacity:0.5">No website</span>';
+                document.getElementById('upSocial').innerHTML = user.social || '<span style="opacity:0.5">No social links</span>';
+            } catch(e) { console.error(e); alert('Failed to load profile'); modal.style.display = 'none'; }
+        }
+
         // Simple Client-Side Search
         const searchInput = document.getElementById('memberSearchInput');
         const memberList = document.getElementById('memberList');

@@ -345,103 +345,91 @@ router.get('/dashboard', async (req, res) => {
     : ''
 
   const profileModal = `
-    <div id="profileModal" class="modal-premium" style="align-items: flex-start; padding: 0;">
-      <div class="modal-content" style="padding: 0; background: #1a1a2e; overflow-y: auto; border-radius: 0; border: none; width: 100vw; height: 100vh; max-width: none; margin: 0; transform: none; animation: none; box-shadow: none;">
+    <div id="profileModal" class="modal-premium" style="align-items: center; justify-content: center; padding: 20px;">
+      <div class="modal-content" style="background: transparent; border: none; box-shadow: none; width: 100%; max-width: 600px; padding: 0;">
         
-        <!-- Top Banner Removed, just a header background -->
-        <div style="height: 120px; width: 100%; background: linear-gradient(135deg, #1a1a2e 0%, #334155 100%); position: relative; border-bottom: 1px solid rgba(255,255,255,0.05);">
-          <button class="modal-close" id="profileBack" style="color: white; font-size: 24px; top: 20px; right: 20px; background: rgba(0,0,0,0.3); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; z-index: 10;">×</button>
-        </div>
-        
-        <div style="display: flex; flex-direction: column; align-items: center; position: relative; padding-bottom: 30px;">
-           
-           <!-- Avatar Section -->
-           <div style="width: 100%; position: relative; margin-top: -60px; text-align: center; display: flex; flex-direction: column; align-items: center; padding: 0 20px;">
-              <div style="
-                  width: 120px; 
-                  height: 120px; 
-                  border-radius: 50%; 
-                  border: 4px solid #8b5cf6; 
-                  padding: 4px; 
-                  background: #1a1a2e; 
-                  display: flex; align-items: center; justify-content: center;
-                  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-              ">
-                 <div style="
-                     width: 100%; 
-                     height: 100%; 
-                     border-radius: 50%; 
-                     background: #334155; 
-                     overflow: hidden;
-                     border: 4px solid #fff;
-                     display: flex; align-items: center; justify-content: center; font-size: 60px; color: white; font-weight: bold;
-                 ">
-                    ${user.currentAvatar ? `<img src="${user.currentAvatar}" alt="Profile" style="width:100%;height:100%;object-fit:cover">` : `${user.firstName[0]}${user.lastName[0]}`}
-                 </div>
-              </div>
-              
-              <div style="color: white; font-weight: 800; margin-top: 15px; font-size: 24px; letter-spacing: 0.5px;">${user.firstName} ${user.lastName}</div>
-              <div style="color: #a855f7; font-size: 16px; font-weight: 500;">@${user.username}</div>
-              <div style="margin-top: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; color: rgba(255,255,255,0.4);">Meet Our User</div>
-           </div>
+        <div style="position: relative;">
+            <button class="modal-close" id="profileBack" style="position: absolute; top: -15px; right: -15px; background: rgba(0,0,0,0.5); color: white; border: 2px solid rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; z-index: 100; font-size: 20px; display: flex; align-items: center; justify-content: center;">×</button>
+            
+            <!-- Profile Card Design -->
+            <div style="background: linear-gradient(135deg, #065f46 0%, #10b981 100%); padding: 30px 20px 20px; border-radius: 24px; position: relative; overflow: visible; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);">
+                
+                <!-- Top Info Box -->
+                <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
+                   <div style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">${user.firstName} ${user.lastName}</div>
+                   <div style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@${user.username}</div>
+                   
+                   <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
+                       <div>📧 ${user.email}</div>
+                       <div>📅 Joined: ${new Date(user.createdAt).toLocaleDateString()}</div>
+                   </div>
+                </div>
 
-           <!-- Info Section -->
-           <div style="width: 100%; max-width: 900px; padding: 15px 20px 0; display: flex; flex-direction: column; gap: 12px;">
-              
-              <!-- Name Pill -->
-              <div style="background: linear-gradient(90deg, #4c1d95, #7c3aed); padding: 2px; border-radius: 30px;">
-                 <div style="background: rgba(0,0,0,0.2); padding: 8px 30px; border-radius: 30px; display: flex; align-items: center; color: white;">
-                    <span style="opacity: 0.9; width: 100px; font-weight: 700; font-size: 15px; text-transform: uppercase;">Name:</span>
-                    <span style="font-weight: 500; font-size: 16px;">${user.firstName} ${user.lastName}</span>
-                 </div>
-              </div>
+                <div style="display: flex; gap: 20px; align-items: flex-start;">
+                    <!-- Avatar (Bottom Left overlap) -->
+                    <div style="width: 110px; height: 110px; border-radius: 50%; border: 6px solid #000; overflow: hidden; background: #1a1a2e; flex-shrink: 0; z-index: 10; margin-top: -10px; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
+                        <img src="${user.currentAvatar || `https://api.iconify.design/lucide:user.svg?color=white`}" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
 
-              <!-- Email Pill -->
-              <div style="background: linear-gradient(90deg, #4c1d95, #7c3aed); padding: 2px; border-radius: 30px;">
-                 <div style="background: rgba(0,0,0,0.2); padding: 8px 30px; border-radius: 30px; display: flex; align-items: center; color: white;">
-                    <span style="opacity: 0.9; width: 100px; font-weight: 700; font-size: 15px; text-transform: uppercase;">Email:</span>
-                    <span style="font-weight: 500; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${user.email}</span>
-                 </div>
-              </div>
+                    <!-- Bottom Info Box -->
+                    <div style="background: #000; padding: 20px; border-radius: 16px; flex-grow: 1; border: 1px solid rgba(255,255,255,0.1);">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Country</span><br>
+                                ${user.country}
+                            </div>
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Bio</span><br>
+                                ${user.bio || '<span style="opacity:0.5">No bio added</span>'}
+                            </div>
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Website</span><br>
+                                ${user.website ? `<a href="${user.website}" target="_blank" style="color:#60a5fa">${user.website}</a>` : '<span style="opacity:0.5">No website</span>'}
+                            </div>
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Social</span><br>
+                                ${user.social || '<span style="opacity:0.5">No social links</span>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-              <!-- Country Pill -->
-              <div style="background: linear-gradient(90deg, #4c1d95, #7c3aed); padding: 2px; border-radius: 30px;">
-                 <div style="background: rgba(0,0,0,0.2); padding: 8px 30px; border-radius: 30px; display: flex; align-items: center; color: white;">
-                    <span style="opacity: 0.9; width: 100px; font-weight: 700; font-size: 15px; text-transform: uppercase;">Country:</span>
-                    <span style="font-weight: 500; font-size: 16px;">${user.country}</span>
-                 </div>
-              </div>
-
-              <!-- Phone Pill -->
-              <div style="background: linear-gradient(90deg, #4c1d95, #7c3aed); padding: 2px; border-radius: 30px;">
-                 <div style="background: rgba(0,0,0,0.2); padding: 8px 30px; border-radius: 30px; display: flex; align-items: center; color: white;">
-                    <span style="opacity: 0.9; width: 100px; font-weight: 700; font-size: 15px; text-transform: uppercase;">Number:</span>
-                    <span style="font-weight: 500; font-size: 16px;">${user.phone}</span>
-                 </div>
-              </div>
-
-              <!-- Role Pill -->
-              <div style="background: linear-gradient(90deg, #4c1d95, #7c3aed); padding: 2px; border-radius: 30px;">
-                 <div style="background: rgba(0,0,0,0.2); padding: 8px 30px; border-radius: 30px; display: flex; align-items: center; color: white;">
-                    <span style="opacity: 0.9; width: 100px; font-weight: 700; font-size: 15px; text-transform: uppercase;">Role:</span>
-                    <span style="font-weight: 500; font-size: 16px; color: #facc15;">${user.role}</span>
-                 </div>
-              </div>
-
-           </div>
-        </div>
-        
-        <!-- Footer Actions -->
-        <div style="padding: 15px; text-align: center; border-top: 1px solid rgba(255,255,255,0.05); background: rgba(0,0,0,0.2); margin-top: 15px;">
-            <div style="display: flex; gap: 16px; justify-content: center; max-width: 900px; margin: auto;">
-              <a href="/settings" class="btn-premium" style="flex: 1; justify-content: center; padding: 12px;">Edit Profile</a>
-              ${adminBtn ? `<a href="/admin/login" class="btn-premium" style="flex: 1; justify-content: center; background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%); padding: 12px;">Admin Panel</a>` : ''}
             </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="/settings" class="btn-premium" style="background: rgba(0,0,0,0.5); display: inline-flex; width: auto; padding: 8px 24px;">Edit Profile</a>
+            </div>
+
         </div>
       </div>
     </div>
-    <div id="profileOverlay" class="modal-overlay hidden"></div>
   `
+  
+  // Public Profile API
+  router.get('/api/profile/:username', async (req, res) => {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { username: req.params.username },
+        select: {
+          firstName: true,
+          lastName: true,
+          username: true,
+          email: true,
+          country: true,
+          bio: true,
+          website: true,
+          social: true,
+          createdAt: true,
+          currentAvatar: true,
+          role: true
+        }
+      })
+      if (!user) return res.status(404).json({ error: 'User not found' })
+      res.json(user)
+    } catch (e) {
+      res.status(500).json({ error: e.message })
+    }
+  })
 
   const sidebar = `
     <nav class="sidebar-premium" id="sidebar">
@@ -696,42 +684,65 @@ router.get('/settings', async (req, res) => {
   `
 
   const profileModal = `
-     <div id="profileModal" class="modal-premium profile-modal">
-      <div class="modal-content">
-        <button class="modal-close" id="profileBack" style="position:absolute;top:14px;right:16px;z-index:50">×</button>
-        <div style="background: ${user.currentBanner ? `url('${user.currentBanner}') center/cover no-repeat` : 'linear-gradient(135deg,#6b21a8,#2b0e4a)'}; height:150px"></div>
-        <div class="profile-panel">
-         <div class="pf-left">
-          <div class="pf-rings">
-            <div class="pf-avatar">
-             ${user.currentAvatar ? `<img src="${user.currentAvatar}" alt="Profile">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:48px;color:#222;background:linear-gradient(135deg,#ffffff,#f3f4f6)">${user.firstName[0]}${user.lastName[0]}</div>`}
+    <div id="profileModal" class="modal-premium" style="align-items: center; justify-content: center; padding: 20px;">
+      <div class="modal-content" style="background: transparent; border: none; box-shadow: none; width: 100%; max-width: 600px; padding: 0;">
+        
+        <div style="position: relative;">
+            <button class="modal-close" id="profileBack" style="position: absolute; top: -15px; right: -15px; background: rgba(0,0,0,0.5); color: white; border: 2px solid rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; z-index: 100; font-size: 20px; display: flex; align-items: center; justify-content: center;">×</button>
+            
+            <!-- Profile Card Design -->
+            <div style="background: linear-gradient(135deg, #065f46 0%, #10b981 100%); padding: 30px 20px 20px; border-radius: 24px; position: relative; overflow: visible; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);">
+                
+                <!-- Top Info Box -->
+                <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
+                   <div style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">${user.firstName} ${user.lastName}</div>
+                   <div style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@${user.username}</div>
+                   
+                   <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
+                       <div>📧 ${user.email}</div>
+                       <div>📅 Joined: ${new Date(user.createdAt).toLocaleDateString()}</div>
+                   </div>
+                </div>
+
+                <div style="display: flex; gap: 20px; align-items: flex-start;">
+                    <!-- Avatar (Bottom Left overlap) -->
+                    <div style="width: 110px; height: 110px; border-radius: 50%; border: 6px solid #000; overflow: hidden; background: #1a1a2e; flex-shrink: 0; z-index: 10; margin-top: -10px; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
+                        <img src="${user.currentAvatar || `https://api.iconify.design/lucide:user.svg?color=white`}" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+
+                    <!-- Bottom Info Box -->
+                    <div style="background: #000; padding: 20px; border-radius: 16px; flex-grow: 1; border: 1px solid rgba(255,255,255,0.1);">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Country</span><br>
+                                ${user.country}
+                            </div>
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Bio</span><br>
+                                ${user.bio || '<span style="opacity:0.5">No bio added</span>'}
+                            </div>
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Website</span><br>
+                                ${user.website ? `<a href="${user.website}" target="_blank" style="color:#60a5fa">${user.website}</a>` : '<span style="opacity:0.5">No website</span>'}
+                            </div>
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Social</span><br>
+                                ${user.social || '<span style="opacity:0.5">No social links</span>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
-          </div>
-          <div class="pf-badges">
-            <div style="font-size:20px;color:#fff;font-weight:800">${user.firstName} ${user.lastName}</div>
-            <div style="color:#c4b5fd">@${user.username}</div>
-          </div>
-         </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="/settings" class="btn-premium" style="background: rgba(0,0,0,0.5); display: inline-flex; width: auto; padding: 8px 24px;">Edit Profile</a>
+            </div>
 
-         <div class="pf-right">
-          <div class="pf-field"><div class="inner"><div class="label">name:</div><div>${user.firstName} ${user.lastName}</div></div></div>
-          <div class="pf-field"><div class="inner"><div class="label">email:</div><div>${user.email}</div></div></div>
-          <div class="pf-field"><div class="inner"><div class="label">country:</div><div>${user.country || '—'}</div></div></div>
-          <div class="pf-field"><div class="inner"><div class="label">নাম্বার :</div><div>${user.phone || '—'}</div></div></div>
-          <div class="pf-field"><div class="inner"><div class="label">role:</div><div>${user.role}</div></div></div>
-          <div class="pf-field"><div class="inner"><div class="label">bio:</div><div>${user.bio || 'No bio provided'}</div></div></div>
-          <div class="pf-field"><div class="inner"><div class="label">website:</div><div>${user.website || '—'}</div></div></div>
-          <div class="pf-field"><div class="inner"><div class="label">social:</div><div>${user.social || '—'}</div></div></div>
-
-          <div class="pf-actions">
-            <a href="/settings" class="btn">Edit Profile</a>
-            ${(user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') ? `<a href="/admin/login" class="btn">Admin Panel</a>` : ''}
-          </div>
-         </div>
         </div>
       </div>
-     </div>
-     <div id="profileOverlay" class="modal-overlay hidden"></div>
+    </div>
+    <div id="profileOverlay" class="modal-overlay hidden"></div>
   `
 
   res.send(`
