@@ -4,30 +4,20 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const { prisma } = require('../db/prisma')
+const { storage } = require('../config/cloudinary')
 const router = express.Router()
 
-// Multer Config
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'public/uploads')
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname))
-  }
-})
-
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true)
-  } else {
-    cb(new Error('Not an image! Please upload an image.'), false)
-  }
-}
-
+// Multer Config (Cloudinary)
 const upload = multer({ 
   storage: storage,
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
-  fileFilter: fileFilter
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true)
+    } else {
+      cb(new Error('Not an image! Please upload an image.'), false)
+    }
+  }
 })
 
 function requireSuperAdmin(req, res, next) {
@@ -585,7 +575,7 @@ router.get('/store', requireSuperAdmin, async (req, res) => {
 router.post('/store/add', requireSuperAdmin, upload.single('image'), async (req, res) => {
   try {
     const { name, type, currency, price } = req.body
-    const imageUrl = '/uploads/' + req.file.filename
+    const imageUrl = req.file.path
     
     await prisma.storeItem.create({
       data: {

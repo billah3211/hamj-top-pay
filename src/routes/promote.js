@@ -4,18 +4,10 @@ const multer = require('multer')
 const path = require('path')
 const fs = require('fs')
 const { prisma } = require('../db/prisma')
+const { storage } = require('../config/cloudinary')
 const router = express.Router()
 
-// Multer Config for Screenshots
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'public/uploads')
-  },
-  filename: (req, file, cb) => {
-    cb(null, 'proof-' + Date.now() + Math.round(Math.random() * 1E9) + path.extname(file.originalname))
-  }
-})
-
+// Multer Config for Screenshots (Cloudinary)
 const upload = multer({ 
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
@@ -811,16 +803,12 @@ router.post('/submit/:id', requireLogin, upload.array('screenshots', 10), async 
   const requiredCount = settings.screenshotCount
 
   if (!req.files || req.files.length !== requiredCount) {
-    // Delete uploaded files if count is wrong
-    if (req.files) {
-      req.files.forEach(f => {
-        try { fs.unlinkSync(f.path) } catch(e) {}
-      })
-    }
+    // Note: Cloudinary files are already uploaded at this point. 
+    // We could delete them using cloudinary.uploader.destroy but for now we just show error.
     return res.redirect('/promote/visit/' + linkId + '?error=Please+upload+exactly+' + requiredCount + '+screenshots')
   }
 
-  const files = req.files.map(f => '/uploads/' + f.filename)
+  const files = req.files.map(f => f.path)
   
   await prisma.linkSubmission.create({
     data: {
