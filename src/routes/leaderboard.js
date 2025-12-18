@@ -295,35 +295,54 @@ router.get('/', async (req, res) => {
     }
   }).filter(Boolean)
 
-  const renderItem = (item) => `
+  // Split Top 3 and Rest
+  const top3 = leaderboard.slice(0, 3);
+  const rest = leaderboard.slice(3);
+
+  const renderPodiumItem = (item) => `
+    <div class="podium-item rank-${item.rank}" onclick="showUserProfile('${item.username}')">
+        <div class="avatar-wrapper">
+            ${item.rank === 1 ? '<div class="crown-icon">👑</div>' : ''}
+            <img src="${item.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" class="avatar-img" alt="${item.username}">
+        </div>
+        <div class="podium-base">
+            <div class="podium-rank">${item.rank}.</div>
+            <div class="podium-name">${item.firstName}</div>
+            <div class="podium-score">${item.count} Tasks</div>
+        </div>
+    </div>
+  `
+
+  const renderListItem = (item) => `
     <div class="leaderboard-item">
-      <div class="rank-badge rank-${item.rank}">${item.rank}</div>
-      <img src="${item.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" class="user-avatar" alt="${item.username}">
+      <div class="rank-badge">${item.rank}</div>
+      <img src="${item.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" class="user-avatar-small" alt="${item.username}">
       <div class="user-info">
-        <div onclick="showUserProfile('${item.username}')" class="user-name">${item.firstName} ${item.lastName}</div>
+        <a href="#" onclick="event.preventDefault(); showUserProfile('${item.username}')" class="user-name">${item.firstName} ${item.lastName}</a>
         <div class="user-username">@${item.username}</div>
       </div>
-      <div class="task-count">
-        ${item.count} Tasks
-      </div>
+      <div class="task-count">${item.count} Tasks</div>
     </div>
   `
 
   res.send(`
     ${getHead('Leaderboard')}
-    <div class="app-layout">
-      ${getSidebar()}
-      <div class="main-content">
-        <div class="section-header">
-          <div>
-            <div class="section-title">Leaderboard</div>
-            <div style="color:var(--text-muted)">Top 100 Earners</div>
-          </div>
+    ${getSidebar()}
+    <div class="main-content">
+      <div class="leaderboard-container">
+        <div class="neon-title">LEADERBOARD</div>
+        
+        <!-- Podium Section (Top 3) -->
+        <div class="podium-section">
+            ${top3.map(renderPodiumItem).join('')}
         </div>
 
+        <!-- Remaining List -->
         <div class="leaderboard-list">
-          ${leaderboard.length ? leaderboard.map(renderItem).join('') : '<div class="empty-state">No data available yet</div>'}
+          ${rest.map(renderListItem).join('')}
         </div>
+        
+        ${rest.length === 0 && top3.length === 0 ? '<div style="text-align:center; color:var(--text-muted); margin-top:40px;">No data available yet</div>' : ''}
       </div>
     </div>
     ${getFooter(user, level)}
