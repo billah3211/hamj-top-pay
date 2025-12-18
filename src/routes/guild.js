@@ -111,58 +111,99 @@ router.get('/', requireLogin, async (req, res) => {
       ${getHead('My Guild')}
       ${getSidebar('guild')}
       <div class="main-content">
-        <div class="section-header">
-          <div>
-            <div class="section-title">${guild.name}</div>
-            <div style="color:var(--text-muted)">@${guild.username}</div>
-          </div>
-          <span class="guild-badge ${guild.type === 'YOUTUBER' ? 'badge-youtuber' : 'badge-user'}">${guild.type}</span>
+        
+        <!-- Custom Guild Header -->
+        <div style="background: #2b1d12; border-radius: 20px; overflow: hidden; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 0;">
+            <!-- Top Dark Section -->
+            <div style="padding: 30px; position: relative;">
+                <div style="display: flex; flex-wrap: wrap; gap: 30px; align-items: center;">
+                    
+                    <!-- Profile Circle -->
+                    <div style="flex-shrink: 0; width: 180px; height: 180px; border-radius: 50%; border: 6px solid #d4a768; overflow: hidden; background: #000; position: relative; z-index: 2;">
+                        <img src="${guild.leader.currentAvatar || 'https://api.iconify.design/lucide:users.svg?color=white'}" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+
+                    <!-- Right Side Controls -->
+                    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 20px; align-items: flex-end;">
+                        
+                        <!-- Search Bar -->
+                        <div style="width: 100%; max-width: 400px; position: relative;">
+                            <input type="text" id="memberSearchInput" placeholder="Search..." style="width: 100%; padding: 12px 20px; border-radius: 30px; border: none; outline: none; font-size: 16px; padding-right: 50px;">
+                            <i class="fas fa-search" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); color: #d4a768; font-size: 20px;"></i>
+                        </div>
+
+                        <!-- Guild Name Pill -->
+                        <div style="background: linear-gradient(90deg, #ecfccb, #f472b6); padding: 12px 30px; border-radius: 50px; display: flex; align-items: center; gap: 10px; color: #000; font-weight: bold; font-size: 18px; width: 100%; max-width: 500px; justify-content: flex-start;">
+                            <span style="color: #166534; font-weight: 800; font-size: 20px;">GUILD :</span>
+                            <span>${guild.name}</span>
+                        </div>
+
+                        <!-- Members Count Pill -->
+                        <div style="background: linear-gradient(90deg, #fef08a, #f9a8d4); padding: 12px 30px; border-radius: 50px; display: flex; align-items: center; gap: 10px; color: #000; font-weight: bold; font-size: 18px; width: 100%; max-width: 500px; justify-content: flex-start;">
+                            <span style="color: #000; font-weight: 800;">Members</span>
+                            <span>${memberCount}</span>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Decorative Line -->
+            <div style="height: 4px; background: linear-gradient(90deg, #a855f7, #06b6d4); width: 100%;"></div>
         </div>
 
-        <div class="glass-panel" style="padding:24px; margin-bottom:24px; text-align:center">
-          <div style="font-size:32px; font-weight:bold; margin-bottom:4px">${memberCount} / ${guild.memberLimit}</div>
-          <div style="color:var(--text-muted); font-size:14px">Members</div>
-          
-          <div style="margin-top:16px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.1); display:flex; justify-content:space-around">
-            <div>
-              <div style="font-weight:bold; color:#fb923c">${guild.commissionRate}%</div>
-              <div style="font-size:12px; color:var(--text-muted)">Commission</div>
-            </div>
-            <div>
-              <div style="font-weight:bold">${guild.leader.firstName}</div>
-              <div style="font-size:12px; color:var(--text-muted)">Leader</div>
-            </div>
-          </div>
-        </div>
+        <!-- Members List Section (Gradient Background) -->
+        <div style="background: linear-gradient(180deg, #fef9c3, #fbcfe8); min-height: 300px; padding: 30px; border-radius: 0 0 20px 20px; margin-top: -10px; position: relative; z-index: 1;">
+            
+            <h3 style="text-align: center; color: #000; margin-bottom: 30px; font-weight: 800;">Member List</h3>
 
-        <div class="glass-panel" style="padding:16px; margin-bottom:24px">
-          <h3 style="margin-bottom:16px; font-size:16px">Actions</h3>
-          ${!isLeader ? `
-            <form action="/guild/leave" method="POST" onsubmit="return confirm('Are you sure you want to leave this guild?')">
-              <button class="btn-premium" style="width:100%; background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.3)">Leave Guild</button>
-            </form>
-          ` : `
-            <div style="text-align:center; color:var(--text-muted); font-size:14px">Leader cannot leave directly.</div>
-          `}
-        </div>
-
-        <!-- Member List -->
-        <h3 style="margin-bottom:12px; font-size:16px">Members</h3>
-        <div class="member-list">
-          ${guild.members.map(m => `
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; padding:12px; background:rgba(255,255,255,0.03); border-radius:8px">
-              <div style="width:32px; height:32px; background:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold">
-                ${m.firstName[0]}
-              </div>
-              <div>
-                <div style="font-size:14px; font-weight:bold">${m.firstName} ${m.lastName} ${m.id === guild.leaderId ? '👑' : ''}</div>
-                <div style="font-size:12px; color:var(--text-muted)">@${m.username}</div>
-              </div>
+            <div id="memberList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px;">
+                ${guild.members.map(m => `
+                    <div class="member-card" data-username="${m.username.toLowerCase()}" style="background: rgba(255,255,255,0.6); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                        <div style="width: 40px; height: 40px; background: #3b82f6; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                            ${m.firstName[0]}
+                        </div>
+                        <div>
+                            <div style="font-weight: bold; color: #333;">${m.firstName} ${m.lastName} ${m.id === guild.leaderId ? '👑' : ''}</div>
+                            <div style="font-size: 12px; color: #666;">@${m.username}</div>
+                        </div>
+                    </div>
+                `).join('')}
             </div>
-          `).join('')}
+
+            <!-- Leave Guild Button (Bottom) -->
+             <div style="margin-top: 40px; text-align: center;">
+                ${!isLeader ? `
+                  <form action="/guild/leave" method="POST" onsubmit="return confirm('Are you sure you want to leave this guild?')">
+                    <button style="background: #ef4444; color: white; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-weight: bold;">Leave Guild</button>
+                  </form>
+                ` : `<div style="color: #666; font-size: 12px;">Guild Leader cannot leave directly.</div>`}
+             </div>
+
         </div>
 
       </div>
+
+      <script>
+        // Simple Client-Side Search
+        const searchInput = document.getElementById('memberSearchInput');
+        const memberList = document.getElementById('memberList');
+        const members = memberList.getElementsByClassName('member-card');
+
+        if(searchInput && memberList) {
+            searchInput.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                Array.from(members).forEach(member => {
+                    const username = member.getAttribute('data-username');
+                    if (username.includes(term)) {
+                        member.style.display = 'flex';
+                    } else {
+                        member.style.display = 'none';
+                    }
+                });
+            });
+        }
+      </script>
       ${getFooter()}
     `)
   }
