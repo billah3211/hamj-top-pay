@@ -5,6 +5,18 @@ const path = require('path')
 const countries = require('../data/countries')
 const router = express.Router()
 
+// Helper: Calculate User Level
+const calculateLevel = (count) => {
+  if (count < 100) return 0;
+  if (count < 500) return 1;
+  if (count < 1200) return 2;
+  if (count < 2000) return 3;
+  if (count < 5000) return 4;
+  if (count < 10000) return 5;
+  if (count < 15000) return 6;
+  return 7 + Math.floor((count - 15000) / 5000);
+}
+
 function makeBaseUsername(firstName, lastName) {
   const a = (firstName || '').toLowerCase().replace(/[^a-z0-9]/g, '')
   const b = (lastName || '').toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -425,7 +437,11 @@ router.get('/dashboard', async (req, res) => {
         }
       })
       if (!user) return res.status(404).json({ error: 'User not found' })
-      res.json(user)
+
+      const taskCount = await prisma.linkSubmission.count({ where: { userId: user.id, status: 'APPROVED' } })
+      const level = calculateLevel(taskCount)
+
+      res.json({ ...user, level, taskCount })
     } catch (e) {
       res.status(500).json({ error: e.message })
     }
