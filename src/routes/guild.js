@@ -159,9 +159,9 @@ router.get('/', requireLogin, async (req, res) => {
 
             <div id="memberList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px;">
                 ${guild.members.map(m => `
-                    <div class="member-card" data-username="${m.username.toLowerCase()}" style="background: rgba(255,255,255,0.6); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                        <div style="width: 40px; height: 40px; background: #3b82f6; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold;">
-                            ${m.firstName[0]}
+                    <div class="member-card" onclick="openUserProfile('${m.username}')" data-username="${m.username.toLowerCase()}" style="cursor: pointer; background: rgba(255,255,255,0.6); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: #e2e8f0; border: 1px solid #cbd5e1;">
+                            <img src="${m.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=gray'}" style="width: 100%; height: 100%; object-fit: cover;">
                         </div>
                         <div>
                             <div style="font-weight: bold; color: #333;">${m.firstName} ${m.lastName} ${m.id === guild.leaderId ? '👑' : ''}</div>
