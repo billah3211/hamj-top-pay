@@ -8,6 +8,11 @@ async function openUserProfile(username) {
         if(user.error) { alert(user.error); modal.style.display = 'none'; return; }
         document.getElementById('upName').innerText = user.firstName + ' ' + user.lastName;
         document.getElementById('upUsername').innerText = '@' + user.username;
+        const levelEl = document.getElementById('upLevel');
+        if (levelEl) {
+             levelEl.innerText = 'Level ' + (user.level || 0);
+             levelEl.style.display = 'inline-block';
+        }
         document.getElementById('upEmail').innerText = '📧 ' + user.email;
         document.getElementById('upJoined').innerText = '📅 Joined: ' + new Date(user.createdAt).toLocaleDateString();
         document.getElementById('upAvatar').src = user.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white';

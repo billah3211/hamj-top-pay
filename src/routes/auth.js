@@ -604,6 +604,9 @@ router.get('/notifications', async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
   if (user.isBlocked) return res.redirect('/login?error=Account+blocked')
 
+  const taskCount = await prisma.linkSubmission.count({ where: { userId: user.id, status: 'APPROVED' } })
+  const level = calculateLevel(taskCount)
+
   const notifs = await prisma.notification.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: 'desc' },

@@ -193,6 +193,7 @@ router.get('/', requireLogin, async (req, res) => {
                   <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
                      <div id="upName" style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">Loading...</div>
                      <div id="upUsername" style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@...</div>
+                     <div id="upLevel" style="display:none; background:linear-gradient(90deg, #facc15, #fbbf24); color:black; font-weight:bold; font-size:12px; padding:2px 8px; border-radius:4px; margin-bottom:8px; width: fit-content;">Level ...</div>
                      <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
                          <div id="upEmail">📧 ...</div>
                          <div id="upJoined">📅 Joined: ...</div>
