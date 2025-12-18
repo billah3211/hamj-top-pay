@@ -42,6 +42,7 @@ function getSidebar(active) {
       <ul class="nav-links">
         <li class="nav-item"><a href="/super-admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=${active === 'dashboard' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Dashboard</a></li>
         <li class="nav-item"><a href="/super-admin/admins" class="${active === 'admins' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shield-check.svg?color=${active === 'admins' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Admins</a></li>
+        <li class="nav-item"><a href="/super-admin/guilds" class="${active === 'guilds' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=${active === 'guilds' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Guilds</a></li>
         <li class="nav-item"><a href="/super-admin/store" class="${active === 'store' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=${active === 'store' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Store</a></li>
         <li class="nav-item"><a href="/super-admin/topup-packages" class="${active === 'packages' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:package.svg?color=${active === 'packages' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Packages</a></li>
         <li class="nav-item"><a href="/super-admin/topup-wallets" class="${active === 'wallets' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=${active === 'wallets' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Wallets</a></li>
@@ -310,6 +311,154 @@ router.post('/grant-access', requireSuperAdmin, async (req, res) => {
   }
 })
 
+// Manage Guilds
+router.get('/guilds', requireSuperAdmin, async (req, res) => {
+  const search = req.query.search || ''
+  const where = {}
+  
+  if (search) {
+    where.username = { contains: search }
+  }
+
+  const guilds = await prisma.guild.findMany({
+    where,
+    include: { leader: true },
+    orderBy: { createdAt: 'desc' }
+  })
+
+  const renderRow = (guild) => `
+    <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+      <td style="padding:16px;">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:12px;background:rgba(236,72,153,0.1);display:grid;place-items:center;color:#ec4899;font-weight:600">
+            ${guild.name[0]}
+          </div>
+          <div>
+            <div style="color:white;font-weight:500">${guild.name}</div>
+            <div style="color:var(--text-muted);font-size:12px">@${guild.username}</div>
+          </div>
+        </div>
+      </td>
+      <td style="padding:16px">
+        <div style="color:white;font-size:14px">${guild.leader.firstName} ${guild.leader.lastName}</div>
+        <div style="color:var(--text-muted);font-size:12px">${guild.leader.email}</div>
+      </td>
+      <td style="padding:16px">
+        <span style="background:${guild.status === 'APPROVED' ? 'rgba(34,197,94,0.1)' : guild.status === 'BLOCKED' ? 'rgba(239,68,68,0.1)' : 'rgba(234,179,8,0.1)'}; color:${guild.status === 'APPROVED' ? '#4ade80' : guild.status === 'BLOCKED' ? '#f87171' : '#facc15'}; padding:4px 10px; border-radius:20px; font-size:12px; border:1px solid ${guild.status === 'APPROVED' ? 'rgba(34,197,94,0.2)' : guild.status === 'BLOCKED' ? 'rgba(239,68,68,0.2)' : 'rgba(234,179,8,0.2)'}">
+          ${guild.status}
+        </span>
+      </td>
+      <td style="padding:16px;text-align:right">
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <form action="/super-admin/guilds/action" method="POST" style="display:inline">
+            <input type="hidden" name="guildId" value="${guild.id}">
+            <input type="hidden" name="action" value="${guild.status === 'BLOCKED' ? 'unblock' : 'block'}">
+            <button class="btn-premium" style="padding:6px 12px;font-size:12px;background:${guild.status === 'BLOCKED' ? 'rgba(34,197,94,0.1)' : 'rgba(234,179,8,0.1)'};color:${guild.status === 'BLOCKED' ? '#4ade80' : '#facc15'};border-color:${guild.status === 'BLOCKED' ? 'rgba(34,197,94,0.2)' : 'rgba(234,179,8,0.2)'}">
+              ${guild.status === 'BLOCKED' ? 'Unblock' : 'Block'}
+            </button>
+          </form>
+          <form action="/super-admin/guilds/action" method="POST" style="display:inline" onsubmit="return confirm('Are you sure you want to delete this guild? This cannot be undone.')">
+            <input type="hidden" name="guildId" value="${guild.id}">
+            <input type="hidden" name="action" value="delete">
+            <button class="btn-premium" style="padding:6px 12px;font-size:12px;background:rgba(239,68,68,0.1);color:#fca5a5;border-color:rgba(239,68,68,0.2)">
+              Delete
+            </button>
+          </form>
+        </div>
+      </td>
+    </tr>
+  `
+
+  res.send(`
+    ${getHead('Manage Guilds')}
+    ${getSidebar('guilds')}
+    <div class="main-content">
+      <div class="section-header" style="background: linear-gradient(to right, rgba(236, 72, 153, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(236, 72, 153, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
+        <div style="background: rgba(236, 72, 153, 0.2); padding: 12px; border-radius: 12px;">
+           <img src="https://api.iconify.design/lucide:users.svg?color=%23ec4899" width="32" height="32">
+        </div>
+        <div>
+          <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">Manage Guilds</div>
+          <div style="color:var(--text-muted); font-size: 16px;">Monitor and manage guilds</div>
+        </div>
+      </div>
+
+      ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
+      ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
+
+      <div class="glass-panel" style="margin-bottom:24px;padding:20px">
+        <form action="/super-admin/guilds" method="GET" style="display:flex;gap:12px">
+          <input type="text" name="search" value="${search}" placeholder="Search by guild username..." class="form-input" style="max-width:300px">
+          <button class="btn-premium">Search</button>
+          ${search ? '<a href="/super-admin/guilds" class="btn-premium" style="background:rgba(255,255,255,0.1)">Clear</a>' : ''}
+        </form>
+      </div>
+
+      <div style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;overflow:hidden">
+        <div style="padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0; font-size: 18px;">All Guilds</h3>
+          <span style="background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 20px; font-size: 12px;">${guilds.length} guilds</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:rgba(255,255,255,0.02);text-align:left">
+              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:1px">Guild Info</th>
+              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:1px">Leader</th>
+              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:1px">Status</th>
+              <th style="padding:16px;text-align:right;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:1px">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${guilds.length > 0 ? guilds.map(renderRow).join('') : '<tr><td colspan="4" style="padding:40px;text-align:center;color:var(--text-muted)">No guilds found</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ${getScripts()}
+  `)
+})
+
+router.post('/guilds/action', requireSuperAdmin, async (req, res) => {
+  const { guildId, action } = req.body
+  
+  try {
+    if (action === 'block') {
+      await prisma.guild.update({
+        where: { id: parseInt(guildId) },
+        data: { status: 'BLOCKED' }
+      })
+      res.redirect('/super-admin/guilds?success=Guild+blocked')
+    } else if (action === 'unblock') {
+      await prisma.guild.update({
+        where: { id: parseInt(guildId) },
+        data: { status: 'APPROVED' }
+      })
+      res.redirect('/super-admin/guilds?success=Guild+unblocked')
+    } else if (action === 'delete') {
+      // First delete all members relations if necessary, but usually just deleting the guild row
+      // If there are foreign keys, might need to handle them.
+      // Assuming members relation is just a link in User table, or a join table.
+      // In schema: members User[]
+      // So Users have guildId. When deleting guild, users' guildId should be set to null.
+      // Prisma might handle this if onDelete is SetNull, otherwise we need to do it.
+      
+      // Let's manually disconnect members first to be safe
+      await prisma.user.updateMany({
+        where: { guildId: parseInt(guildId) },
+        data: { guildId: null }
+      })
+      
+      await prisma.guild.delete({
+        where: { id: parseInt(guildId) }
+      })
+      res.redirect('/super-admin/guilds?success=Guild+deleted')
+    }
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/guilds?error=' + encodeURIComponent(e.message))
+  }
+})
+
 // Store Management Routes
 router.get('/store', requireSuperAdmin, async (req, res) => {
   const items = await prisma.storeItem.findMany({ orderBy: { createdAt: 'desc' } })
@@ -389,7 +538,7 @@ router.get('/store', requireSuperAdmin, async (req, res) => {
               <label class="form-label">Type</label>
               <select name="type" class="form-input">
                 <option value="avatar">Avatar Frame</option>
-                <option value="banner">Profile Banner</option>
+                <option value="guild_profile">Guild Profile Picture</option>
               </select>
             </div>
 

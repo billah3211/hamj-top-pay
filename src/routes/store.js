@@ -28,7 +28,7 @@ router.get('/', requireLogin, async (req, res) => {
 
   // Group by type for display if needed, or just send all
   const avatars = availableItems.filter(i => i.type === 'avatar')
-  const banners = availableItems.filter(i => i.type === 'banner')
+  const guildProfiles = availableItems.filter(i => i.type === 'guild_profile')
 
   // Helper for navigation
   const getSidebar = (active) => `
@@ -96,7 +96,7 @@ router.get('/', requireLogin, async (req, res) => {
 
           <div class="store-tabs">
             <button class="store-tab active" onclick="openTab('avatar')">Profile Pictures</button>
-            <button class="store-tab" onclick="openTab('banner')">Banners</button>
+            <button class="store-tab" onclick="openTab('guild')">Guild Profile Pictures</button>
           </div>
 
           <div id="tab-avatar" class="tab-content active">
@@ -106,10 +106,10 @@ router.get('/', requireLogin, async (req, res) => {
             </div>
           </div>
 
-          <div id="tab-banner" class="tab-content">
-            <h3 class="section-subtitle">Banners</h3>
+          <div id="tab-guild" class="tab-content">
+            <h3 class="section-subtitle">Guild Profile Pictures</h3>
             <div class="store-grid">
-              ${banners.length ? banners.map(renderItem).join('') : '<div class="empty-state">No new banners available</div>'}
+              ${guildProfiles.length ? guildProfiles.map(renderItem).join('') : '<div class="empty-state">No guild profiles available</div>'}
             </div>
           </div>
         </div>
@@ -189,7 +189,7 @@ router.get('/my', requireLogin, async (req, res) => {
 
   const myItems = user.items.map(ui => ui.item)
   const avatars = myItems.filter(i => i.type === 'avatar')
-  const banners = myItems.filter(i => i.type === 'banner')
+  const guildProfiles = myItems.filter(i => i.type === 'guild_profile')
 
   // Helper for navigation (duplicated for now, could be shared)
   const getSidebar = (active) => `
@@ -306,9 +306,9 @@ router.post('/equip/:id', requireLogin, async (req, res) => {
   // Update user profile
   if (item.type === 'avatar') {
     await prisma.user.update({ where: { id: user.id }, data: { currentAvatar: item.imageUrl } })
-  } else if (item.type === 'banner') {
-    await prisma.user.update({ where: { id: user.id }, data: { currentBanner: item.imageUrl } })
   }
+  // Guild Profile equip logic could be added here if needed, but for now we removed banner and added guild profile without equip logic for user profile.
+  // if (item.type === 'banner') { ... } removed.
 
   return res.redirect('/store/my?success=Applied+successfully')
 })

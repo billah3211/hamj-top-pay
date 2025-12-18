@@ -348,21 +348,21 @@ router.get('/dashboard', async (req, res) => {
     <div id="profileModal" class="modal-premium" style="align-items: flex-start; padding: 0;">
       <div class="modal-content" style="padding: 0; background: #1a1a2e; overflow-y: auto; border-radius: 0; border: none; width: 100vw; height: 100vh; max-width: none; margin: 0; transform: none; animation: none; box-shadow: none;">
         
-        <!-- Top Purple Banner -->
-        <div style="height: 220px; width: 100%; background: ${user.currentBanner ? `url('${user.currentBanner}') center/cover no-repeat` : 'linear-gradient(135deg, #6b21a8 0%, #a855f7 100%)'}; position: relative; border-bottom-right-radius: 50% 20px; border-bottom-left-radius: 50% 20px;">
+        <!-- Top Banner Removed, just a header background -->
+        <div style="height: 120px; width: 100%; background: linear-gradient(135deg, #1a1a2e 0%, #334155 100%); position: relative; border-bottom: 1px solid rgba(255,255,255,0.05);">
           <button class="modal-close" id="profileBack" style="color: white; font-size: 24px; top: 20px; right: 20px; background: rgba(0,0,0,0.3); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; z-index: 10;">×</button>
         </div>
         
         <div style="display: flex; flex-direction: column; align-items: center; position: relative; padding-bottom: 30px;">
            
            <!-- Avatar Section -->
-           <div style="width: 100%; position: relative; margin-top: -90px; text-align: center; display: flex; flex-direction: column; align-items: center; padding: 0 20px;">
+           <div style="width: 100%; position: relative; margin-top: -60px; text-align: center; display: flex; flex-direction: column; align-items: center; padding: 0 20px;">
               <div style="
-                  width: 180px; 
-                  height: 180px; 
+                  width: 120px; 
+                  height: 120px; 
                   border-radius: 50%; 
-                  border: 6px solid #8b5cf6; 
-                  padding: 6px; 
+                  border: 4px solid #8b5cf6; 
+                  padding: 4px; 
                   background: #1a1a2e; 
                   display: flex; align-items: center; justify-content: center;
                   box-shadow: 0 10px 25px rgba(0,0,0,0.5);
