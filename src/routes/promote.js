@@ -107,6 +107,69 @@ async function checkAutoApprovals() {
   }
 }
 
+// Helper: Calculate User Level (Same as auth.js)
+const calculateLevel = (count) => {
+  if (count < 100) return 0;
+  if (count < 500) return 1;
+  if (count < 1200) return 2;
+  if (count < 2000) return 3;
+  if (count < 5000) return 4;
+  if (count < 10000) return 5;
+  if (count < 15000) return 6;
+  return 7 + Math.floor((count - 15000) / 5000);
+}
+
+// Helper: Profile Modal
+const getProfileModal = (user, level) => `
+    <div id="profileModal" class="modal-premium" style="align-items: center; justify-content: center; padding: 20px;">
+      <div class="modal-content" style="background: transparent; border: none; box-shadow: none; width: 100%; max-width: 600px; padding: 0;">
+        <div style="position: relative;">
+            <button class="modal-close" id="profileBack" style="position: absolute; top: -15px; right: -15px; background: rgba(0,0,0,0.5); color: white; border: 2px solid rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; z-index: 100; font-size: 20px; display: flex; align-items: center; justify-content: center;">×</button>
+            <div style="background: linear-gradient(135deg, #065f46 0%, #10b981 100%); padding: 30px 20px 20px; border-radius: 24px; position: relative; overflow: visible; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);">
+                <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
+                   <div style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">${user.firstName} ${user.lastName}</div>
+                   <div style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@${user.username}</div>
+                   <div style="display:inline-block; background:linear-gradient(90deg, #facc15, #fbbf24); color:black; font-weight:bold; font-size:12px; padding:2px 8px; border-radius:4px; margin-bottom:8px;">Level ${level}</div>
+                   <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
+                       <div>📧 ${user.email}</div>
+                       <div>📅 Joined: ${new Date(user.createdAt).toLocaleDateString()}</div>
+                   </div>
+                </div>
+                <div style="display: flex; gap: 20px; align-items: flex-start;">
+                    <div style="width: 110px; height: 110px; border-radius: 50%; border: 6px solid #000; overflow: hidden; background: #1a1a2e; flex-shrink: 0; z-index: 10; margin-top: -10px; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
+                        <img src="${user.currentAvatar || `https://api.iconify.design/lucide:user.svg?color=white`}" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <div style="background: #000; padding: 20px; border-radius: 16px; flex-grow: 1; border: 1px solid rgba(255,255,255,0.1);">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Country</span><br>
+                                ${user.country}
+                            </div>
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Bio</span><br>
+                                ${user.bio || '<span style="opacity:0.5">No bio added</span>'}
+                            </div>
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Website</span><br>
+                                ${user.website ? `<a href="${user.website}" target="_blank" style="color:#60a5fa">${user.website}</a>` : '<span style="opacity:0.5">No website</span>'}
+                            </div>
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Social</span><br>
+                                ${user.social || '<span style="opacity:0.5">No social links</span>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="/settings" class="btn-premium" style="background: rgba(0,0,0,0.5); display: inline-flex; width: auto; padding: 8px 24px;">Edit Profile</a>
+            </div>
+        </div>
+      </div>
+    </div>
+    <div id="profileOverlay" class="modal-overlay hidden"></div>
+`
+
 // Helper: Common UI Components
 const getSidebar = (active) => `
   <nav class="sidebar-premium" id="sidebar">
@@ -120,6 +183,7 @@ const getSidebar = (active) => `
       <li class="nav-item"><a href="/guild" class="${active==='guild'?'active':''}"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Guild</a></li>
       <li class="nav-item"><a href="/notifications"><img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications</a></li>
       <li class="nav-item"><a href="/settings"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
+      <li class="nav-item"><a href="#" id="menuProfile"><img src="https://api.iconify.design/lucide:user.svg?color=%2394a3b8" class="nav-icon"> Profile</a></li>
       <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
     </ul>
   </nav>
@@ -139,12 +203,36 @@ const getHead = (title) => `
     <div class="app-layout">
 `
 
-const getFooter = () => `
+const getFooter = (user, level) => `
     </div>
+    ${user ? getProfileModal(user, level) : ''}
     <script>
       const menuBtn = document.getElementById('mobileMenuBtn');
       const sidebar = document.getElementById('sidebar');
       if(menuBtn) menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+
+      // Profile Modal Logic
+      const profileTrigger = document.getElementById('menuProfile');
+      const profileModal = document.getElementById('profileModal');
+      const profileOverlay = document.getElementById('profileOverlay');
+      const profileBack = document.getElementById('profileBack');
+
+      function openProfile() {
+        if(profileModal) {
+          profileModal.classList.add('open');
+          profileOverlay.classList.remove('hidden');
+        }
+      }
+      function closeProfile() {
+        if(profileModal) {
+          profileModal.classList.remove('open');
+          profileOverlay.classList.add('hidden');
+        }
+      }
+
+      if(profileTrigger) profileTrigger.addEventListener('click', (e) => { e.preventDefault(); openProfile(); });
+      if(profileBack) profileBack.addEventListener('click', closeProfile);
+      if(profileOverlay) profileOverlay.addEventListener('click', closeProfile);
     </script>
   </body>
   </html>
@@ -153,7 +241,11 @@ const getFooter = () => `
 // --- Routes ---
 
 // 1. Promote Link Dashboard
-router.get('/', requireLogin, (req, res) => {
+router.get('/', requireLogin, async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+  const level = calculateLevel(taskCount)
+
   res.send(`
     ${getHead('Promote Link')}
     ${getSidebar('promote')}
@@ -203,7 +295,7 @@ router.get('/', requireLogin, (req, res) => {
         </a>
       </div>
     </div>
-    ${getFooter()}
+    ${getFooter(user, level)}
   `)
 })
 
@@ -213,6 +305,9 @@ router.get('/create', requireLogin, async (req, res) => {
   const settings = await getSettings()
   const today = new Date().toISOString().split('T')[0]
   
+  const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+  const level = calculateLevel(taskCount)
+
   const packageOptions = settings.packages.map(p => `<option value="${p.visits}">${p.visits} Visits</option>`).join('')
 
   res.send(`
@@ -286,7 +381,7 @@ router.get('/create', requireLogin, async (req, res) => {
       }
       calcCost();
     </script>
-    ${getFooter()}
+    ${getFooter(user, level)}
   `)
 })
 
@@ -335,6 +430,10 @@ router.post('/create', requireLogin, async (req, res) => {
 
 // 3. Promote History
 router.get('/history', requireLogin, async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+  const level = calculateLevel(taskCount)
+
   const links = await prisma.promotedLink.findMany({
     where: { userId: req.session.userId },
     include: { submissions: true },
@@ -443,7 +542,7 @@ router.get('/history', requireLogin, async (req, res) => {
         document.getElementById('extendCostDiamond').innerText = units * 50;
       }
     </script>
-    ${getFooter()}
+    ${getFooter(user, level)}
   `)
 })
 
@@ -455,6 +554,10 @@ router.post('/promote/extend', requireLogin, async (req, res) => {
 
 // View Screenshots & Manage
 router.get('/history/:id', requireLogin, async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+  const level = calculateLevel(taskCount)
+
   const linkId = parseInt(req.params.id)
   const link = await prisma.promotedLink.findUnique({
     where: { id: linkId },
@@ -525,7 +628,7 @@ router.get('/history/:id', requireLogin, async (req, res) => {
         document.getElementById('rejectModal').classList.remove('hidden');
       }
     </script>
-    ${getFooter()}
+    ${getFooter(user, level)}
   `)
 })
 
@@ -663,6 +766,10 @@ router.post('/link/:id/approve-all', requireLogin, async (req, res) => {
 
 // 4. Visit & Earn
 router.get('/earn', requireLogin, async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+  const level = calculateLevel(taskCount)
+
   const links = await prisma.promotedLink.findMany({
     where: { status: 'ACTIVE' },
     include: { user: true, submissions: { where: { visitorId: req.session.userId } } },
@@ -705,7 +812,7 @@ router.get('/earn', requireLogin, async (req, res) => {
       </div>
       ${availableLinks.length ? availableLinks.map(renderTask).join('') : '<div class="empty-state">No tasks available right now. Please check back later!</div>'}
     </div>
-    ${getFooter()}
+    ${getFooter(user, level)}
   `)
 })
 
@@ -825,8 +932,12 @@ router.post('/submit/:id', requireLogin, upload.array('screenshots', 10), async 
 // 5. My Tasks Enhanced
 router.get('/tasks', requireLogin, async (req, res) => {
   const userId = req.session.userId
+  const user = await prisma.user.findUnique({ where: { id: userId } })
   const settings = await getSettings()
   
+  const taskCount = await prisma.linkSubmission.count({ where: { visitorId: userId, status: 'APPROVED' } })
+  const level = calculateLevel(taskCount)
+
   const tasks = await prisma.linkSubmission.findMany({
     where: { visitorId: userId },
     include: { promotedLink: true },
@@ -973,7 +1084,7 @@ router.get('/tasks', requireLogin, async (req, res) => {
         document.getElementById('reportModal').classList.remove('hidden');
       }
     </script>
-    ${getFooter()}
+    ${getFooter(user, level)}
   `)
 })
 

@@ -340,6 +340,9 @@ router.get('/dashboard', async (req, res) => {
     return res.redirect('/login?error=Account+blocked')
   }
   
+  const taskCount = await prisma.linkSubmission.count({ where: { userId: user.id, status: 'APPROVED' } })
+  const level = calculateLevel(taskCount)
+  
   // Generate Codes for Cards
   const digitsPhone = String(user.phone || '').replace(/\D/g,'')
   const prefix = digitsPhone.slice(0,3).padEnd(3,'0')
@@ -370,6 +373,7 @@ router.get('/dashboard', async (req, res) => {
                 <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
                    <div style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">${user.firstName} ${user.lastName}</div>
                    <div style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@${user.username}</div>
+                   <div style="display:inline-block; background:linear-gradient(90deg, #facc15, #fbbf24); color:black; font-weight:bold; font-size:12px; padding:2px 8px; border-radius:4px; margin-bottom:8px;">Level ${level}</div>
                    
                    <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
                        <div>📧 ${user.email}</div>
@@ -641,6 +645,56 @@ router.get('/notifications', async (req, res) => {
     </div>
   `).join('')
 
+  const profileModal = `
+    <div id="profileModal" class="modal-premium" style="align-items: center; justify-content: center; padding: 20px;">
+      <div class="modal-content" style="background: transparent; border: none; box-shadow: none; width: 100%; max-width: 600px; padding: 0;">
+        <div style="position: relative;">
+            <button class="modal-close" id="profileBack" style="position: absolute; top: -15px; right: -15px; background: rgba(0,0,0,0.5); color: white; border: 2px solid rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; z-index: 100; font-size: 20px; display: flex; align-items: center; justify-content: center;">×</button>
+            <div style="background: linear-gradient(135deg, #065f46 0%, #10b981 100%); padding: 30px 20px 20px; border-radius: 24px; position: relative; overflow: visible; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);">
+                <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
+                   <div style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">${user.firstName} ${user.lastName}</div>
+                   <div style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@${user.username}</div>
+                   <div style="display:inline-block; background:linear-gradient(90deg, #facc15, #fbbf24); color:black; font-weight:bold; font-size:12px; padding:2px 8px; border-radius:4px; margin-bottom:8px;">Level ${level}</div>
+                   <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
+                       <div>📧 ${user.email}</div>
+                       <div>📅 Joined: ${new Date(user.createdAt).toLocaleDateString()}</div>
+                   </div>
+                </div>
+                <div style="display: flex; gap: 20px; align-items: flex-start;">
+                    <div style="width: 110px; height: 110px; border-radius: 50%; border: 6px solid #000; overflow: hidden; background: #1a1a2e; flex-shrink: 0; z-index: 10; margin-top: -10px; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
+                        <img src="${user.currentAvatar || `https://api.iconify.design/lucide:user.svg?color=white`}" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <div style="background: #000; padding: 20px; border-radius: 16px; flex-grow: 1; border: 1px solid rgba(255,255,255,0.1);">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Country</span><br>
+                                ${user.country}
+                            </div>
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Bio</span><br>
+                                ${user.bio || '<span style="opacity:0.5">No bio added</span>'}
+                            </div>
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Website</span><br>
+                                ${user.website ? `<a href="${user.website}" target="_blank" style="color:#60a5fa">${user.website}</a>` : '<span style="opacity:0.5">No website</span>'}
+                            </div>
+                            <div style="font-size: 13px; color: #e2e8f0;">
+                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Social</span><br>
+                                ${user.social || '<span style="opacity:0.5">No social links</span>'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <a href="/settings" class="btn-premium" style="background: rgba(0,0,0,0.5); display: inline-flex; width: auto; padding: 8px 24px;">Edit Profile</a>
+            </div>
+        </div>
+      </div>
+    </div>
+    <div id="profileOverlay" class="modal-overlay hidden"></div>
+  `
+
   res.send(`
     <!doctype html>
     <html>
@@ -664,6 +718,7 @@ router.get('/notifications', async (req, res) => {
           </div>
         </div>
       </div>
+      ${profileModal}
       <script>
         const menuBtn = document.getElementById('mobileMenuBtn');
         const sidebar = document.getElementById('sidebar');
@@ -676,7 +731,22 @@ router.get('/notifications', async (req, res) => {
         
         // Profile Modal Logic
         const profileTrigger = document.getElementById('menuProfile');
-        // (Simplified for this page, usually we include the full modal script)
+        const profileModal = document.getElementById('profileModal');
+        const profileOverlay = document.getElementById('profileOverlay');
+        const profileBack = document.getElementById('profileBack');
+
+        function openProfile() {
+          profileModal.classList.add('open');
+          profileOverlay.classList.remove('hidden');
+        }
+        function closeProfile() {
+          profileModal.classList.remove('open');
+          profileOverlay.classList.add('hidden');
+        }
+
+        if(profileTrigger) profileTrigger.addEventListener('click', (e) => { e.preventDefault(); openProfile(); });
+        if(profileBack) profileBack.addEventListener('click', closeProfile);
+        if(profileOverlay) profileOverlay.addEventListener('click', closeProfile);
       </script>
     </body>
     </html>
@@ -686,6 +756,9 @@ router.get('/notifications', async (req, res) => {
 router.get('/settings', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login')
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  
+  const taskCount = await prisma.linkSubmission.count({ where: { userId: user.id, status: 'APPROVED' } })
+  const level = calculateLevel(taskCount)
 
   const sidebar = `
     <nav class="sidebar-premium" id="sidebar">
@@ -716,6 +789,7 @@ router.get('/settings', async (req, res) => {
                 <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
                    <div style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">${user.firstName} ${user.lastName}</div>
                    <div style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@${user.username}</div>
+                   <div style="display:inline-block; background:linear-gradient(90deg, #facc15, #fbbf24); color:black; font-weight:bold; font-size:12px; padding:2px 8px; border-radius:4px; margin-bottom:8px;">Level ${level}</div>
                    
                    <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
                        <div>📧 ${user.email}</div>
