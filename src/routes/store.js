@@ -251,7 +251,7 @@ router.get('/my', requireLogin, async (req, res) => {
 
           <div class="store-tabs">
             <button class="store-tab active" onclick="openTab('avatar')">Profile Pictures</button>
-            <button class="store-tab" onclick="openTab('banner')">Banners</button>
+            <button class="store-tab" onclick="openTab('guild')">Guild Profile Pictures</button>
           </div>
 
           <div id="tab-avatar" class="tab-content active">
@@ -261,10 +261,10 @@ router.get('/my', requireLogin, async (req, res) => {
             </div>
           </div>
 
-          <div id="tab-banner" class="tab-content">
-            <h3 class="section-subtitle">My Banners</h3>
+          <div id="tab-guild" class="tab-content">
+            <h3 class="section-subtitle">My Guild Profiles</h3>
             <div class="store-grid">
-              ${banners.length ? banners.map(renderMyItem).join('') : '<div class="empty-state">You haven\'t bought any banners yet</div>'}
+              ${guildProfiles.length ? guildProfiles.map(renderMyItem).join('') : '<div class="empty-state">You haven\'t bought any guild profiles yet</div>'}
             </div>
           </div>
         </div>
