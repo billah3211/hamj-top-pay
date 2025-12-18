@@ -340,7 +340,7 @@ router.get('/dashboard', async (req, res) => {
     return res.redirect('/login?error=Account+blocked')
   }
   
-  const taskCount = await prisma.linkSubmission.count({ where: { userId: user.id, status: 'APPROVED' } })
+  const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
   
   // Generate Codes for Cards
@@ -442,7 +442,7 @@ router.get('/dashboard', async (req, res) => {
       })
       if (!user) return res.status(404).json({ error: 'User not found' })
 
-      const taskCount = await prisma.linkSubmission.count({ where: { userId: user.id, status: 'APPROVED' } })
+      const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
       const level = calculateLevel(taskCount)
 
       res.json({ ...user, level, taskCount })
@@ -608,7 +608,7 @@ router.get('/notifications', async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
   if (user.isBlocked) return res.redirect('/login?error=Account+blocked')
 
-  const taskCount = await prisma.linkSubmission.count({ where: { userId: user.id, status: 'APPROVED' } })
+  const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
 
   const notifs = await prisma.notification.findMany({
@@ -757,7 +757,7 @@ router.get('/settings', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login')
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
   
-  const taskCount = await prisma.linkSubmission.count({ where: { userId: user.id, status: 'APPROVED' } })
+  const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
 
   const sidebar = `
