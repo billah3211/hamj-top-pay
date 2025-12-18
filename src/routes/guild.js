@@ -244,7 +244,7 @@ router.get('/', requireLogin, async (req, res) => {
                 document.getElementById('upAvatar').src = user.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white';
                 document.getElementById('upCountry').innerText = user.country;
                 document.getElementById('upBio').innerHTML = user.bio || '<span style="opacity:0.5">No bio added</span>';
-                document.getElementById('upWebsite').innerHTML = user.website ? `<a href="${user.website}" target="_blank" style="color:#60a5fa">${user.website}</a>` : '<span style="opacity:0.5">No website</span>';
+                document.getElementById('upWebsite').innerHTML = user.website ? '<a href="' + user.website + '" target="_blank" style="color:#60a5fa">' + user.website + '</a>' : '<span style="opacity:0.5">No website</span>';
                 document.getElementById('upSocial').innerHTML = user.social || '<span style="opacity:0.5">No social links</span>';
             } catch(e) { console.error(e); alert('Failed to load profile'); modal.style.display = 'none'; }
         }
