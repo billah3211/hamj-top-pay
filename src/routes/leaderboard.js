@@ -11,131 +11,9 @@ const getHead = (title) => `
   <title>${title} - HaMJ toP PaY</title>
   <link rel="stylesheet" href="/style.css">
   <style>
-    .leaderboard-container { max-width: 800px; margin: 0 auto; }
+    .leaderboard-container { max-width: 800px; margin: 0 auto; padding-top: 20px; }
+    .leaderboard-title { font-size: 24px; font-weight: 700; color: white; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
     
-    /* Neon Title */
-    .neon-title {
-      text-align: center;
-      font-size: 3rem;
-      font-weight: 900;
-      color: #fff;
-      text-transform: uppercase;
-      letter-spacing: 4px;
-      margin-bottom: 40px;
-      text-shadow: 
-        0 0 10px #22d3ee,
-        0 0 20px #22d3ee,
-        0 0 40px #0ea5e9;
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.8; }
-    }
-
-    /* Podium Layout */
-    .podium-section {
-      display: flex;
-      justify-content: center;
-      align-items: flex-end;
-      gap: 16px;
-      margin-bottom: 60px;
-      padding-top: 20px;
-    }
-    .podium-item {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      flex: 1;
-      max-width: 160px;
-      position: relative;
-      cursor: pointer;
-      transition: transform 0.3s;
-    }
-    .podium-item:hover { transform: translateY(-5px); }
-    
-    /* Order for visual arrangement: 2nd (left), 1st (center), 3rd (right) */
-    .podium-item.rank-1 { order: 2; z-index: 10; transform: scale(1.1); }
-    .podium-item.rank-2 { order: 1; }
-    .podium-item.rank-3 { order: 3; }
-    .podium-item.rank-1:hover { transform: scale(1.15) translateY(-5px); }
-
-    /* Avatar Styles */
-    .avatar-wrapper {
-      position: relative;
-      margin-bottom: 15px;
-      border-radius: 50%;
-      padding: 4px;
-      background: rgba(0,0,0,0.5);
-    }
-    .avatar-img {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 4px solid transparent;
-    }
-    .rank-1 .avatar-img { width: 100px; height: 100px; border-color: #facc15; box-shadow: 0 0 20px rgba(250, 204, 21, 0.5); }
-    .rank-2 .avatar-img { border-color: #e2e8f0; box-shadow: 0 0 15px rgba(226, 232, 240, 0.5); }
-    .rank-3 .avatar-img { border-color: #fb923c; box-shadow: 0 0 15px rgba(251, 146, 60, 0.5); }
-
-    /* Laurels / Crown */
-    .crown-icon {
-      position: absolute;
-      top: -25px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 32px;
-      filter: drop-shadow(0 0 10px gold);
-      animation: float 3s ease-in-out infinite;
-    }
-    @keyframes float { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-5px); } }
-
-    /* Podium Base */
-    .podium-base {
-      width: 100%;
-      text-align: center;
-      color: #000;
-      font-weight: 800;
-      border-radius: 12px 12px 0 0;
-      padding: 15px 5px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      border-top: 1px solid rgba(255,255,255,0.3);
-    }
-    .rank-1 .podium-base {
-      height: 160px;
-      background: linear-gradient(180deg, #facc15 0%, #a16207 100%);
-      box-shadow: 0 0 30px rgba(250, 204, 21, 0.2);
-    }
-    .rank-2 .podium-base {
-      height: 110px;
-      background: linear-gradient(180deg, #e2e8f0 0%, #64748b 100%);
-      box-shadow: 0 0 20px rgba(148, 163, 184, 0.2);
-    }
-    .rank-3 .podium-base {
-      height: 110px; /* Same height as 2nd for symmetry, or slightly lower if preferred. Image shows similiar. */
-      background: linear-gradient(180deg, #fdba74 0%, #c2410c 100%);
-      box-shadow: 0 0 20px rgba(251, 146, 60, 0.2);
-    }
-
-    /* Text on Podium */
-    .podium-rank { font-size: 24px; margin-bottom: 5px; opacity: 0.8; }
-    .podium-name { font-size: 14px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; padding: 0 4px; }
-    .rank-1 .podium-name { font-size: 18px; }
-    .podium-score { 
-      font-size: 12px; 
-      background: rgba(0,0,0,0.2); 
-      padding: 2px 8px; 
-      border-radius: 10px; 
-      margin-top: 4px; 
-      display: inline-block;
-    }
-
-    /* List Styles (Rest) */
     .leaderboard-list { display: flex; flex-direction: column; gap: 10px; }
     .leaderboard-item { 
       background: rgba(30, 41, 59, 0.6); 
@@ -148,6 +26,7 @@ const getHead = (title) => `
       transition: all 0.2s;
     }
     .leaderboard-item:hover { transform: translateX(5px); background: rgba(30, 41, 59, 0.9); border-color: var(--primary); }
+    
     .rank-badge {
       width: 32px; height: 32px; 
       display: flex; align-items: center; justify-content: center; 
@@ -156,19 +35,18 @@ const getHead = (title) => `
       background: rgba(255,255,255,0.1);
       color: #94a3b8;
     }
-    .user-avatar-small { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(255,255,255,0.1); }
+    .rank-1 { background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%); color: black; box-shadow: 0 4px 12px rgba(250, 204, 21, 0.3); }
+    .rank-2 { background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%); color: black; box-shadow: 0 4px 12px rgba(226, 232, 240, 0.3); }
+    .rank-3 { background: linear-gradient(135deg, #fb923c 0%, #c2410c 100%); color: black; box-shadow: 0 4px 12px rgba(251, 146, 60, 0.3); }
+    
+    .user-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; background: #1e293b; }
+    
     .user-info { flex: 1; }
     .user-name { font-weight: 600; color: white; font-size: 15px; cursor: pointer; text-decoration: none; }
     .user-name:hover { color: var(--primary); }
-    .task-count { color: #34d399; font-weight: 600; font-size: 14px; }
+    .user-username { font-size: 12px; color: #94a3b8; }
     
-    @media (max-width: 600px) {
-      .podium-section { gap: 8px; }
-      .avatar-img { width: 50px; height: 50px; }
-      .rank-1 .avatar-img { width: 70px; height: 70px; }
-      .podium-name { font-size: 11px; }
-      .rank-1 .podium-name { font-size: 13px; }
-    }
+    .task-count { color: #34d399; font-weight: 600; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -415,28 +293,10 @@ router.get('/', async (req, res) => {
     }
   }).filter(Boolean)
 
-  // Split Top 3 and Rest
-  const top3 = leaderboard.slice(0, 3);
-  const rest = leaderboard.slice(3);
-
-  const renderPodiumItem = (item) => `
-    <div class="podium-item rank-${item.rank}" onclick="showUserProfile('${item.username}')">
-        <div class="avatar-wrapper">
-            ${item.rank === 1 ? '<div class="crown-icon">👑</div>' : ''}
-            <img src="${item.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" class="avatar-img" alt="${item.username}">
-        </div>
-        <div class="podium-base">
-            <div class="podium-rank">${item.rank}.</div>
-            <div class="podium-name">${item.firstName}</div>
-            <div class="podium-score">${item.count} Tasks</div>
-        </div>
-    </div>
-  `
-
-  const renderListItem = (item) => `
+  const renderItem = (item) => `
     <div class="leaderboard-item">
-      <div class="rank-badge">${item.rank}</div>
-      <img src="${item.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" class="user-avatar-small" alt="${item.username}">
+      <div class="rank-badge rank-${item.rank}">${item.rank}</div>
+      <img src="${item.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" class="user-avatar" alt="${item.username}">
       <div class="user-info">
         <a href="#" onclick="event.preventDefault(); showUserProfile('${item.username}')" class="user-name">${item.firstName} ${item.lastName}</a>
         <div class="user-username">@${item.username}</div>
@@ -450,19 +310,16 @@ router.get('/', async (req, res) => {
     ${getSidebar()}
     <div class="main-content">
       <div class="leaderboard-container">
-        <div class="neon-title">LEADERBOARD</div>
-        
-        <!-- Podium Section (Top 3) -->
-        <div class="podium-section">
-            ${top3.map(renderPodiumItem).join('')}
+        <div class="leaderboard-title">
+            <img src="https://api.iconify.design/lucide:trophy.svg?color=gold" width="32">
+            Top 100 Leaders
         </div>
-
-        <!-- Remaining List -->
+        
         <div class="leaderboard-list">
-          ${rest.map(renderListItem).join('')}
+          ${leaderboard.map(renderItem).join('')}
         </div>
         
-        ${rest.length === 0 && top3.length === 0 ? '<div style="text-align:center; color:var(--text-muted); margin-top:40px;">No data available yet</div>' : ''}
+        ${leaderboard.length === 0 ? '<div style="text-align:center; color:var(--text-muted); margin-top:40px;">No data available yet</div>' : ''}
       </div>
     </div>
     ${getFooter(user, level)}
