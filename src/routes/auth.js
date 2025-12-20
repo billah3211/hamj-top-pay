@@ -715,6 +715,7 @@ router.get('/settings', async (req, res) => {
   
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
 
   const sidebar = getUserSidebar('settings', unreadCount)
 
