@@ -1,5 +1,7 @@
 const express = require('express')
 const { prisma } = require('../db/prisma')
+const { getUserSidebar } = require('../utils/sidebar')
+const { formatDate } = require('../utils/date')
 const router = express.Router()
 
 // Middleware to ensure login
@@ -69,6 +71,9 @@ router.get('/', requireLogin, async (req, res) => {
     where: { id: req.session.userId },
     include: { guild: { include: { leader: true, members: true } } }
   })
+
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+
 
   // Get Requirements Text
   let reqSetting = await prisma.systemSetting.findUnique({ where: { key: 'guild_requirements_youtuber' } })
