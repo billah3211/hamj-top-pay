@@ -500,7 +500,7 @@ router.get('/dashboard', async (req, res) => {
         </div>
       </div>
       
-      ${profileModal}
+
 
       <script>
         // Mobile Menu

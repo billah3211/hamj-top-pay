@@ -73,6 +73,7 @@ app.use('/topup', topupRoutes)
 app.use('/notifications', notificationRoutes)
 app.use('/guild', guildRoutes)
 app.use('/leaderboard', leaderboardRoutes)
+app.use('/profile', profileRoutes)
 
 const port = process.env.PORT || 3000
 app.listen(port, () => {
