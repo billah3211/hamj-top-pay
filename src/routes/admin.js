@@ -34,8 +34,10 @@ const getSidebar = (active, role) => `
   <div class="brand-logo"><span>A</span> Admin Panel</div>
   <ul class="nav-links">
     <li class="nav-item"><a href="/admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
+    <li class="nav-item"><a href="/admin/users" class="${active === 'users' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Users</a></li>
+    <li class="nav-item"><a href="/admin/balance" class="${active === 'balance' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=%2394a3b8" class="nav-icon"> Balance</a></li>
     <li class="nav-item"><a href="/admin/topup-requests" class="${active === 'topup-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up Requests</a></li>
-    <li class="nav-item"><a href="/admin/guild-requests" class="${active === 'guild-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Guild Requests</a></li>
+    <li class="nav-item"><a href="/admin/guild-requests" class="${active === 'guild-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shield.svg?color=%2394a3b8" class="nav-icon"> Guild Requests</a></li>
     <li class="nav-item"><a href="/admin/promote-requests" class="${active === 'promote-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Requests</a></li>
     <li class="nav-item"><a href="/admin/link-search" class="${active === 'link-search' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:search.svg?color=%2394a3b8" class="nav-icon"> Search Link</a></li>
     ${role === 'SUPER_ADMIN' ? `<li class="nav-item" style="margin-top:10px;border-top:1px solid rgba(255,255,255,0.1);padding-top:10px"><a href="/super-admin/dashboard"><img src="https://api.iconify.design/lucide:shield-alert.svg?color=%23ec4899" class="nav-icon" style="color:#ec4899"> Super Admin</a></li>` : ''}
@@ -425,6 +427,279 @@ router.post('/link-action', requireAdmin, async (req, res) => {
 
     res.redirect('/admin/link-search?q=' + link.id + '&success=Action+Completed');
 });
+
+// --- Users & Balance Management ---
+router.get('/users', requireAdmin, async (req, res) => {
+  const { q, page } = req.query
+  const currentPage = parseInt(page) || 1
+  const limit = 20
+  const skip = (currentPage - 1) * limit
+  
+  const where = q ? {
+    OR: [
+      { username: { contains: q, mode: 'insensitive' } },
+      { email: { contains: q, mode: 'insensitive' } },
+      { phone: { contains: q, mode: 'insensitive' } }
+    ]
+  } : {}
+
+  const totalUsers = await prisma.user.count({ where })
+  const users = await prisma.user.findMany({
+    where,
+    take: limit,
+    skip,
+    orderBy: { createdAt: 'desc' }
+  })
+  
+  const totalPages = Math.ceil(totalUsers / limit)
+
+  res.send(`
+    ${getHead('Users')}
+    ${getSidebar('users', req.session.role)}
+    <div class="main-content">
+      <div class="section-header">
+        <div>
+          <div class="section-title">User Management</div>
+          <div style="color:var(--text-muted)">Total Users: ${totalUsers}</div>
+        </div>
+      </div>
+      
+      <div class="glass-panel" style="padding:20px; margin-bottom:20px;">
+        <form action="/admin/users" method="GET" style="display:flex; gap:10px;">
+          <input type="text" name="q" value="${q || ''}" placeholder="Search username, email, phone..." class="form-input" style="flex:1">
+          <button class="btn-premium">Search</button>
+        </form>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; color:#cbd5e1; font-size:14px;">
+          <thead>
+            <tr style="border-bottom:1px solid rgba(255,255,255,0.1); text-align:left;">
+              <th style="padding:10px;">User</th>
+              <th style="padding:10px;">Balance</th>
+              <th style="padding:10px;">Status</th>
+              <th style="padding:10px;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users.map(u => `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:10px;">
+                  <div style="font-weight:bold; color:white;">${u.firstName} ${u.lastName}</div>
+                  <div style="font-size:12px; color:#94a3b8;">@${u.username}</div>
+                  <div style="font-size:12px; color:#94a3b8;">${u.email}</div>
+                </td>
+                <td style="padding:10px;">
+                  <div style="color:#f472b6;">💎 ${u.diamond}</div>
+                  <div style="color:#fbbf24; font-size:12px;">🪙 ${u.coin}</div>
+                </td>
+                <td style="padding:10px;">
+                   ${u.isBlocked ? '<span style="color:#ef4444; background:rgba(239,68,68,0.1); padding:2px 8px; border-radius:10px; font-size:11px;">Blocked</span>' : '<span style="color:#22c55e; background:rgba(34,197,94,0.1); padding:2px 8px; border-radius:10px; font-size:11px;">Active</span>'}
+                </td>
+                <td style="padding:10px;">
+                  <a href="/admin/user/${u.id}" class="btn-premium" style="padding:5px 10px; font-size:12px;">Manage</a>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div style="display:flex; justify-content:center; gap:10px; margin-top:20px;">
+        ${currentPage > 1 ? `<a href="/admin/users?page=${currentPage - 1}&q=${q || ''}" class="btn-premium" style="background:transparent; border:1px solid rgba(255,255,255,0.2);">Prev</a>` : ''}
+        <span style="padding:8px; color:#94a3b8;">Page ${currentPage} of ${totalPages}</span>
+        ${currentPage < totalPages ? `<a href="/admin/users?page=${currentPage + 1}&q=${q || ''}" class="btn-premium" style="background:transparent; border:1px solid rgba(255,255,255,0.2);">Next</a>` : ''}
+      </div>
+    </div>
+    ${getScripts()}
+  `)
+})
+
+router.get('/user/:id', requireAdmin, async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: parseInt(req.params.id) } })
+  if (!user) return res.redirect('/admin/users')
+
+  res.send(`
+    ${getHead('Manage User')}
+    ${getSidebar('users', req.session.role)}
+    <div class="main-content">
+      <div class="section-title">Manage User: @${user.username}</div>
+      
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px;">
+        
+        <!-- Balance Management -->
+        <div class="glass-panel" style="padding:20px;">
+           <h3 style="color:#f472b6; margin-bottom:15px;">Balance Management</h3>
+           <form action="/admin/user/update-balance" method="POST">
+             <input type="hidden" name="userId" value="${user.id}">
+             
+             <div style="margin-bottom:15px;">
+               <label style="color:#94a3b8; font-size:12px;">Diamonds (Current: ${user.diamond})</label>
+               <div style="display:flex; gap:10px;">
+                 <select name="diamondAction" class="form-input" style="width:80px;">
+                   <option value="add">Add</option>
+                   <option value="remove">Remove</option>
+                 </select>
+                 <input type="number" name="diamondAmount" placeholder="Amount" class="form-input" style="flex:1">
+               </div>
+             </div>
+
+             <div style="margin-bottom:15px;">
+               <label style="color:#94a3b8; font-size:12px;">Coins (Current: ${user.coin})</label>
+               <div style="display:flex; gap:10px;">
+                 <select name="coinAction" class="form-input" style="width:80px;">
+                   <option value="add">Add</option>
+                   <option value="remove">Remove</option>
+                 </select>
+                 <input type="number" name="coinAmount" placeholder="Amount" class="form-input" style="flex:1">
+               </div>
+             </div>
+
+             <button class="btn-premium" style="width:100%;">Update Balance</button>
+           </form>
+        </div>
+
+        <!-- Account Actions -->
+        <div class="glass-panel" style="padding:20px;">
+           <h3 style="color:#f472b6; margin-bottom:15px;">Account Actions</h3>
+           
+           <form action="/admin/user/status" method="POST" style="margin-bottom:20px;">
+             <input type="hidden" name="userId" value="${user.id}">
+             <input type="hidden" name="status" value="${user.isBlocked ? 'active' : 'blocked'}">
+             <button class="btn-premium" style="width:100%; background:${user.isBlocked ? '#22c55e' : '#ef4444'}; border-color:${user.isBlocked ? '#22c55e' : '#ef4444'};">
+               ${user.isBlocked ? 'Unblock User' : 'Block User'}
+             </button>
+           </form>
+
+           <div style="margin-top:20px; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
+             <div style="color:#cbd5e1; font-size:14px; margin-bottom:10px;">User Info</div>
+             <div style="font-size:13px; color:#94a3b8;">
+               <div>Name: ${user.firstName} ${user.lastName}</div>
+               <div>Email: ${user.email}</div>
+               <div>Phone: ${user.phone}</div>
+               <div>Joined: ${new Date(user.createdAt).toLocaleDateString()}</div>
+             </div>
+           </div>
+        </div>
+
+      </div>
+    </div>
+    ${getScripts()}
+  `)
+})
+
+router.post('/user/update-balance', requireAdmin, async (req, res) => {
+  const { userId, diamondAction, diamondAmount, coinAction, coinAmount } = req.body
+  const id = parseInt(userId)
+  const dAmount = parseInt(diamondAmount) || 0
+  const cAmount = parseInt(coinAmount) || 0
+
+  if (dAmount > 0) {
+    if (diamondAction === 'add') {
+       await prisma.user.update({ where: { id }, data: { diamond: { increment: dAmount } } })
+       await prisma.notification.create({ data: { userId: id, message: `Admin added ${dAmount} diamonds to your account.`, type: 'credit' } })
+    } else {
+       await prisma.user.update({ where: { id }, data: { diamond: { decrement: dAmount } } })
+       await prisma.notification.create({ data: { userId: id, message: `Admin removed ${dAmount} diamonds from your account.`, type: 'debit' } })
+    }
+  }
+
+  if (cAmount > 0) {
+    if (coinAction === 'add') {
+       await prisma.user.update({ where: { id }, data: { coin: { increment: cAmount } } })
+       await prisma.notification.create({ data: { userId: id, message: `Admin added ${cAmount} coins to your account.`, type: 'credit' } })
+    } else {
+       await prisma.user.update({ where: { id }, data: { coin: { decrement: cAmount } } })
+       await prisma.notification.create({ data: { userId: id, message: `Admin removed ${cAmount} coins from your account.`, type: 'debit' } })
+    }
+  }
+
+  res.redirect(`/admin/user/${id}`)
+})
+
+router.post('/user/status', requireAdmin, async (req, res) => {
+  const { userId, status } = req.body
+  const id = parseInt(userId)
+  
+  await prisma.user.update({ 
+    where: { id }, 
+    data: { isBlocked: status === 'blocked' } 
+  })
+
+  if (status === 'blocked') {
+    await prisma.notification.create({ data: { userId: id, message: 'Your account has been blocked by admin.', type: 'alert' } })
+  } else {
+    await prisma.notification.create({ data: { userId: id, message: 'Your account has been unblocked by admin.', type: 'info' } })
+  }
+
+  res.redirect(`/admin/user/${id}`)
+})
+
+// Balance Page (Quick Access)
+router.get('/balance', requireAdmin, async (req, res) => {
+  const { username } = req.query
+  let user = null
+  if (username) {
+    user = await prisma.user.findUnique({ where: { username } })
+  }
+
+  res.send(`
+    ${getHead('Balance Management')}
+    ${getSidebar('balance', req.session.role)}
+    <div class="main-content">
+      <div class="section-title">Quick Balance Management</div>
+      
+      <div class="glass-panel" style="padding:20px; margin-bottom:20px; max-width:500px;">
+        <form action="/admin/balance" method="GET" style="display:flex; gap:10px;">
+          <input type="text" name="username" value="${username || ''}" placeholder="Enter username..." class="form-input" style="flex:1" required>
+          <button class="btn-premium">Find User</button>
+        </form>
+      </div>
+
+      ${user ? `
+        <div class="glass-panel" style="padding:20px; max-width:500px;">
+           <div style="margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
+             <h3 style="color:white;">${user.firstName} ${user.lastName} (@${user.username})</h3>
+             <div style="display:flex; gap:20px; margin-top:10px;">
+               <div style="color:#f472b6;">💎 ${user.diamond} Diamonds</div>
+               <div style="color:#fbbf24;">🪙 ${user.coin} Coins</div>
+             </div>
+           </div>
+
+           <form action="/admin/user/update-balance" method="POST">
+             <input type="hidden" name="userId" value="${user.id}">
+             
+             <div style="margin-bottom:15px;">
+               <label style="color:#94a3b8; font-size:12px;">Update Diamonds</label>
+               <div style="display:flex; gap:10px;">
+                 <select name="diamondAction" class="form-input" style="width:80px;">
+                   <option value="add">Add</option>
+                   <option value="remove">Remove</option>
+                 </select>
+                 <input type="number" name="diamondAmount" placeholder="Amount" class="form-input" style="flex:1">
+               </div>
+             </div>
+
+             <div style="margin-bottom:15px;">
+               <label style="color:#94a3b8; font-size:12px;">Update Coins</label>
+               <div style="display:flex; gap:10px;">
+                 <select name="coinAction" class="form-input" style="width:80px;">
+                   <option value="add">Add</option>
+                   <option value="remove">Remove</option>
+                 </select>
+                 <input type="number" name="coinAmount" placeholder="Amount" class="form-input" style="flex:1">
+               </div>
+             </div>
+
+             <button class="btn-premium" style="width:100%;">Update Balance</button>
+           </form>
+        </div>
+      ` : username ? '<div style="color:#ef4444;">User not found</div>' : ''}
+    </div>
+    ${getScripts()}
+  `)
+})
 
 // Login/Logout (simplified for admin)
 router.get('/login', (req, res) => {
