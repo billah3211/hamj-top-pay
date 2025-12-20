@@ -1,5 +1,6 @@
 const express = require('express')
 const { prisma } = require('../db/prisma')
+const { getUserSidebar } = require('../utils/sidebar')
 const router = express.Router()
 
 // Middleware to ensure user is logged in
@@ -287,6 +288,7 @@ router.get('/my', requireLogin, async (req, res) => {
       }
     }
   })
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
@@ -318,7 +320,7 @@ router.get('/my', requireLogin, async (req, res) => {
   res.send(`
     ${getHead('My Store')}
     <div class="app-layout">
-      ${getSidebar('mystore')}
+      ${getUserSidebar('mystore', unreadCount)}
       <div class="main-content">
         <div class="section-header">
           <div>

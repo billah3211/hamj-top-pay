@@ -259,7 +259,7 @@ router.get('/', requireLogin, async (req, res) => {
 
   res.send(`
     ${getHead('Guilds')}
-    ${getSidebar('guild')}
+    ${getUserSidebar('guild', unreadCount)}
     <div class="main-content">
       <div class="section-header">
         <div>

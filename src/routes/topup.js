@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const { prisma } = require('../db/prisma')
+const { getUserSidebar } = require('../utils/sidebar')
 
 // Middleware to check authentication
 const requireAuth = (req, res, next) => {
@@ -11,7 +12,9 @@ const requireAuth = (req, res, next) => {
 }
 
 // Helper to render layout
-const renderLayout = (title, content, user) => `
+const renderLayout = (title, content, user, unreadCount = 0) => {
+  const active = title === 'Top Up' ? 'topup' : title === 'History' ? 'history' : ''
+  return `
 <!doctype html>
 <html>
 <head>
@@ -57,22 +60,7 @@ const renderLayout = (title, content, user) => `
 <body>
   <button class="menu-trigger" id="mobileMenuBtn">☰</button>
   <div class="app-layout">
-    <nav class="sidebar-premium" id="sidebar">
-      <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
-      <ul class="nav-links">
-        <li class="nav-item"><a href="/dashboard"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
-        <li class="nav-item"><a href="/topup" class="${title === 'Top Up' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up</a></li>
-        <li class="nav-item"><a href="/topup/history" class="${title === 'History' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:history.svg?color=%2394a3b8" class="nav-icon"> History</a></li>
-        <li class="nav-item"><a href="/guild"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Guild</a></li>
-        <li class="nav-item"><a href="/store"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=%2394a3b8" class="nav-icon"> Store</a></li>
-        <li class="nav-item"><a href="/store/my"><img src="https://api.iconify.design/lucide:briefcase.svg?color=%2394a3b8" class="nav-icon"> My Store</a></li>
-        <li class="nav-item"><a href="/leaderboard"><img src="https://api.iconify.design/lucide:trophy.svg?color=%2394a3b8" class="nav-icon"> Leaderboard</a></li>
-        <li class="nav-item"><a href="/promote"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Link</a></li>
-        <li class="nav-item"><a href="/notifications"><img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications</a></li>
-        <li class="nav-item"><a href="/settings"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
-        <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
-      </ul>
-    </nav>
+    ${getUserSidebar(active, unreadCount)}
     <div class="main-content">
       <div class="container content">
          ${content}
@@ -96,11 +84,14 @@ const renderLayout = (title, content, user) => `
 </body>
 </html>
 `
+}
+
 
 // 1. Package List
 router.get('/', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+    const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
     let packages = await prisma.topUpPackage.findMany({ where: { isActive: true }, orderBy: { price: 'asc' } })
     
     // Filter packages based on user country
@@ -143,7 +134,7 @@ router.get('/', requireAuth, async (req, res) => {
         ${packages.length === 0 ? '<div class="alert">No packages available at the moment.</div>' : ''}
       </div>
     `
-    res.send(renderLayout('Top Up', content, user))
+    res.send(renderLayout('Top Up', content, user, unreadCount))
   } catch (error) {
     console.error(error)
     res.status(500).send('Server Error')
@@ -204,6 +195,7 @@ router.get('/:pkgId/wallets', requireAuth, async (req, res) => {
 router.get('/:pkgId/pay/:walletId', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+    const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
     const pkg = await prisma.topUpPackage.findUnique({ where: { id: parseInt(req.params.pkgId) } })
     const wallet = await prisma.topUpWallet.findUnique({ where: { id: parseInt(req.params.walletId) } })
     
@@ -264,7 +256,7 @@ router.get('/:pkgId/pay/:walletId', requireAuth, async (req, res) => {
 
       </div>
     `
-    res.send(renderLayout('Top Up', content, user))
+    res.send(renderLayout('Top Up', content, user, unreadCount))
   } catch (error) {
     console.error(error)
     res.status(500).send('Server Error')

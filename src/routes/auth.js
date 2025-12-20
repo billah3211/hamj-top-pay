@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs')
 const { prisma } = require('../db/prisma')
 const path = require('path')
 const countries = require('../data/countries')
+const { getUserSidebar } = require('../utils/sidebar')
 const router = express.Router()
 
 // Helper: Calculate User Level
@@ -341,6 +342,7 @@ router.get('/dashboard', async (req, res) => {
   }
   
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const level = calculateLevel(taskCount)
   
   // Generate Codes for Cards
@@ -451,23 +453,7 @@ router.get('/dashboard', async (req, res) => {
     }
   })
 
-  const sidebar = `
-    <nav class="sidebar-premium" id="sidebar">
-      <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
-      <ul class="nav-links">
-        <li class="nav-item"><a href="/dashboard" class="active"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
-        <li class="nav-item"><a href="/store"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=%2394a3b8" class="nav-icon"> Store</a></li>
-        <li class="nav-item"><a href="/store/my"><img src="https://api.iconify.design/lucide:briefcase.svg?color=%2394a3b8" class="nav-icon"> My Store</a></li>
-        <li class="nav-item"><a href="/leaderboard"><img src="https://api.iconify.design/lucide:trophy.svg?color=%2394a3b8" class="nav-icon"> Leaderboard</a></li>
-        <li class="nav-item"><a href="/topup"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up</a></li>
-        <li class="nav-item"><a href="/promote"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Link</a></li>
-        <li class="nav-item"><a href="/notifications"><img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications</a></li>
-        <li class="nav-item"><a href="/settings"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
-        <li class="nav-item"><a href="#" id="menuProfile"><img src="https://api.iconify.design/lucide:user.svg?color=%2394a3b8" class="nav-icon"> Profile</a></li>
-        <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
-      </ul>
-    </nav>
-  `
+  const sidebar = getUserSidebar('dashboard', unreadCount)
 
   const html = `
     <!doctype html>
@@ -610,6 +596,7 @@ router.get('/notifications', async (req, res) => {
   if (user.isBlocked) return res.redirect('/login?error=Account+blocked')
 
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const level = calculateLevel(taskCount)
 
   const notifs = await prisma.notification.findMany({
@@ -624,20 +611,7 @@ router.get('/notifications', async (req, res) => {
     data: { isRead: true }
   })
 
-  const sidebar = `
-    <nav class="sidebar-premium" id="sidebar">
-      <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
-      <ul class="nav-links">
-        <li class="nav-item"><a href="/dashboard"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
-        <li class="nav-item"><a href="/store"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=%2394a3b8" class="nav-icon"> Store</a></li>
-        <li class="nav-item"><a href="/store/my"><img src="https://api.iconify.design/lucide:briefcase.svg?color=%2394a3b8" class="nav-icon"> My Store</a></li>
-        <li class="nav-item"><a href="/notifications" class="active"><img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications</a></li>
-        <li class="nav-item"><a href="/settings"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
-        <li class="nav-item"><a href="#" id="menuProfile"><img src="https://api.iconify.design/lucide:user.svg?color=%2394a3b8" class="nav-icon"> Profile</a></li>
-        <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
-      </ul>
-    </nav>
-  `
+  const sidebar = getUserSidebar('notifications', 0)
 
   const list = notifs.map(n => `
     <div style="background:rgba(255,255,255,0.05);padding:16px;border-radius:12px;margin-bottom:12px;border-left:4px solid ${n.type === 'credit' ? '#22c55e' : (n.type === 'debit' ? '#ef4444' : '#6366f1')}">
@@ -761,20 +735,7 @@ router.get('/settings', async (req, res) => {
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
 
-  const sidebar = `
-    <nav class="sidebar-premium" id="sidebar">
-      <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
-      <ul class="nav-links">
-        <li class="nav-item"><a href="/dashboard"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
-        <li class="nav-item"><a href="/store"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=%2394a3b8" class="nav-icon"> Store</a></li>
-        <li class="nav-item"><a href="/store/my"><img src="https://api.iconify.design/lucide:briefcase.svg?color=%2394a3b8" class="nav-icon"> My Store</a></li>
-        <li class="nav-item"><a href="/notifications"><img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications</a></li>
-        <li class="nav-item"><a href="/settings" class="active"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
-        <li class="nav-item"><a href="#" id="menuProfile"><img src="https://api.iconify.design/lucide:user.svg?color=%2394a3b8" class="nav-icon"> Profile</a></li>
-        <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
-      </ul>
-    </nav>
-  `
+  const sidebar = getUserSidebar('settings', unreadCount)
 
   const profileModal = `
     <div id="profileModal" class="modal-premium" style="align-items: center; justify-content: center; padding: 20px;">

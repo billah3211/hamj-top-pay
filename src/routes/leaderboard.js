@@ -1,5 +1,6 @@
 const express = require('express')
 const { prisma } = require('../db/prisma')
+const { getUserSidebar } = require('../utils/sidebar')
 const router = express.Router()
 
 const getHead = (title) => `
@@ -52,23 +53,7 @@ const getHead = (title) => `
 <body>
 `
 
-const getSidebar = () => `
-<nav class="sidebar-premium" id="sidebar">
-  <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
-  <ul class="nav-links">
-    <li class="nav-item"><a href="/dashboard"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
-    <li class="nav-item"><a href="/store"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=%2394a3b8" class="nav-icon"> Store</a></li>
-    <li class="nav-item"><a href="/store/my"><img src="https://api.iconify.design/lucide:briefcase.svg?color=%2394a3b8" class="nav-icon"> My Store</a></li>
-    <li class="nav-item"><a href="/leaderboard" class="active"><img src="https://api.iconify.design/lucide:trophy.svg?color=%2394a3b8" class="nav-icon"> Leaderboard</a></li>
-    <li class="nav-item"><a href="/topup"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up</a></li>
-    <li class="nav-item"><a href="/promote"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Link</a></li>
-    <li class="nav-item"><a href="/notifications"><img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications</a></li>
-    <li class="nav-item"><a href="/settings"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
-    <li class="nav-item"><a href="#" id="menuProfile"><img src="https://api.iconify.design/lucide:user.svg?color=%2394a3b8" class="nav-icon"> Profile</a></li>
-    <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
-  </ul>
-</nav>
-`
+
 
 const getProfileModal = (user, level) => `
 <div id="profileModal" class="modal-premium" style="align-items: center; justify-content: center; padding: 20px;">
@@ -256,6 +241,7 @@ router.get('/', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login')
   
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
 
@@ -307,7 +293,7 @@ router.get('/', async (req, res) => {
 
   res.send(`
     ${getHead('Leaderboard')}
-    ${getSidebar()}
+    ${getUserSidebar('leaderboard', unreadCount)}
     <div class="main-content">
       <div class="leaderboard-container">
         <div class="leaderboard-title">

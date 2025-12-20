@@ -5,6 +5,7 @@ const path = require('path')
 const fs = require('fs')
 const { prisma } = require('../db/prisma')
 const { storage } = require('../config/cloudinary')
+const { getUserSidebar } = require('../utils/sidebar')
 const router = express.Router()
 
 // Multer Config for Screenshots (Cloudinary)
@@ -171,24 +172,7 @@ const getProfileModal = (user, level) => `
 `
 
 // Helper: Common UI Components
-const getSidebar = (active) => `
-  <nav class="sidebar-premium" id="sidebar">
-    <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
-    <ul class="nav-links">
-      <li class="nav-item"><a href="/dashboard"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
-      <li class="nav-item"><a href="/promote" class="${active==='promote'?'active':''}"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Link</a></li>
-      <li class="nav-item"><a href="/store"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=%2394a3b8" class="nav-icon"> Store</a></li>
-      <li class="nav-item"><a href="/store/my"><img src="https://api.iconify.design/lucide:briefcase.svg?color=%2394a3b8" class="nav-icon"> My Store</a></li>
-        <li class="nav-item"><a href="/leaderboard"><img src="https://api.iconify.design/lucide:trophy.svg?color=%2394a3b8" class="nav-icon"> Leaderboard</a></li>
-        <li class="nav-item"><a href="/topup"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up</a></li>
-      <li class="nav-item"><a href="/guild" class="${active==='guild'?'active':''}"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Guild</a></li>
-      <li class="nav-item"><a href="/notifications"><img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications</a></li>
-      <li class="nav-item"><a href="/settings"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
-      <li class="nav-item"><a href="#" id="menuProfile"><img src="https://api.iconify.design/lucide:user.svg?color=%2394a3b8" class="nav-icon"> Profile</a></li>
-      <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
-    </ul>
-  </nav>
-`
+// Sidebar removed - imported from utils
 
 const getHead = (title) => `
   <!doctype html>
@@ -245,11 +229,12 @@ const getFooter = (user, level) => `
 router.get('/', requireLogin, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const level = calculateLevel(taskCount)
 
   res.send(`
     ${getHead('Promote Link')}
-    ${getSidebar('promote')}
+    ${getUserSidebar('promote', unreadCount)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -307,13 +292,14 @@ router.get('/create', requireLogin, async (req, res) => {
   const today = new Date().toISOString().split('T')[0]
   
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const level = calculateLevel(taskCount)
 
   const packageOptions = settings.packages.map(p => `<option value="${p.visits}">${p.visits} Visits</option>`).join('')
 
   res.send(`
     ${getHead('Promote Your Link')}
-    ${getSidebar('promote')}
+    ${getUserSidebar('promote', unreadCount)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -433,6 +419,7 @@ router.post('/create', requireLogin, async (req, res) => {
 router.get('/history', requireLogin, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const level = calculateLevel(taskCount)
 
   const links = await prisma.promotedLink.findMany({
@@ -492,7 +479,7 @@ router.get('/history', requireLogin, async (req, res) => {
 
   res.send(`
     ${getHead('Promote History')}
-    ${getSidebar('promote')}
+    ${getUserSidebar('promote', unreadCount)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -557,6 +544,7 @@ router.post('/promote/extend', requireLogin, async (req, res) => {
 router.get('/history/:id', requireLogin, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const level = calculateLevel(taskCount)
 
   const linkId = parseInt(req.params.id)

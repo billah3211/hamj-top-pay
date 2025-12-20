@@ -121,7 +121,7 @@ router.get('/', requireAuth, async (req, res) => {
         `}
       </div>
     `
-    res.send(renderLayout('Notifications', content, user))
+    res.send(renderLayout('Notifications', content, user, unreadCount))
   } catch (error) {
     console.error(error)
     res.status(500).send('Server Error')
