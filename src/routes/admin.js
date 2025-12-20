@@ -691,35 +691,35 @@ router.get('/balance', requireAdmin, async (req, res) => {
              <form action="/admin/user/update-balance" method="POST">
                <input type="hidden" name="userId" value="${user.id}">
                
-               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:30px;">
+               <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom:20px;">
                    <div>
-                       <label style="color:#f472b6; font-weight:bold; display:block; margin-bottom:10px;">Manage Diamonds</label>
-                       <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:12px;">
-                           <div style="display:flex; gap:10px; margin-bottom:10px;">
-                               <select name="diamondAction" class="form-input" style="width:100px;">
-                                 <option value="add">Add (+)</option>
-                                 <option value="remove">Remove (-)</option>
-                               </select>
-                           </div>
-                           <input type="number" name="diamondAmount" placeholder="Amount" class="form-input" style="width:100%;">
-                       </div>
+                       <label style="color:#94a3b8; font-size:12px; display:block; margin-bottom:5px;">Balance Type</label>
+                       <select name="balanceType" class="form-input" style="width:100%;">
+                         <option value="diamond">Diamond (Current: ${user.diamond})</option>
+                         <option value="coin">Coin (Current: ${user.coin})</option>
+                         <option value="tk">Tk (Current: ${user.tk})</option>
+                         <option value="lora">HaMJ T (Current: ${user.lora})</option>
+                       </select>
                    </div>
-
                    <div>
-                       <label style="color:#fbbf24; font-weight:bold; display:block; margin-bottom:10px;">Manage Coins</label>
-                       <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:12px;">
-                           <div style="display:flex; gap:10px; margin-bottom:10px;">
-                               <select name="coinAction" class="form-input" style="width:100px;">
-                                 <option value="add">Add (+)</option>
-                                 <option value="remove">Remove (-)</option>
-                               </select>
-                           </div>
-                           <input type="number" name="coinAmount" placeholder="Amount" class="form-input" style="width:100%;">
-                       </div>
+                       <label style="color:#94a3b8; font-size:12px; display:block; margin-bottom:5px;">Action</label>
+                       <select name="action" class="form-input" style="width:100%;">
+                         <option value="add">Add (+)</option>
+                         <option value="remove">Remove (-)</option>
+                       </select>
+                   </div>
+                   <div>
+                       <label style="color:#94a3b8; font-size:12px; display:block; margin-bottom:5px;">Amount</label>
+                       <input type="number" name="amount" placeholder="0" class="form-input" style="width:100%;" required>
                    </div>
                </div>
 
-               <button class="btn-premium" style="width:100%; margin-top:30px; justify-content:center; padding:16px;">Confirm & Update Balance</button>
+               <div style="margin-bottom:20px;">
+                 <label style="color:#94a3b8; font-size:12px; display:block; margin-bottom:5px;">Message for User</label>
+                 <textarea name="message" class="form-input" style="width:100%; min-height:80px;" placeholder="Write a reason or message for the user..." required></textarea>
+               </div>
+
+               <button class="btn-premium" style="width:100%; justify-content:center; padding:16px;">Confirm & Update Balance</button>
              </form>
            </div>
         </div>
