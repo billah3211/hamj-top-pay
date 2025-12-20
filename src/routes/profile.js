@@ -1,0 +1,170 @@
+const express = require('express')
+const { prisma } = require('../db/prisma')
+const { getUserSidebar } = require('../utils/sidebar')
+const router = express.Router()
+
+// Helper: Calculate User Level
+const calculateLevel = (count) => {
+  if (count < 100) return 0;
+  if (count < 500) return 1;
+  if (count < 1200) return 2;
+  if (count < 2000) return 3;
+  if (count < 5000) return 4;
+  if (count < 10000) return 5;
+  if (count < 15000) return 6;
+  return 7 + Math.floor((count - 15000) / 5000);
+}
+
+router.get('/', async (req, res) => {
+  if (!req.session.userId) return res.redirect('/login')
+  
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  if (!user) return res.redirect('/login')
+  if (user.isBlocked) {
+    req.session.destroy()
+    return res.redirect('/login?error=Account+blocked')
+  }
+
+  const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+  const level = calculateLevel(taskCount)
+
+  const sidebar = getUserSidebar('profile', unreadCount)
+
+  res.send(`
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>My Profile - HaMJ toP PaY</title>
+      <link rel="stylesheet" href="/style.css">
+    </head>
+    <body>
+      
+      <button class="menu-trigger" id="mobileMenuBtn">☰</button>
+      
+      <div class="app-layout">
+        ${sidebar}
+        
+        <div class="main-content">
+          <div class="section-header">
+            <div>
+              <div class="section-title">My Profile</div>
+              <div style="color:var(--text-muted);font-size:14px">Manage your personal information</div>
+            </div>
+            <div class="actions">
+              <a href="/settings" class="btn-premium">Edit Profile</a>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 30px; max-width: 800px; margin: 0 auto;">
+            
+            <!-- Profile Header Card -->
+            <div class="glass-panel" style="padding: 0; overflow: hidden; position: relative;">
+               <div style="height: 150px; background: linear-gradient(135deg, #065f46 0%, #10b981 100%);"></div>
+               
+               <div style="padding: 0 30px 30px; margin-top: -50px; position: relative;">
+                 <div style="display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap;">
+                   <div style="width: 120px; height: 120px; border-radius: 50%; border: 4px solid #0f172a; overflow: hidden; background: #1e293b; flex-shrink: 0;">
+                     <img src="${user.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" style="width: 100%; height: 100%; object-fit: cover;">
+                   </div>
+                   
+                   <div style="flex: 1; padding-bottom: 10px;">
+                     <div style="font-size: 28px; font-weight: 800; color: white;">${user.firstName} ${user.lastName}</div>
+                     <div style="color: #94a3b8; margin-bottom: 5px;">@${user.username}</div>
+                     <div style="display: inline-flex; align-items: center; gap: 10px;">
+                       <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level ${level}</div>
+                       <div style="color: #94a3b8; font-size: 13px;">Joined ${new Date(user.createdAt).toLocaleDateString()}</div>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+            </div>
+
+            <!-- Stats & Info Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+              
+              <!-- Contact Info -->
+              <div class="glass-panel" style="padding: 25px;">
+                <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
+                  <img src="https://api.iconify.design/lucide:contact.svg?color=%2310b981" width="20"> Contact Info
+                </h3>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                  <div>
+                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Email Address</div>
+                    <div style="color: white;">${user.email}</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Phone Number</div>
+                    <div style="color: white;">${user.phone}</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Country</div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <span style="color: white;">${user.country}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- About & Social -->
+              <div class="glass-panel" style="padding: 25px;">
+                <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
+                  <img src="https://api.iconify.design/lucide:info.svg?color=%233b82f6" width="20"> About & Social
+                </h3>
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                  <div>
+                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Bio</div>
+                    <div style="color: white; line-height: 1.5;">${user.bio || '<span style="opacity:0.5; font-style:italic;">No bio added yet.</span>'}</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Website</div>
+                    <div>${user.website ? `<a href="${user.website}" target="_blank" style="color: #60a5fa; text-decoration: none;">${user.website}</a>` : '<span style="opacity:0.5; font-style:italic;">No website added.</span>'}</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Social Links</div>
+                    <div>${user.social || '<span style="opacity:0.5; font-style:italic;">No social links added.</span>'}</div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Task Stats -->
+            <div class="glass-panel" style="padding: 25px;">
+               <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
+                  <img src="https://api.iconify.design/lucide:activity.svg?color=%23f472b6" width="20"> Activity Stats
+               </h3>
+               <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
+                   <div style="font-size: 24px; font-weight: bold; color: #f472b6;">${taskCount}</div>
+                   <div style="font-size: 12px; color: #94a3b8;">Tasks Completed</div>
+                 </div>
+                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
+                   <div style="font-size: 24px; font-weight: bold; color: #fbbf24;">${user.coin}</div>
+                   <div style="font-size: 12px; color: #94a3b8;">Coins Earned</div>
+                 </div>
+                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
+                   <div style="font-size: 24px; font-weight: bold; color: #a78bfa;">${user.diamond}</div>
+                   <div style="font-size: 12px; color: #94a3b8;">Diamonds</div>
+                 </div>
+               </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <script>(function(){var dt=document.querySelectorAll('.device-toggle-settings .tab');function applySkin(m){document.body.classList.remove('skin-desktop','skin-mobile');document.body.classList.add('skin-'+m);if(dt.length){dt.forEach(function(b){b.classList.toggle('active',b.getAttribute('data-device')===m)})}try{localStorage.setItem('siteSkin',m)}catch(e){}}if(dt.length){dt.forEach(function(b){b.addEventListener('click',function(){applySkin(b.getAttribute('data-device'))})})}var init='desktop';try{init=localStorage.getItem('siteSkin')||'desktop';if(init!=='desktop'&&init!=='mobile'){init='mobile'}}catch(e){}applySkin(init);})();</script>
+      <script>
+        document.getElementById('mobileMenuBtn').addEventListener('click', function() {
+          document.getElementById('sidebar').classList.toggle('active');
+        });
+      </script>
+    </body>
+    </html>
+  `)
+})
+
+module.exports = router

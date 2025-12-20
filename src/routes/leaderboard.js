@@ -13,41 +13,91 @@ const getHead = (title) => `
   <link rel="stylesheet" href="/style.css">
   <style>
     .leaderboard-container { max-width: 800px; margin: 0 auto; padding-top: 20px; }
-    .leaderboard-title { font-size: 24px; font-weight: 700; color: white; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
-    
-    .leaderboard-list { display: flex; flex-direction: column; gap: 10px; }
-    .leaderboard-item { 
-      background: rgba(30, 41, 59, 0.6); 
-      border-radius: 12px; 
-      padding: 12px 20px; 
+    .leaderboard-title { 
+      font-size: 28px; 
+      font-weight: 800; 
+      color: transparent;
+      background: linear-gradient(to right, #facc15, #f59e0b);
+      -webkit-background-clip: text;
+      background-clip: text;
+      margin-bottom: 30px; 
       display: flex; 
       align-items: center; 
-      gap: 16px; 
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      transition: all 0.2s;
+      justify-content: center;
+      gap: 15px; 
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-shadow: 0 4px 20px rgba(250, 204, 21, 0.3);
     }
-    .leaderboard-item:hover { transform: translateX(5px); background: rgba(30, 41, 59, 0.9); border-color: var(--primary); }
+    
+    .leaderboard-list { display: flex; flex-direction: column; gap: 15px; }
+    
+    .leaderboard-item { 
+      background: rgba(30, 41, 59, 0.4); 
+      backdrop-filter: blur(10px);
+      border-radius: 16px; 
+      padding: 16px 24px; 
+      display: flex; 
+      align-items: center; 
+      gap: 20px; 
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .leaderboard-item:hover { 
+      transform: translateX(5px) scale(1.01); 
+      background: rgba(30, 41, 59, 0.8); 
+      border-color: rgba(255, 255, 255, 0.2); 
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
     
     .rank-badge {
-      width: 32px; height: 32px; 
+      width: 40px; height: 40px; 
       display: flex; align-items: center; justify-content: center; 
-      font-weight: 700; font-size: 14px; 
-      border-radius: 8px; 
-      background: rgba(255,255,255,0.1);
+      font-weight: 800; font-size: 16px; 
+      border-radius: 12px; 
+      background: rgba(255,255,255,0.05);
       color: #94a3b8;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.1);
     }
-    .rank-1 { background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%); color: black; box-shadow: 0 4px 12px rgba(250, 204, 21, 0.3); }
-    .rank-2 { background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%); color: black; box-shadow: 0 4px 12px rgba(226, 232, 240, 0.3); }
-    .rank-3 { background: linear-gradient(135deg, #fb923c 0%, #c2410c 100%); color: black; box-shadow: 0 4px 12px rgba(251, 146, 60, 0.3); }
+
+    /* Top 3 Styling */
+    .item-rank-1 { background: linear-gradient(90deg, rgba(250, 204, 21, 0.1), transparent); border-color: rgba(250, 204, 21, 0.3); }
+    .item-rank-2 { background: linear-gradient(90deg, rgba(226, 232, 240, 0.1), transparent); border-color: rgba(226, 232, 240, 0.3); }
+    .item-rank-3 { background: linear-gradient(90deg, rgba(251, 146, 60, 0.1), transparent); border-color: rgba(251, 146, 60, 0.3); }
+
+    .rank-1 { background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%); color: #000; box-shadow: 0 0 20px rgba(250, 204, 21, 0.4); border: none; font-size: 20px; }
+    .rank-2 { background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%); color: #000; box-shadow: 0 0 20px rgba(226, 232, 240, 0.4); border: none; font-size: 18px; }
+    .rank-3 { background: linear-gradient(135deg, #fb923c 0%, #c2410c 100%); color: #000; box-shadow: 0 0 20px rgba(251, 146, 60, 0.4); border: none; font-size: 18px; }
     
-    .user-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; background: #1e293b; }
+    .user-avatar { 
+      width: 56px; height: 56px; 
+      border-radius: 50%; 
+      object-fit: cover; 
+      background: #1e293b; 
+      border: 2px solid rgba(255,255,255,0.1);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
     
-    .user-info { flex: 1; }
-    .user-name { font-weight: 600; color: white; font-size: 15px; cursor: pointer; text-decoration: none; }
+    .user-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .user-name { font-weight: 700; color: white; font-size: 16px; cursor: pointer; text-decoration: none; display: flex; align-items: center; gap: 8px; }
     .user-name:hover { color: var(--primary); }
-    .user-username { font-size: 12px; color: #94a3b8; }
+    .user-username { font-size: 13px; color: #94a3b8; font-weight: 500; }
     
-    .task-count { color: #34d399; font-weight: 600; font-size: 14px; }
+    .task-count { 
+      color: #34d399; 
+      font-weight: 700; 
+      font-size: 16px; 
+      background: rgba(52, 211, 153, 0.1);
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(52, 211, 153, 0.2);
+    }
+
+    .crown-icon { position: absolute; top: -18px; left: -10px; font-size: 24px; transform: rotate(-15deg); filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5)); }
   </style>
 </head>
 <body>
@@ -280,11 +330,15 @@ router.get('/', async (req, res) => {
   }).filter(Boolean)
 
   const renderItem = (item) => `
-    <div class="leaderboard-item">
+    <div class="leaderboard-item item-rank-${item.rank}">
+      ${item.rank === 1 ? '<div class="crown-icon">👑</div>' : ''}
       <div class="rank-badge rank-${item.rank}">${item.rank}</div>
       <img src="${item.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" class="user-avatar" alt="${item.username}">
       <div class="user-info">
-        <a href="#" onclick="event.preventDefault(); showUserProfile('${item.username}')" class="user-name">${item.firstName} ${item.lastName}</a>
+        <a href="#" onclick="event.preventDefault(); showUserProfile('${item.username}')" class="user-name">
+            ${item.firstName} ${item.lastName}
+            ${item.rank === 1 ? '🥇' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : ''}
+        </a>
         <div class="user-username">@${item.username}</div>
       </div>
       <div class="task-count">${item.count} Tasks</div>

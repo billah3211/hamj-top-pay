@@ -10,6 +10,7 @@ const getUserSidebar = (active, unreadCount = 0) => `
       <li class="nav-item"><a href="/store/my" class="${active === 'my-store' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:briefcase.svg?color=%2394a3b8" class="nav-icon"> My Store</a></li>
       <li class="nav-item"><a href="/leaderboard" class="${active === 'leaderboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:trophy.svg?color=%2394a3b8" class="nav-icon"> Leaderboard</a></li>
       <li class="nav-item"><a href="/promote" class="${active === 'promote' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Link</a></li>
+      <li class="nav-item"><a href="/profile" class="${active === 'profile' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:user.svg?color=%2394a3b8" class="nav-icon"> Profile</a></li>
       <li class="nav-item" style="position:relative">
         <a href="/notifications" class="${active === 'notifications' ? 'active' : ''}">
           <img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications

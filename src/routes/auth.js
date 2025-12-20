@@ -518,25 +518,6 @@ router.get('/dashboard', async (req, res) => {
           }
         });
 
-        // Profile Modal
-        const profileTrigger = document.getElementById('menuProfile');
-        const profileModal = document.getElementById('profileModal');
-        const profileOverlay = document.getElementById('profileOverlay');
-        const profileBack = document.getElementById('profileBack');
-
-        function openProfile() {
-          profileModal.classList.add('open');
-          profileOverlay.classList.remove('hidden');
-        }
-        function closeProfile() {
-          profileModal.classList.remove('open');
-          profileOverlay.classList.add('hidden');
-        }
-
-        if(profileTrigger) profileTrigger.addEventListener('click', (e) => { e.preventDefault(); openProfile(); });
-        if(profileBack) profileBack.addEventListener('click', closeProfile);
-        if(profileOverlay) profileOverlay.addEventListener('click', closeProfile);
-
         function copyToClipboard(text) {
           if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).then(() => {

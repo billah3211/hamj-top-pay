@@ -471,38 +471,40 @@ router.get('/users', requireAdmin, async (req, res) => {
         </form>
       </div>
 
-      <div style="overflow-x:auto;">
-        <table style="width:100%; border-collapse:collapse; color:#cbd5e1; font-size:14px;">
-          <thead>
-            <tr style="border-bottom:1px solid rgba(255,255,255,0.1); text-align:left;">
-              <th style="padding:10px;">User</th>
-              <th style="padding:10px;">Balance</th>
-              <th style="padding:10px;">Status</th>
-              <th style="padding:10px;">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${users.map(u => `
-              <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-                <td style="padding:10px;">
-                  <div style="font-weight:bold; color:white;">${u.firstName} ${u.lastName}</div>
-                  <div style="font-size:12px; color:#94a3b8;">@${u.username}</div>
-                  <div style="font-size:12px; color:#94a3b8;">${u.email}</div>
-                </td>
-                <td style="padding:10px;">
-                  <div style="color:#f472b6;">💎 ${u.diamond}</div>
-                  <div style="color:#fbbf24; font-size:12px;">🪙 ${u.coin}</div>
-                </td>
-                <td style="padding:10px;">
-                   ${u.isBlocked ? '<span style="color:#ef4444; background:rgba(239,68,68,0.1); padding:2px 8px; border-radius:10px; font-size:11px;">Blocked</span>' : '<span style="color:#22c55e; background:rgba(34,197,94,0.1); padding:2px 8px; border-radius:10px; font-size:11px;">Active</span>'}
-                </td>
-                <td style="padding:10px;">
-                  <a href="/admin/user/${u.id}" class="btn-premium" style="padding:5px 10px; font-size:12px;">Manage</a>
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+      <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;">
+        ${users.map(u => `
+          <div class="glass-panel" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div style="width: 50px; height: 50px; border-radius: 50%; background: #1e293b; overflow: hidden; border: 2px solid rgba(255,255,255,0.1);">
+                <img src="${u.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" style="width: 100%; height: 100%; object-fit: cover;">
+              </div>
+              <div>
+                <div style="font-weight: bold; color: white;">${u.firstName} ${u.lastName}</div>
+                <div style="font-size: 12px; color: #94a3b8;">@${u.username}</div>
+              </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05);">
+              <div style="text-align: center;">
+                <div style="font-size: 11px; color: #94a3b8;">Diamonds</div>
+                <div style="color: #f472b6; font-weight: bold;">${u.diamond}</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 11px; color: #94a3b8;">Coins</div>
+                <div style="color: #fbbf24; font-weight: bold;">${u.coin}</div>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="font-size: 12px; color: #94a3b8;">${new Date(u.createdAt).toLocaleDateString()}</div>
+              ${u.isBlocked 
+                ? '<span style="color:#ef4444; background:rgba(239,68,68,0.1); padding:2px 8px; border-radius:10px; font-size:11px;">Blocked</span>' 
+                : '<span style="color:#22c55e; background:rgba(34,197,94,0.1); padding:2px 8px; border-radius:10px; font-size:11px;">Active</span>'}
+            </div>
+
+            <a href="/admin/user/${u.id}" class="btn-premium" style="text-align: center; justify-content: center; margin-top: auto;">Manage User</a>
+          </div>
+        `).join('')}
       </div>
 
       <!-- Pagination -->
@@ -650,52 +652,78 @@ router.get('/balance', requireAdmin, async (req, res) => {
     <div class="main-content">
       <div class="section-title">Quick Balance Management</div>
       
-      <div class="glass-panel" style="padding:20px; margin-bottom:20px; max-width:500px;">
+      <div class="glass-panel" style="padding:30px; margin-bottom:40px; max-width:600px; margin-left:auto; margin-right:auto;">
+        <h3 style="text-align:center; margin-bottom:20px; color:#f472b6;">Find User Wallet</h3>
         <form action="/admin/balance" method="GET" style="display:flex; gap:10px;">
-          <input type="text" name="username" value="${username || ''}" placeholder="Enter username..." class="form-input" style="flex:1" required>
-          <button class="btn-premium">Find User</button>
+          <input type="text" name="username" value="${username || ''}" placeholder="Enter username (e.g. billah3211)..." class="form-input" style="flex:1; padding:12px;" required>
+          <button class="btn-premium">Search</button>
         </form>
       </div>
 
       ${user ? `
-        <div class="glass-panel" style="padding:20px; max-width:500px;">
-           <div style="margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">
-             <h3 style="color:white;">${user.firstName} ${user.lastName} (@${user.username})</h3>
-             <div style="display:flex; gap:20px; margin-top:10px;">
-               <div style="color:#f472b6;">💎 ${user.diamond} Diamonds</div>
-               <div style="color:#fbbf24;">🪙 ${user.coin} Coins</div>
-             </div>
+        <div style="max-width:800px; margin:0 auto;">
+           <div style="display:flex; align-items:center; gap:15px; margin-bottom:30px;">
+              <img src="${user.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" style="width:60px; height:60px; border-radius:50%; border:2px solid white;">
+              <div>
+                 <h2 style="margin:0; font-size:24px;">${user.firstName} ${user.lastName}</h2>
+                 <div style="color:#94a3b8;">@${user.username}</div>
+              </div>
            </div>
 
-           <form action="/admin/user/update-balance" method="POST">
-             <input type="hidden" name="userId" value="${user.id}">
-             
-             <div style="margin-bottom:15px;">
-               <label style="color:#94a3b8; font-size:12px;">Update Diamonds</label>
-               <div style="display:flex; gap:10px;">
-                 <select name="diamondAction" class="form-input" style="width:80px;">
-                   <option value="add">Add</option>
-                   <option value="remove">Remove</option>
-                 </select>
-                 <input type="number" name="diamondAmount" placeholder="Amount" class="form-input" style="flex:1">
-               </div>
-             </div>
+           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom:40px;">
+              <!-- Diamond Box -->
+              <div class="glass-panel" style="padding:20px; text-align:center;">
+                 <img src="https://api.iconify.design/lucide:gem.svg?color=%23f472b6" width="40" style="margin-bottom:10px;">
+                 <div style="font-size:24px; font-weight:bold; color:white;">${user.diamond}</div>
+                 <div style="color:#94a3b8; font-size:12px;">Diamond Balance</div>
+              </div>
 
-             <div style="margin-bottom:15px;">
-               <label style="color:#94a3b8; font-size:12px;">Update Coins</label>
-               <div style="display:flex; gap:10px;">
-                 <select name="coinAction" class="form-input" style="width:80px;">
-                   <option value="add">Add</option>
-                   <option value="remove">Remove</option>
-                 </select>
-                 <input type="number" name="coinAmount" placeholder="Amount" class="form-input" style="flex:1">
-               </div>
-             </div>
+              <!-- Coin Box -->
+              <div class="glass-panel" style="padding:20px; text-align:center;">
+                 <img src="https://api.iconify.design/lucide:coins.svg?color=%23fbbf24" width="40" style="margin-bottom:10px;">
+                 <div style="font-size:24px; font-weight:bold; color:white;">${user.coin}</div>
+                 <div style="color:#94a3b8; font-size:12px;">Coin Balance</div>
+              </div>
+           </div>
 
-             <button class="btn-premium" style="width:100%;">Update Balance</button>
-           </form>
+           <div class="glass-panel" style="padding:30px;">
+             <h3 style="color:white; margin-bottom:20px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:10px;">Update Balance</h3>
+             <form action="/admin/user/update-balance" method="POST">
+               <input type="hidden" name="userId" value="${user.id}">
+               
+               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:30px;">
+                   <div>
+                       <label style="color:#f472b6; font-weight:bold; display:block; margin-bottom:10px;">Manage Diamonds</label>
+                       <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:12px;">
+                           <div style="display:flex; gap:10px; margin-bottom:10px;">
+                               <select name="diamondAction" class="form-input" style="width:100px;">
+                                 <option value="add">Add (+)</option>
+                                 <option value="remove">Remove (-)</option>
+                               </select>
+                           </div>
+                           <input type="number" name="diamondAmount" placeholder="Amount" class="form-input" style="width:100%;">
+                       </div>
+                   </div>
+
+                   <div>
+                       <label style="color:#fbbf24; font-weight:bold; display:block; margin-bottom:10px;">Manage Coins</label>
+                       <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:12px;">
+                           <div style="display:flex; gap:10px; margin-bottom:10px;">
+                               <select name="coinAction" class="form-input" style="width:100px;">
+                                 <option value="add">Add (+)</option>
+                                 <option value="remove">Remove (-)</option>
+                               </select>
+                           </div>
+                           <input type="number" name="coinAmount" placeholder="Amount" class="form-input" style="width:100%;">
+                       </div>
+                   </div>
+               </div>
+
+               <button class="btn-premium" style="width:100%; margin-top:30px; justify-content:center; padding:16px;">Confirm & Update Balance</button>
+             </form>
+           </div>
         </div>
-      ` : username ? '<div style="color:#ef4444;">User not found</div>' : ''}
+      ` : username ? '<div style="text-align:center; padding:40px; color:#ef4444; font-size:18px;">User not found</div>' : ''}
     </div>
     ${getScripts()}
   `)

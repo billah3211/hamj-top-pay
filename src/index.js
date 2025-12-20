@@ -21,6 +21,7 @@ const topupRoutes = require('./routes/topup')
 const notificationRoutes = require('./routes/notifications')
 const guildRoutes = require('./routes/guild')
 const leaderboardRoutes = require('./routes/leaderboard')
+const profileRoutes = require('./routes/profile')
 
 const app = express()
 app.set('trust proxy', 1) // Trust Render proxy for secure cookies
