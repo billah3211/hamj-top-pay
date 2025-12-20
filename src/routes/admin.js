@@ -68,6 +68,17 @@ const getScripts = () => `
 
 // Dashboard
 router.get('/dashboard', requireAdmin, async (req, res) => {
+  // Stats
+  const totalUsers = await prisma.user.count({ where: { role: 'USER' } })
+  const activeUsers = await prisma.user.count({ where: { role: 'USER', isBlocked: false } })
+  const inactiveUsers = await prisma.user.count({ where: { role: 'USER', isBlocked: true } })
+  
+  const totalDiamonds = await prisma.user.aggregate({ _sum: { diamond: true } }).then(r => r._sum.diamond || 0)
+  const totalCoins = await prisma.user.aggregate({ _sum: { coin: true } }).then(r => r._sum.coin || 0)
+  const totalTk = await prisma.user.aggregate({ _sum: { tk: true } }).then(r => r._sum.tk || 0)
+  const totalLora = await prisma.user.aggregate({ _sum: { lora: true } }).then(r => r._sum.lora || 0)
+
+  // Pending Requests
   const pendingTopUps = await prisma.topUpRequest.count({ where: { status: 'PENDING' } })
   const pendingGuilds = await prisma.guild.count({ where: { status: 'PENDING' } })
   const pendingLinks = await prisma.linkSubmission.count({ where: { status: 'PENDING' } })
@@ -77,6 +88,43 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
     ${getSidebar('dashboard', req.session.role)}
     <div class="main-content">
        <div class="section-title">Admin Dashboard</div>
+       
+       <!-- User & Balance Stats -->
+       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom: 30px;">
+          <div class="stat-card" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05)); border: 1px solid rgba(59, 130, 246, 0.2);">
+             <h3 style="color:#60a5fa">Total Users</h3>
+             <div class="value">${totalUsers}</div>
+          </div>
+          <div class="stat-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05)); border: 1px solid rgba(34, 197, 94, 0.2);">
+             <h3 style="color:#4ade80">Active Users</h3>
+             <div class="value">${activeUsers}</div>
+          </div>
+          <div class="stat-card" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05)); border: 1px solid rgba(239, 68, 68, 0.2);">
+             <h3 style="color:#f87171">Inactive Users</h3>
+             <div class="value">${inactiveUsers}</div>
+          </div>
+       </div>
+
+       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom: 30px;">
+          <div class="stat-card" style="background:rgba(0,0,0,0.2);">
+             <h3 style="color:#f472b6">Total Diamonds</h3>
+             <div class="value">💎 ${totalDiamonds}</div>
+          </div>
+          <div class="stat-card" style="background:rgba(0,0,0,0.2);">
+             <h3 style="color:#fbbf24">Total Coins</h3>
+             <div class="value">🪙 ${totalCoins}</div>
+          </div>
+          <div class="stat-card" style="background:rgba(0,0,0,0.2);">
+             <h3 style="color:white">Total Tk</h3>
+             <div class="value">৳ ${totalTk}</div>
+          </div>
+          <div class="stat-card" style="background:rgba(0,0,0,0.2);">
+             <h3 style="color:#38bdf8">Total HaMJ T</h3>
+             <div class="value">T ${totalLora}</div>
+          </div>
+       </div>
+
+       <div class="section-title">Pending Actions</div>
        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:20px;">
           <div class="stat-card">
              <h3>Pending TopUps</h3>

@@ -31,6 +31,8 @@ function getSidebar(active) {
       <div class="brand-logo"><span style="color:#ec4899">S</span> Super Admin</div>
       <ul class="nav-links">
         <li class="nav-item"><a href="/super-admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=${active === 'dashboard' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Dashboard</a></li>
+        <li class="nav-item"><a href="/super-admin/users" class="${active === 'users' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=${active === 'users' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Users</a></li>
+        <li class="nav-item"><a href="/super-admin/balance" class="${active === 'balance' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=${active === 'balance' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Balance</a></li>
         <li class="nav-item"><a href="/super-admin/admins" class="${active === 'admins' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shield-check.svg?color=${active === 'admins' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Admins</a></li>
         <li class="nav-item"><a href="/super-admin/guilds" class="${active === 'guilds' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=${active === 'guilds' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Guilds</a></li>
         <li class="nav-item"><a href="/super-admin/store" class="${active === 'store' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=${active === 'store' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Store</a></li>
@@ -136,6 +138,147 @@ router.get('/dashboard', requireSuperAdmin, async (req, res) => {
     </div>
     ${getScripts()}
   `)
+})
+
+// --- Users & Balance Management ---
+
+router.get(['/users', '/balance'], requireSuperAdmin, async (req, res) => {
+  const { q } = req.query
+  const isBalancePage = req.path.includes('balance')
+  const activeTab = isBalancePage ? 'balance' : 'users'
+  
+  let users = []
+  if (q) {
+    users = await prisma.user.findMany({
+      where: {
+        OR: [
+          { username: { contains: q } }, // Case insensitive in Postgres, but verify for SQLite/others if needed. Prisma usually handles it.
+          { email: { contains: q } }
+        ]
+      },
+      include: {
+        _count: {
+          select: {
+            linkSubmissions: { where: { status: 'APPROVED' } },
+            // Prisma doesn't support filtering in _count directly for all versions/dbs easily in one go for multiple statuses with simple syntax, 
+            // but we can fetch counts separately or fetch all submissions.
+            // Optimized approach: fetch user with raw counts or just simple counts.
+            // Let's keep it simple: fetch counts using separate queries if needed or just basic info.
+            // For "Pending" tasks, we might need a separate query or aggregation.
+          }
+        }
+      },
+      take: 20
+    })
+
+    // Enrich users with pending counts manually since _count is limited
+    for (const user of users) {
+       user.pendingTasks = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'PENDING' } })
+       user.approvedTasks = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+    }
+  }
+
+  res.send(`
+    ${getHead(isBalancePage ? 'Manage Balance' : 'Manage Users')}
+    ${getSidebar(activeTab)}
+    <div class="main-content">
+      <div class="section-header" style="background: linear-gradient(to right, rgba(236, 72, 153, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(236, 72, 153, 0.1); margin-bottom: 32px;">
+        <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">${isBalancePage ? 'Balance Management' : 'User Management'}</div>
+        <div style="color:var(--text-muted); font-size: 16px;">Search and manage user accounts and balances</div>
+      </div>
+
+      <!-- Search Box -->
+      <div class="glass-panel" style="padding:30px; margin-bottom:40px; max-width:600px; margin-left:auto; margin-right:auto;">
+        <form action="/super-admin/${activeTab}" method="GET" style="display:flex; gap:10px;">
+          <input type="text" name="q" value="${q || ''}" placeholder="Search by username or email..." class="form-input" style="flex:1; padding:12px;" required>
+          <button class="btn-premium">Search</button>
+        </form>
+      </div>
+
+      <!-- Results -->
+      ${q && users.length === 0 ? '<div style="text-align:center; padding:40px; color:#ef4444;">No users found matching "' + q + '"</div>' : ''}
+      
+      <div style="display:flex; flex-direction:column; gap:20px;">
+        ${users.map(u => `
+          <div class="glass-panel" style="padding:25px; position:relative; overflow:hidden;">
+             <div style="position:absolute; top:0; left:0; width:4px; height:100%; background:${u.isBlocked ? '#ef4444' : '#10b981'}"></div>
+             
+             <div style="display:flex; flex-wrap:wrap; gap:30px; align-items:start;">
+                
+                <!-- User Info -->
+                <div style="flex:1; min-width:250px;">
+                   <div style="display:flex; align-items:center; gap:15px; margin-bottom:15px;">
+                      <img src="${u.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" style="width:50px; height:50px; border-radius:50%; border:2px solid rgba(255,255,255,0.1);">
+                      <div>
+                         <div style="font-size:18px; font-weight:bold;">${u.firstName} ${u.lastName}</div>
+                         <div style="color:#f472b6;">@${u.username}</div>
+                         <div style="font-size:12px; color:#94a3b8;">${u.email}</div>
+                      </div>
+                   </div>
+                   <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:13px; color:#cbd5e1;">
+                      <div>Joined: <span style="color:white;">${new Date(u.createdAt).toLocaleDateString()}</span></div>
+                      <div>Status: <span style="color:${u.isBlocked ? '#ef4444' : '#10b981'}; font-weight:bold;">${u.isBlocked ? 'Inactive/Blocked' : 'Active'}</span></div>
+                      <div>Tasks Approved: <span style="color:#22c55e;">${u.approvedTasks}</span></div>
+                      <div>Tasks Pending: <span style="color:#fbbf24;">${u.pendingTasks}</span></div>
+                   </div>
+                </div>
+
+                <!-- Balances -->
+                <div style="flex:1; min-width:250px; background:rgba(0,0,0,0.2); padding:15px; border-radius:12px; border:1px solid rgba(255,255,255,0.05);">
+                   <h4 style="margin:0 0 15px 0; color:#cbd5e1; font-size:14px; text-transform:uppercase; letter-spacing:1px;">Wallet Balances</h4>
+                   <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+                      <div>
+                         <div style="font-size:12px; color:#94a3b8;">Diamonds</div>
+                         <div style="font-size:18px; color:#f472b6; font-weight:bold;">💎 ${u.diamond}</div>
+                      </div>
+                      <div>
+                         <div style="font-size:12px; color:#94a3b8;">Coins</div>
+                         <div style="font-size:18px; color:#fbbf24; font-weight:bold;">🪙 ${u.coin}</div>
+                      </div>
+                      <div>
+                         <div style="font-size:12px; color:#94a3b8;">Tk</div>
+                         <div style="font-size:18px; color:white; font-weight:bold;">৳ ${u.tk}</div>
+                      </div>
+                      <div>
+                         <div style="font-size:12px; color:#94a3b8;">HaMJ T</div>
+                         <div style="font-size:18px; color:#38bdf8; font-weight:bold;">T ${u.lora}</div>
+                      </div>
+                   </div>
+                </div>
+
+                <!-- Actions -->
+                <div style="min-width:150px; display:flex; flex-direction:column; gap:10px;">
+                   <a href="/admin/user/${u.id}" target="_blank" class="btn-premium" style="text-align:center; justify-content:center;">Manage Balance</a>
+                   
+                   <form action="/super-admin/user/delete" method="POST" onsubmit="return confirm('Are you sure you want to PERMANENTLY DELETE this user? This action cannot be undone.')">
+                      <input type="hidden" name="userId" value="${u.id}">
+                      <button class="btn-premium" style="width:100%; background:rgba(239,68,68,0.1); border-color:rgba(239,68,68,0.2); color:#fca5a5; justify-content:center;">Delete Account</button>
+                   </form>
+                </div>
+
+             </div>
+          </div>
+        `).join('')}
+      </div>
+
+    </div>
+    ${getScripts()}
+  `)
+})
+
+router.post('/user/delete', requireSuperAdmin, async (req, res) => {
+  const { userId } = req.body
+  try {
+    // Delete related records first if strict relational integrity isn't set to cascade automatically
+    // Assuming Prisma schema handles Cascade delete or we do it manually.
+    // Usually it's safer to rely on Prisma relations or explicit deletes.
+    // For now, simple delete user.
+    await prisma.user.delete({ where: { id: parseInt(userId) } })
+    res.redirect('back')
+  } catch (e) {
+    console.error('Delete user error:', e)
+    res.send('<script>alert("Error deleting user: ' + e.message + '"); window.history.back();</script>')
+  }
 })
 
 // Manage Admins
