@@ -297,13 +297,25 @@ router.post('/submit', requireAuth, async (req, res) => {
        `, user))
     }
 
-    await prisma.topUpRequest.create({
+    const topUpRequest = await prisma.topUpRequest.create({
       data: {
         userId: user.id,
         packageId: parseInt(pkgId),
         walletId: parseInt(walletId),
         senderNumber,
         trxId
+      },
+      include: {
+        package: true
+      }
+    })
+
+    // Create Notification
+    await prisma.notification.create({
+      data: {
+        userId: user.id,
+        message: `Top Up Request Submitted for ${topUpRequest.package.diamondAmount} Diamonds (TrxID: ${trxId}). Please wait for admin approval.`,
+        type: 'info'
       }
     })
 
