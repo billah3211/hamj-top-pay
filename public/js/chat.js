@@ -91,6 +91,14 @@ if (USER_ID) {
   socket.on('receive_message', (data) => {
     appendMessage(data.message, data.sender);
   });
+
+  // Load History
+  socket.on('chat_history', (messages) => {
+    messagesContainer.innerHTML = ''; // Clear default welcome message
+    messages.forEach(msg => {
+      appendMessage(msg.message, msg.sender);
+    });
+  });
 } else {
   // If not logged in
   appendMessage("Please login to chat with support.", "ai");

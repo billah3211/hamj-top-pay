@@ -45,6 +45,20 @@ io.on('connection', (socket) => {
     if (role === 'admin' || role === 'SUPER_ADMIN') {
       socket.join('admin_room')
     }
+
+    // Load Chat History
+    try {
+      const session = await prisma.supportSession.findFirst({
+        where: { userId: parseInt(userId), status: { not: 'RESOLVED' } },
+        include: { messages: { orderBy: { createdAt: 'asc' } } }
+      })
+
+      if (session && session.messages.length > 0) {
+        socket.emit('chat_history', session.messages)
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error)
+    }
   })
 
   socket.on('send_message', async ({ userId, message, sender }) => {
