@@ -153,7 +153,9 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
 
 // Users List
 router.get('/users', requireAdmin, async (req, res) => {
+  const where = req.session.role !== 'SUPER_ADMIN' ? { role: { not: 'SUPER_ADMIN' } } : {}
   const users = await prisma.user.findMany({
+    where,
     orderBy: { createdAt: 'desc' }
   })
 
@@ -241,8 +243,13 @@ router.post('/user-action', requireAdmin, async (req, res) => {
 
 // TopUp Requests
 router.get('/topup-requests', requireAdmin, async (req, res) => {
+  const where = { 
+    status: 'PENDING',
+    ...(req.session.role !== 'SUPER_ADMIN' ? { user: { role: { not: 'SUPER_ADMIN' } } } : {})
+  }
+  
   const requests = await prisma.topUpRequest.findMany({
-    where: { status: 'PENDING' },
+    where,
     include: { user: true, package: true, wallet: true },
     orderBy: { createdAt: 'desc' }
   })
@@ -665,8 +672,13 @@ router.get('/support', requireAdmin, (req, res) => {
 })
 
 router.get('/api/sessions', requireAdmin, async (req, res) => {
+  const where = {
+    status: { not: 'RESOLVED' },
+    ...(req.session.role !== 'SUPER_ADMIN' ? { user: { role: { not: 'SUPER_ADMIN' } } } : {})
+  }
+
   const sessions = await prisma.supportSession.findMany({
-    where: { status: { not: 'RESOLVED' } },
+    where,
     include: { user: { select: { firstName: true, lastName: true, id: true } } },
     orderBy: { updatedAt: 'desc' }
   })
