@@ -76,13 +76,23 @@ router.get('/', requireLogin, async (req, res) => {
 
 
   // Get Requirements Text
-  let reqSetting = await prisma.systemSetting.findUnique({ where: { key: 'guild_requirements_youtuber' } })
+  const [reqSetting, userReqSetting] = await Promise.all([
+      prisma.systemSetting.findUnique({ where: { key: 'guild_requirements_youtuber' } }),
+      prisma.systemSetting.findUnique({ where: { key: 'guild_requirements_user' } })
+  ])
+
+  // Youtuber
   const defaultReq = '2,000+ Subscribers\n1,000+ Views on 1 video\n1 video about Hamj Top Pay\n2 videos/month required'
   const rawText = reqSetting ? reqSetting.value : defaultReq
   const requirementsText = rawText.split('\n')
     .filter(line => line.trim() !== '')
     .map(line => `<div style="display:flex; gap:8px; margin-bottom:4px; align-items:flex-start"><span style="color:#fca5a5">•</span><span>${line.replace(/^[•\-\*]\s*/, '')}</span></div>`)
     .join('')
+
+  // User
+  const defaultUserReq = '• 50 Member Limit\n• 1% Commission on Member Top-Ups\n• Instant Creation'
+  const rawUserText = userReqSetting ? userReqSetting.value : defaultUserReq
+  const userRequirementsHtml = rawUserText.replace(/\n/g, '<br>')
 
   // 1. User is in a Guild (or Leader of one)
   if (user.guild) {
@@ -323,9 +333,7 @@ router.get('/', requireLogin, async (req, res) => {
         <form id="form-user" action="/guild/create" method="POST">
           <input type="hidden" name="type" value="USER">
           <div class="alert info" style="font-size:12px; margin-bottom:16px">
-            • 50 Member Limit<br>
-            • 1% Commission on Member Top-Ups<br>
-            • Instant Creation
+            ${userRequirementsHtml}
           </div>
           <div class="form-group" style="margin-bottom:16px">
             <label class="form-label">Guild Name</label>

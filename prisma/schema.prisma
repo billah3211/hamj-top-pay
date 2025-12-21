@@ -39,6 +39,7 @@ model User {
   promotedLinks PromotedLink[]
   linkSubmissions LinkSubmission[]
   topUpRequests TopUpRequest[]
+  supportSessions SupportSession[]
 
   guildId       Int?
   guild         Guild?   @relation(fields: [guildId], references: [id])
@@ -185,4 +186,24 @@ model SystemSetting {
   id    Int    @id @default(autoincrement())
   key   String @unique
   value String
+}
+
+model SupportSession {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  status    String   @default("AI_MODE") // AI_MODE, LIVE_CHAT, RESOLVED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages  ChatMessage[]
+}
+
+model ChatMessage {
+  id        Int      @id @default(autoincrement())
+  sessionId Int
+  session   SupportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender    String   // "user", "ai", "admin"
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

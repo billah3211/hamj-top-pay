@@ -361,6 +361,8 @@ router.get('/dashboard', async (req, res) => {
     ? `<a href="/admin/login" class="btn-premium full-width" style="margin-top:10px;background:linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)">Admin Panel</a>` 
     : ''
 
+  const sidebar = getUserSidebar('dashboard', unreadCount, user.id, user.role)
+
   const profileModal = `
     <div id="profileModal" class="modal-premium" style="align-items: center; justify-content: center; padding: 20px;">
       <div class="modal-content" style="background: transparent; border: none; box-shadow: none; width: 100%; max-width: 600px; padding: 0;">
@@ -453,7 +455,7 @@ router.get('/dashboard', async (req, res) => {
     }
   })
 
-  const sidebar = getUserSidebar('dashboard', unreadCount)
+  // API Endpoint (moved up)
 
   const html = `
     <!doctype html>

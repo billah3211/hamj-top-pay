@@ -1,4 +1,4 @@
-const getUserSidebar = (active, unreadCount = 0) => `
+const getUserSidebar = (active, unreadCount = 0, userId = null, role = 'USER') => `
   <nav class="sidebar-premium" id="sidebar">
     <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
     <ul class="nav-links">
@@ -21,6 +21,15 @@ const getUserSidebar = (active, unreadCount = 0) => `
       <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
     </ul>
   </nav>
+  ${userId ? `
+    <link rel="stylesheet" href="/css/chat.css">
+    <script>
+      window.CURRENT_USER_ID = ${userId};
+      window.CURRENT_USER_ROLE = '${role}';
+    </script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/chat.js" defer></script>
+  ` : ''}
 `
 
 module.exports = { getUserSidebar }

@@ -23,7 +23,108 @@ const guildRoutes = require('./routes/guild')
 const leaderboardRoutes = require('./routes/leaderboard')
 const profileRoutes = require('./routes/profile')
 
+const { createServer } = require('http')
+const { Server } = require('socket.io')
+const { getAIResponse } = require('./services/aiService')
+
 const app = express()
+const httpServer = createServer(app)
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+})
+
+// Socket.io Logic
+io.on('connection', (socket) => {
+  console.log('User connected:', socket.id)
+
+  socket.on('join_chat', async ({ userId, role }) => {
+    socket.join(`user_${userId}`)
+    if (role === 'admin' || role === 'SUPER_ADMIN') {
+      socket.join('admin_room')
+    }
+  })
+
+  socket.on('send_message', async ({ userId, message, sender }) => {
+    try {
+      // 1. Find or create session
+      let session = await prisma.supportSession.findFirst({
+        where: { userId: parseInt(userId), status: { not: 'RESOLVED' } }
+      })
+
+      if (!session) {
+        session = await prisma.supportSession.create({
+          data: { userId: parseInt(userId), status: 'AI_MODE' }
+        })
+      }
+
+      // 2. Save User Message
+      await prisma.chatMessage.create({
+        data: {
+          sessionId: session.id,
+          sender: sender, // 'user' or 'admin'
+          message: message
+        }
+      })
+
+      // 3. AI Logic or Live Chat
+      if (session.status === 'AI_MODE' && sender === 'user') {
+        const aiRes = await getAIResponse(message)
+        
+        // Save AI Response
+        await prisma.chatMessage.create({
+          data: {
+            sessionId: session.id,
+            sender: 'ai',
+            message: aiRes.text
+          }
+        })
+
+        // Emit to user
+        io.to(`user_${userId}`).emit('receive_message', {
+          sender: 'ai',
+          message: aiRes.text
+        })
+
+        // Check for handover
+        if (aiRes.handover) {
+          await prisma.supportSession.update({
+            where: { id: session.id },
+            data: { status: 'LIVE_CHAT' }
+          })
+          // Notify Admins
+          io.to('admin_room').emit('new_support_request', {
+            userId: userId,
+            message: message
+          })
+        }
+      } 
+      else if (session.status === 'LIVE_CHAT') {
+        // Forward to admins if user sent it
+        if (sender === 'user') {
+          io.to('admin_room').emit('receive_admin_message', {
+            userId: userId,
+            message: message,
+            sender: 'user'
+          })
+        } 
+        // Forward to user if admin sent it
+        else if (sender === 'admin') {
+           io.to(`user_${userId}`).emit('receive_message', {
+            sender: 'admin',
+            message: message
+          })
+        }
+      }
+
+    } catch (error) {
+      console.error('Socket Error:', error)
+    }
+  })
+})
+
 app.set('trust proxy', 1) // Trust Render proxy for secure cookies
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
@@ -76,7 +177,7 @@ app.use('/leaderboard', leaderboardRoutes)
 app.use('/profile', profileRoutes)
 
 const port = process.env.PORT || 3000
-app.listen(port, () => {
+httpServer.listen(port, () => {
   console.log('server listening on ' + port)
   console.log('Store routes registered and uploads directory checked.')
   

@@ -36,8 +36,10 @@ const getSidebar = (active, role) => `
     <li class="nav-item"><a href="/admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
     <li class="nav-item"><a href="/admin/topup-requests" class="${active === 'topup-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up Requests</a></li>
     <li class="nav-item"><a href="/admin/guild-requests" class="${active === 'guild-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shield.svg?color=%2394a3b8" class="nav-icon"> Guild Requests</a></li>
+    <li class="nav-item"><a href="/admin/guild-settings" class="${active === 'guild-settings' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:settings-2.svg?color=%2394a3b8" class="nav-icon"> Guild Settings</a></li>
     <li class="nav-item"><a href="/admin/promote-requests" class="${active === 'promote-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Requests</a></li>
     <li class="nav-item"><a href="/admin/link-search" class="${active === 'link-search' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:search.svg?color=%2394a3b8" class="nav-icon"> Search Link</a></li>
+    <li class="nav-item"><a href="/admin/support" class="${active === 'support' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:message-square.svg?color=%2394a3b8" class="nav-icon"> Live Support</a></li>
     ${role === 'SUPER_ADMIN' ? `<li class="nav-item" style="margin-top:10px;border-top:1px solid rgba(255,255,255,0.1);padding-top:10px"><a href="/super-admin/dashboard"><img src="https://api.iconify.design/lucide:shield-alert.svg?color=%23ec4899" class="nav-icon" style="color:#ec4899"> Super Admin</a></li>` : ''}
     <li class="nav-item" style="margin-top:auto"><a href="/admin/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
   </ul>
@@ -327,13 +329,62 @@ router.post('/guild-reject', requireAdmin, async (req, res) => {
     res.redirect('/admin/guild-requests')
 })
 
+// Guild Settings
+router.get('/guild-settings', requireAdmin, async (req, res) => {
+  const youtuberReq = await prisma.systemSetting.findUnique({ where: { key: 'guild_requirements_youtuber' } })
+  const userReq = await prisma.systemSetting.findUnique({ where: { key: 'guild_requirements_user' } })
+  
+  const defaultYoutuber = '2,000+ Subscribers\n1,000+ Views on 1 video\n1 video about Hamj Top Pay\n2 videos/month required'
+  const defaultUser = '• 50 Member Limit\n• 1% Commission on Member Top-Ups\n• Instant Creation'
+
+  res.send(`
+    ${getHead('Guild Settings')}
+    ${getSidebar('guild-settings', req.session.role)}
+    <div class="main-content">
+      <div class="section-title">Guild Settings</div>
+      
+      <div class="glass-panel" style="padding:24px;">
+        <form action="/admin/guild-settings" method="POST">
+          
+          <div class="form-group" style="margin-bottom:20px;">
+            <label class="form-label" style="display:block; margin-bottom:8px; color:#f472b6;">YouTuber Guild Requirements</label>
+            <textarea name="youtuber_req" class="form-input" style="width:100%; height:150px; font-family:monospace;">${youtuberReq ? youtuberReq.value : defaultYoutuber}</textarea>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Enter each requirement on a new line.</div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:20px;">
+            <label class="form-label" style="display:block; margin-bottom:8px; color:#60a5fa;">User Guild Features/Requirements</label>
+            <textarea name="user_req" class="form-input" style="width:100%; height:150px; font-family:monospace;">${userReq ? userReq.value : defaultUser}</textarea>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Enter each feature on a new line.</div>
+          </div>
+
+          <button class="btn-premium">Save Settings</button>
+        </form>
+      </div>
+    </div>
+    ${getScripts()}
+  `)
+})
+
 router.post('/guild-settings', requireAdmin, async (req, res) => {
-  const { requirements } = req.body
-  await prisma.systemSetting.upsert({
-    where: { key: 'guild_requirements_youtuber' },
-    update: { value: requirements },
-    create: { key: 'guild_requirements_youtuber', value: requirements }
-  })
+  const { youtuber_req, user_req } = req.body
+  
+  if (youtuber_req) {
+    await prisma.systemSetting.upsert({
+      where: { key: 'guild_requirements_youtuber' },
+      update: { value: youtuber_req.trim() },
+      create: { key: 'guild_requirements_youtuber', value: youtuber_req.trim() }
+    })
+  }
+
+  if (user_req) {
+    await prisma.systemSetting.upsert({
+      where: { key: 'guild_requirements_user' },
+      update: { value: user_req.trim() },
+      create: { key: 'guild_requirements_user', value: user_req.trim() }
+    })
+  }
+
   res.redirect('/admin/guild-settings')
 })
 
@@ -459,6 +510,76 @@ router.get('/login', (req, res) => {
 router.get('/logout', (req, res) => {
   req.session.destroy()
   res.redirect('/admin/login')
+})
+
+// Live Support
+router.get('/support', requireAdmin, (req, res) => {
+  res.send(`
+    ${getHead('Live Support')}
+    ${getSidebar('support', req.session.role)}
+    <div class="main-content" style="height: 100vh; display: flex; flex-direction: column;">
+      <div class="section-title">Live Support Chat</div>
+      
+      <div class="glass-panel" style="flex: 1; display: flex; padding: 0; overflow: hidden; height: calc(100vh - 140px);">
+        <!-- Sessions List -->
+        <div style="width: 300px; border-right: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); overflow-y: auto;" id="sessionsList">
+           <!-- Loaded via JS -->
+        </div>
+
+        <!-- Chat Area -->
+        <div style="flex: 1; display: none; flex-direction: column;" id="chatArea">
+           <div style="padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: bold; background: rgba(0,0,0,0.1);" id="chatTitle">
+             Select a session
+           </div>
+           
+           <div style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;" id="chatMessages">
+           </div>
+           
+           <div style="padding: 15px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 10px;">
+             <input type="text" class="form-input" id="chatInput" placeholder="Type a message..." style="flex:1;">
+             <button class="btn-premium" id="sendBtn">Send</button>
+           </div>
+        </div>
+      </div>
+    </div>
+    
+    <style>
+      .session-item { padding: 15px; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: 0.2s; }
+      .session-item:hover, .session-item.active { background: rgba(255,255,255,0.05); }
+      .session-item.active { border-left: 3px solid #ec4899; }
+      .user-name { font-weight: bold; color: white; margin-bottom: 4px; }
+      .last-msg { font-size: 12px; color: var(--text-muted); }
+      .status-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-top: 4px; text-transform: uppercase; }
+      .status-badge.ai_mode { background: #3b82f6; color: white; }
+      .status-badge.live_chat { background: #ec4899; color: white; }
+      
+      .message { padding: 10px 14px; border-radius: 12px; max-width: 70%; font-size: 14px; line-height: 1.4; }
+      .message.user { align-self: flex-start; background: #334155; color: white; border-bottom-left-radius: 2px; }
+      .message.admin { align-self: flex-end; background: #ec4899; color: white; border-bottom-right-radius: 2px; }
+      .message.ai { align-self: center; background: rgba(255,255,255,0.1); color: #94a3b8; font-size: 12px; border-radius: 8px; }
+    </style>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/admin-chat.js"></script>
+    ${getScripts()}
+  `)
+})
+
+router.get('/api/sessions', requireAdmin, async (req, res) => {
+  const sessions = await prisma.supportSession.findMany({
+    where: { status: { not: 'RESOLVED' } },
+    include: { user: { select: { firstName: true, lastName: true, id: true } } },
+    orderBy: { updatedAt: 'desc' }
+  })
+  res.json(sessions)
+})
+
+router.get('/api/messages/:sessionId', requireAdmin, async (req, res) => {
+  const messages = await prisma.chatMessage.findMany({
+    where: { sessionId: parseInt(req.params.sessionId) },
+    orderBy: { createdAt: 'asc' }
+  })
+  res.json(messages)
 })
 
 module.exports = router

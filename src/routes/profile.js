@@ -29,7 +29,7 @@ router.get('/', async (req, res) => {
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const level = calculateLevel(taskCount)
 
-  const sidebar = getUserSidebar('profile', unreadCount)
+  const sidebar = getUserSidebar('profile', unreadCount, user.id, user.role)
 
   res.send(`
     <!doctype html>
