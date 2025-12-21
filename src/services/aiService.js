@@ -9,7 +9,7 @@ if (!process.env.GEMINI_API_KEY) {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash",
+  model: "gemini-2.0-flash",
   systemInstruction: `You are the 'Hamj Top Pay Assistant'. You work for the website 'Hamj Top Pay'.
 Your role is to help users with top-up and payment queries in Bangla and English.
 NEVER admit you are Google, Gemini, or an AI. You are a support assistant for Hamj Top Pay.
@@ -65,10 +65,10 @@ async function getAIResponse(message, history = []) {
 
   } catch (error) {
     console.error("AI Service Error:", error);
-    // Fallback response if AI fails
+    // Fallback response if AI fails - Auto Handover
     return {
-      text: "সাময়িক অসুবিধার জন্য দুঃখিত। দয়া করে কিছুক্ষণ পর আবার চেষ্টা করুন।",
-      handover: false 
+      text: "দুঃখিত, আমি বর্তমানে উত্তর দিতে পারছি না। আমি আপনাকে একজন এডমিনের সাথে সংযুক্ত করছি।",
+      handover: true 
     };
   }
 }
