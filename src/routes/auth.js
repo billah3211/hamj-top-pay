@@ -318,7 +318,7 @@ router.get('/login', (req, res) => {
   `)
 })
 
-router.post('/login', async (req, res) => {
+const loginHandler = async (req, res) => {
   const { identifier, password } = req.body
   if (!identifier || !password) return res.redirect('/login?error=Missing+credentials')
   const user = await prisma.user.findFirst({ where: { OR: [ { email: identifier }, { username: identifier }, { phone: identifier } ] } })
@@ -331,7 +331,10 @@ router.post('/login', async (req, res) => {
   req.session.role = user.role
   req.session.email = user.email
   return res.redirect('/dashboard')
-})
+}
+
+router.post('/login', loginHandler)
+router.post('/auth/login', loginHandler)
 
 router.get('/dashboard', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login')

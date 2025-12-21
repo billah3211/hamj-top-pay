@@ -5,7 +5,7 @@ const { prisma } = require('../db/prisma')
 // Middleware to check authentication
 const requireAuth = (req, res, next) => {
   if (!req.session || !req.session.userId) {
-    return res.redirect('/auth/login')
+    return res.redirect('/login')
   }
   next()
 }

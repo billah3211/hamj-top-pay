@@ -755,54 +755,66 @@ router.post('/link/:id/approve-all', requireLogin, async (req, res) => {
 
 // 4. Visit & Earn
 router.get('/earn', requireLogin, async (req, res) => {
-  const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
-  const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
-  const level = calculateLevel(taskCount)
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+    if (!user) {
+      req.session.destroy()
+      return res.redirect('/login')
+    }
 
-  const links = await prisma.promotedLink.findMany({
-    where: { status: 'ACTIVE' },
-    include: { user: true, submissions: { where: { visitorId: req.session.userId } } },
-    orderBy: { createdAt: 'desc' }
-  })
+    const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+    const level = calculateLevel(taskCount)
 
-  // Filter out links user has already submitted (any status) AND their own links
-  const availableLinks = links.filter(l => 
-    l.userId !== req.session.userId && 
-    l.submissions.length === 0 && 
-    l.completedVisits < l.targetVisits
-  ).slice(0, 1) // Show only 1 task at a time
+    const links = await prisma.promotedLink.findMany({
+      where: { status: 'ACTIVE' },
+      include: { user: true, submissions: { where: { visitorId: req.session.userId } } },
+      orderBy: { createdAt: 'desc' }
+    })
 
-  const settings = await getSettings()
-  
-  const renderTask = (link) => `
-    <div class="glass-panel" style="padding:24px;margin-bottom:12px;text-align:center">
-      <div style="margin-bottom:16px">
-        <div style="font-weight:bold;font-size:20px;margin-bottom:8px">${link.title}</div>
-        <div style="font-size:14px;color:var(--text-muted)">
-          Reward: 
-          ${settings.rewards.coin > 0 ? `<span style="color:#fb923c;font-weight:bold;margin-right:8px">${settings.rewards.coin} Coins</span>` : ''}
-          ${settings.rewards.diamond > 0 ? `<span style="color:#a855f7;font-weight:bold;margin-right:8px">${settings.rewards.diamond} Diamonds</span>` : ''}
-          ${settings.rewards.tk > 0 ? `<span style="color:#22c55e;font-weight:bold">${settings.rewards.tk} Tk</span>` : ''}
+    // Filter out links user has already submitted (any status) AND their own links
+    const availableLinks = links.filter(l => 
+      l.userId !== req.session.userId && 
+      l.submissions.length === 0 && 
+      l.completedVisits < l.targetVisits
+    ).slice(0, 1) // Show only 1 task at a time
+
+    const settings = await getSettings()
+    
+    const renderTask = (link) => `
+      <div class="glass-panel" style="padding:24px;margin-bottom:12px;text-align:center">
+        <div style="margin-bottom:16px">
+          <div style="font-weight:bold;font-size:20px;margin-bottom:8px">${link.title}</div>
+          <div style="font-size:14px;color:var(--text-muted)">
+            Reward: 
+            ${settings.rewards.coin > 0 ? `<span style="color:#fb923c;font-weight:bold;margin-right:8px">${settings.rewards.coin} Coins</span>` : ''}
+            ${settings.rewards.diamond > 0 ? `<span style="color:#a855f7;font-weight:bold;margin-right:8px">${settings.rewards.diamond} Diamonds</span>` : ''}
+            ${settings.rewards.tk > 0 ? `<span style="color:#22c55e;font-weight:bold">${settings.rewards.tk} Tk</span>` : ''}
+          </div>
         </div>
+        <a href="/promote/visit/${link.id}" class="btn-premium full-width" style="background:#22c55e;border:none;padding:12px;font-size:16px;justify-content:center">Start Task</a>
       </div>
-      <a href="/promote/visit/${link.id}" class="btn-premium full-width" style="background:#22c55e;border:none;padding:12px;font-size:16px;justify-content:center">Start Task</a>
-    </div>
-  `
+    `
 
-  res.send(`
-    ${getHead('Visit & Earn')}
-    ${getSidebar('promote')}
-    <div class="main-content">
-      <div class="section-header">
-        <div>
-          <div class="section-title">Visit & Earn</div>
-          <div style="color:var(--text-muted)">Complete tasks one by one to earn coins</div>
+    res.send(`
+      ${getHead('Visit & Earn')}
+      ${getSidebar('promote')}
+      <div class="main-content">
+        <div class="section-header">
+          <div>
+            <div class="section-title">Visit & Earn</div>
+            <div style="color:var(--text-muted)">Complete tasks one by one to earn coins</div>
+          </div>
         </div>
+        ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
+        ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
+        ${availableLinks.length ? availableLinks.map(renderTask).join('') : '<div class="empty-state">No tasks available right now. Please check back later!</div>'}
       </div>
-      ${availableLinks.length ? availableLinks.map(renderTask).join('') : '<div class="empty-state">No tasks available right now. Please check back later!</div>'}
-    </div>
-    ${getFooter(user, level)}
-  `)
+      ${getFooter(user, level)}
+    `)
+  } catch (error) {
+    console.error('Visit & Earn Error:', error)
+    res.redirect('/dashboard?error=Internal+Server+Error')
+  }
 })
 
 router.get('/visit/:id', requireLogin, async (req, res) => {
