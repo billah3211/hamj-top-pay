@@ -319,7 +319,7 @@ router.get('/login', (req, res) => {
 })
 
 const loginHandler = async (req, res) => {
-  const { identifier, password } = req.body
+  const { identifier, password, login_source } = req.body
   if (!identifier || !password) return res.redirect('/login?error=Missing+credentials')
   const user = await prisma.user.findFirst({ where: { OR: [ { email: identifier }, { username: identifier }, { phone: identifier } ] } })
   if (!user) return res.redirect('/login?error=User+not+found')
@@ -331,7 +331,8 @@ const loginHandler = async (req, res) => {
   req.session.role = user.role
   req.session.email = user.email
   
-  if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+  // Redirect based on role and login source
+  if ((user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') && login_source === 'admin') {
     return res.redirect('/admin/dashboard')
   }
 

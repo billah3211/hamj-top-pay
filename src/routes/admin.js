@@ -588,6 +588,7 @@ router.get('/login', (req, res) => {
       <div class="glass-panel" style="padding:40px; width:100%; max-width:400px;">
         <h2 style="text-align:center; color:#f472b6; margin-bottom:20px;">Admin Login</h2>
         <form action="/auth/login" method="POST">
+           <input type="hidden" name="login_source" value="admin">
            <input type="text" name="identifier" placeholder="Email or Username" class="form-input" style="margin-bottom:15px;" required>
            <input type="password" name="password" placeholder="Password" class="form-input" style="margin-bottom:20px;" required>
            <button class="btn-premium" style="width:100%;">Login</button>
