@@ -74,10 +74,13 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
   const activeUsers = await prisma.user.count({ where: { role: 'USER', isBlocked: false } })
   const inactiveUsers = await prisma.user.count({ where: { role: 'USER', isBlocked: true } })
   
-  const totalDiamonds = await prisma.user.aggregate({ _sum: { diamond: true } }).then(r => r._sum.diamond || 0)
-  const totalCoins = await prisma.user.aggregate({ _sum: { coin: true } }).then(r => r._sum.coin || 0)
-  const totalTk = await prisma.user.aggregate({ _sum: { tk: true } }).then(r => r._sum.tk || 0)
-  const totalLora = await prisma.user.aggregate({ _sum: { lora: true } }).then(r => r._sum.lora || 0)
+  // Balance Stats (Exclude Super Admin)
+  const balanceFilter = { role: { not: 'SUPER_ADMIN' } }
+  
+  const totalDiamonds = await prisma.user.aggregate({ where: balanceFilter, _sum: { diamond: true } }).then(r => r._sum.diamond || 0)
+  const totalCoins = await prisma.user.aggregate({ where: balanceFilter, _sum: { coin: true } }).then(r => r._sum.coin || 0)
+  const totalTk = await prisma.user.aggregate({ where: balanceFilter, _sum: { tk: true } }).then(r => r._sum.tk || 0)
+  const totalLora = await prisma.user.aggregate({ where: balanceFilter, _sum: { lora: true } }).then(r => r._sum.lora || 0)
 
   // Pending Requests
   const pendingTopUps = await prisma.topUpRequest.count({ where: { status: 'PENDING' } })
@@ -475,12 +478,18 @@ router.get('/link-search', requireAdmin, async (req, res) => {
   let link = null;
   
   if (q) {
+      const whereClause = {
+          AND: [
+             req.session.role !== 'SUPER_ADMIN' ? { user: { role: { not: 'SUPER_ADMIN' } } } : {}
+          ]
+      }
+
       if (q.startsWith('http')) {
-           link = await prisma.promotedLink.findFirst({ where: { url: q }, include: { user: true } });
+           link = await prisma.promotedLink.findFirst({ where: { url: q, ...whereClause }, include: { user: true } });
       } else if (!isNaN(q)) {
-           link = await prisma.promotedLink.findUnique({ where: { id: parseInt(q) }, include: { user: true } });
+           link = await prisma.promotedLink.findFirst({ where: { id: parseInt(q), ...whereClause }, include: { user: true } });
       } else {
-           link = await prisma.promotedLink.findFirst({ where: { title: { contains: q, mode: 'insensitive' } }, include: { user: true } });
+           link = await prisma.promotedLink.findFirst({ where: { title: { contains: q, mode: 'insensitive' }, ...whereClause }, include: { user: true } });
       }
   }
 
