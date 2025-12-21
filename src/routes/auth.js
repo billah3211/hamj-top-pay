@@ -330,6 +330,11 @@ const loginHandler = async (req, res) => {
   req.session.userId = user.id
   req.session.role = user.role
   req.session.email = user.email
+  
+  if (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+    return res.redirect('/admin/dashboard')
+  }
+
   return res.redirect('/dashboard')
 }
 

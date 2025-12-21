@@ -82,6 +82,17 @@ router.get('/', async (req, res) => {
                </div>
             </div>
 
+            <!-- Admin Access -->
+            ${(user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') ? `
+            <div class="glass-panel" style="padding: 25px; border: 1px solid rgba(239, 68, 68, 0.3);">
+              <h3 style="margin-bottom: 20px; font-size: 18px; color: #ef4444; display: flex; align-items: center; gap: 10px;">
+                <img src="https://api.iconify.design/lucide:shield-alert.svg?color=%23ef4444" width="20"> Admin Access
+              </h3>
+              <p style="color: #94a3b8; margin-bottom: 20px;">You have administrative privileges on this platform.</p>
+              <a href="/admin/dashboard" class="btn-premium" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.5); justify-content: center;">Enter Admin Panel</a>
+            </div>
+            ` : ''}
+
             <!-- Stats & Info Grid -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
               
