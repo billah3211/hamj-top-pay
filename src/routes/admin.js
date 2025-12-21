@@ -223,6 +223,14 @@ router.post('/user-action', requireAdmin, async (req, res) => {
         return res.redirect('/admin/users')
     }
 
+    // Check target user role for permission
+    const targetUser = await prisma.user.findUnique({ where: { id: parseInt(userId) } })
+    if (!targetUser) return res.redirect('/admin/users')
+
+    if (targetUser.role === 'SUPER_ADMIN' && req.session.role !== 'SUPER_ADMIN') {
+        return res.redirect('/admin/users')
+    }
+
     if (action === 'block') {
         await prisma.user.update({ where: { id: parseInt(userId) }, data: { isBlocked: true } })
     } else if (action === 'unblock') {
