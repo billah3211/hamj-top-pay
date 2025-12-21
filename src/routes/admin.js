@@ -34,6 +34,7 @@ const getSidebar = (active, role) => `
   <div class="brand-logo"><span>A</span> Admin Panel</div>
   <ul class="nav-links">
     <li class="nav-item"><a href="/admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
+    <li class="nav-item"><a href="/admin/users" class="${active === 'users' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Users</a></li>
     <li class="nav-item"><a href="/admin/topup-requests" class="${active === 'topup-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up Requests</a></li>
     <li class="nav-item"><a href="/admin/guild-requests" class="${active === 'guild-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shield.svg?color=%2394a3b8" class="nav-icon"> Guild Requests</a></li>
     <li class="nav-item"><a href="/admin/guild-settings" class="${active === 'guild-settings' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:settings-2.svg?color=%2394a3b8" class="nav-icon"> Guild Settings</a></li>
@@ -145,6 +146,86 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
     </div>
     ${getScripts()}
   `)
+})
+
+// Users List
+router.get('/users', requireAdmin, async (req, res) => {
+  const users = await prisma.user.findMany({
+    orderBy: { createdAt: 'desc' }
+  })
+
+  res.send(`
+    ${getHead('Users')}
+    ${getSidebar('users', req.session.role)}
+    <div class="main-content">
+      <div class="section-title">All Users</div>
+      <div class="glass-panel" style="padding:0; overflow:hidden;">
+        <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; min-width:800px;">
+              <thead>
+                <tr style="background:rgba(255,255,255,0.05); text-align:left;">
+                  <th style="padding:15px; color:#94a3b8; font-weight:500;">User</th>
+                  <th style="padding:15px; color:#94a3b8; font-weight:500;">Balance</th>
+                  <th style="padding:15px; color:#94a3b8; font-weight:500;">Role</th>
+                  <th style="padding:15px; color:#94a3b8; font-weight:500;">Status</th>
+                  <th style="padding:15px; color:#94a3b8; font-weight:500;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${users.map(user => `
+                  <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:15px;">
+                      <div style="font-weight:bold; color:white;">${user.firstName} ${user.lastName}</div>
+                      <div style="font-size:12px; color:#94a3b8;">@${user.username}</div>
+                      <div style="font-size:12px; color:#94a3b8;">${user.email}</div>
+                    </td>
+                    <td style="padding:15px;">
+                      <div style="color:#f472b6;">💎 ${user.diamond}</div>
+                      <div style="color:#fbbf24; font-size:12px;">🪙 ${user.coin}</div>
+                      <div style="color:white; font-size:12px;">৳ ${user.tk}</div>
+                    </td>
+                    <td style="padding:15px;">
+                      <span style="padding:2px 8px; border-radius:4px; font-size:11px; background:${user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' ? '#ec4899' : '#3b82f6'}; color:white;">${user.role}</span>
+                    </td>
+                    <td style="padding:15px;">
+                       <span style="color:${user.isBlocked ? '#ef4444' : '#22c55e'};">${user.isBlocked ? 'Blocked' : 'Active'}</span>
+                    </td>
+                    <td style="padding:15px;">
+                      <div style="display:flex; gap:5px;">
+                        <form action="/admin/user-action" method="POST" onsubmit="return confirm('Are you sure?');">
+                            <input type="hidden" name="userId" value="${user.id}">
+                            <input type="hidden" name="action" value="${user.isBlocked ? 'unblock' : 'block'}">
+                            <button style="padding:6px 12px; border-radius:5px; border:none; cursor:pointer; background:${user.isBlocked ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}; color:${user.isBlocked ? '#86efac' : '#fca5a5'}; border:1px solid ${user.isBlocked ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'};">
+                                ${user.isBlocked ? 'Unblock' : 'Block'}
+                            </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+        </div>
+      </div>
+    </div>
+    ${getScripts()}
+  `)
+})
+
+router.post('/user-action', requireAdmin, async (req, res) => {
+    const { userId, action } = req.body
+    
+    // Prevent self-action
+    if (parseInt(userId) === req.session.userId) {
+        return res.redirect('/admin/users')
+    }
+
+    if (action === 'block') {
+        await prisma.user.update({ where: { id: parseInt(userId) }, data: { isBlocked: true } })
+    } else if (action === 'unblock') {
+        await prisma.user.update({ where: { id: parseInt(userId) }, data: { isBlocked: false } })
+    }
+    res.redirect('/admin/users')
 })
 
 // TopUp Requests
