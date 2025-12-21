@@ -299,7 +299,7 @@ router.get('/create', requireLogin, async (req, res) => {
 
   res.send(`
     ${getHead('Promote Your Link')}
-    ${getUserSidebar('promote', unreadCount)}
+    ${getUserSidebar('promote', unreadCount, user.id, user.role)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -479,7 +479,7 @@ router.get('/history', requireLogin, async (req, res) => {
 
   res.send(`
     ${getHead('Promote History')}
-    ${getUserSidebar('promote', unreadCount)}
+    ${getUserSidebar('promote', unreadCount, user.id, user.role)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -580,7 +580,7 @@ router.get('/history/:id', requireLogin, async (req, res) => {
 
   res.send(`
     ${getHead('Review Screenshots')}
-    ${getSidebar('promote')}
+    ${getUserSidebar('promote', 0, req.session.userId, req.session.role)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -797,7 +797,7 @@ router.get('/earn', requireLogin, async (req, res) => {
 
     res.send(`
       ${getHead('Visit & Earn')}
-      ${getSidebar('promote')}
+      ${getUserSidebar('promote', 0, user.id, user.role)}
       <div class="main-content">
         <div class="section-header">
           <div>
@@ -1036,7 +1036,7 @@ router.get('/tasks', requireLogin, async (req, res) => {
 
   res.send(`
     ${getHead('My Tasks')}
-    ${getSidebar('promote')}
+    ${getUserSidebar('promote', 0, user.id, user.role)}
     <div class="main-content">
       <div class="section-header">
         <div>
