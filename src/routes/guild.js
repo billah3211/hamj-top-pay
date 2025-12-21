@@ -84,15 +84,20 @@ router.get('/', requireLogin, async (req, res) => {
   // Youtuber
   const defaultReq = '2,000+ Subscribers\n1,000+ Views on 1 video\n1 video about Hamj Top Pay\n2 videos/month required'
   const rawText = reqSetting ? reqSetting.value : defaultReq
-  const requirementsText = rawText.split('\n')
+  const requirementsText = `<ul class="notebook-list">` + 
+    rawText.split('\n')
     .filter(line => line.trim() !== '')
-    .map(line => `<div style="display:flex; gap:8px; margin-bottom:4px; align-items:flex-start"><span style="color:#fca5a5">•</span><span>${line.replace(/^[•\-\*]\s*/, '')}</span></div>`)
-    .join('')
+    .map(line => `<li>${line.replace(/^[•\-\*]\s*/, '')}</li>`)
+    .join('') + `</ul>`
 
   // User
   const defaultUserReq = '• 50 Member Limit\n• 1% Commission on Member Top-Ups\n• Instant Creation'
   const rawUserText = userReqSetting ? userReqSetting.value : defaultUserReq
-  const userRequirementsHtml = rawUserText.replace(/\n/g, '<br>')
+  const userRequirementsHtml = `<ul class="notebook-list blue" style="background:rgba(59,130,246,0.1); border-color:rgba(59,130,246,0.2)">` + 
+    rawUserText.split('\n')
+    .filter(line => line.trim() !== '')
+    .map(line => `<li style="border-color:rgba(59,130,246,0.1)">${line.replace(/^[•\-\*]\s*/, '')}</li>`)
+    .join('') + `</ul>`
 
   // 1. User is in a Guild (or Leader of one)
   if (user.guild) {
