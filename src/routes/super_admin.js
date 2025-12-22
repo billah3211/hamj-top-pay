@@ -613,9 +613,14 @@ router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
           <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">Live SMS Inbox</div>
           <div style="color:var(--text-muted); font-size: 16px;">View all incoming SMS messages in real-time</div>
         </div>
-        <button id="refreshBtn" class="btn-premium" style="margin-left: auto;">
-          <img src="https://api.iconify.design/lucide:refresh-cw.svg?color=white" width="16" style="margin-right:8px"> Refresh
-        </button>
+        <div style="display:flex;gap:10px;margin-left:auto;">
+          <button id="deleteHistoryBtn" class="btn-premium" style="background:rgba(239,68,68,0.1);color:#fca5a5;border-color:rgba(239,68,68,0.2)">
+            <img src="https://api.iconify.design/lucide:trash-2.svg?color=%23fca5a5" width="16" style="margin-right:8px"> Delete History
+          </button>
+          <button id="refreshBtn" class="btn-premium">
+            <img src="https://api.iconify.design/lucide:refresh-cw.svg?color=white" width="16" style="margin-right:8px"> Refresh
+          </button>
+        </div>
       </div>
 
       <div class="glass-panel" style="overflow:hidden">
@@ -647,8 +652,108 @@ router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
         </table>
       </div>
     </div>
+
+    <!-- Delete Modal -->
+    <div id="deleteModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:1000;justify-content:center;align-items:center;backdrop-filter:blur(5px)">
+      <div class="glass-panel" style="width:100%;max-width:400px;padding:24px;border:1px solid rgba(239,68,68,0.3);box-shadow:0 20px 50px rgba(0,0,0,0.5)">
+        <h3 style="margin-top:0;display:flex;align-items:center;gap:10px;color:#fca5a5">
+          <img src="https://api.iconify.design/lucide:alert-triangle.svg?color=%23fca5a5" width="24">
+          Bulk Delete SMS
+        </h3>
+        <p style="color:var(--text-muted);margin-bottom:20px;font-size:14px">Select a date range to permanently remove SMS logs from the database. This action cannot be undone.</p>
+        
+        <div class="form-group">
+          <label class="form-label">Start Date</label>
+          <input type="date" id="deleteStartDate" class="form-input">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">End Date</label>
+          <input type="date" id="deleteEndDate" class="form-input">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Delete Mode</label>
+          <select id="deleteType" class="form-input">
+             <option value="PROCESSED_ONLY">Only Approved Payments (Safe)</option>
+             <option value="ALL">Everything (Caution!)</option>
+          </select>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:24px">
+          <button id="cancelDeleteBtn" class="btn-premium" style="flex:1;background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.1)">Cancel</button>
+          <button id="confirmDeleteBtn" class="btn-premium" style="flex:1;background:rgba(239,68,68,0.2);color:#fca5a5;border-color:rgba(239,68,68,0.3)">Permanently Delete</button>
+        </div>
+      </div>
+    </div>
+
     ${getScripts()}
     <script>
+      // Delete Modal Logic
+      const deleteModal = document.getElementById('deleteModal');
+      const deleteHistoryBtn = document.getElementById('deleteHistoryBtn');
+      const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+      const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+      deleteHistoryBtn.addEventListener('click', () => {
+        deleteModal.style.display = 'flex';
+        // Set default dates (today)
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('deleteStartDate').value = today;
+        document.getElementById('deleteEndDate').value = today;
+      });
+
+      cancelDeleteBtn.addEventListener('click', () => {
+        deleteModal.style.display = 'none';
+      });
+
+      // Close on outside click
+      deleteModal.addEventListener('click', (e) => {
+        if (e.target === deleteModal) deleteModal.style.display = 'none';
+      });
+
+      confirmDeleteBtn.addEventListener('click', async () => {
+        const startDate = document.getElementById('deleteStartDate').value;
+        const endDate = document.getElementById('deleteEndDate').value;
+        const deleteType = document.getElementById('deleteType').value;
+
+        if (!startDate || !endDate) {
+          alert('Please select both start and end dates.');
+          return;
+        }
+
+        if (!confirm('Are you absolutely sure you want to delete these records? This cannot be undone.')) {
+          return;
+        }
+
+        confirmDeleteBtn.disabled = true;
+        confirmDeleteBtn.innerText = 'Deleting...';
+
+        try {
+          const res = await fetch('/api/admin/delete-sms-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ startDate, endDate, deleteType })
+          });
+          
+          const data = await res.json();
+          
+          if (res.ok) {
+            alert(`Successfully deleted ${data.count} records.`);
+            deleteModal.style.display = 'none';
+            document.getElementById('refreshBtn').click(); // Refresh table
+          } else {
+            alert('Error: ' + (data.error || 'Failed to delete'));
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Network error occurred.');
+        } finally {
+          confirmDeleteBtn.disabled = false;
+          confirmDeleteBtn.innerText = 'Permanently Delete';
+        }
+      });
+
       const refreshBtn = document.getElementById('refreshBtn');
       const tableBody = document.getElementById('smsTableBody');
 

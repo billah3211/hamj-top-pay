@@ -178,6 +178,46 @@ router.post('/admin/recover-payments', async (req, res) => {
   })
 })
 
+// Delete SMS Logs (Bulk)
+router.post('/admin/delete-sms-logs', async (req, res) => {
+  try {
+    const { startDate, endDate, deleteType } = req.body // deleteType: 'ALL' or 'PROCESSED_ONLY'
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'Start date and End date are required' })
+    }
+
+    const start = new Date(startDate)
+    start.setHours(0, 0, 0, 0)
+    
+    const end = new Date(endDate)
+    end.setHours(23, 59, 59, 999)
+
+    const whereClause = {
+      createdAt: {
+        gte: start,
+        lte: end
+      }
+    }
+
+    if (deleteType === 'PROCESSED_ONLY') {
+      whereClause.status = {
+        in: ['PROCESSED', 'PROCESSED_PAYMENT']
+      }
+    }
+
+    const result = await prisma.sMSLog.deleteMany({
+      where: whereClause
+    })
+
+    res.json({ count: result.count })
+
+  } catch (error) {
+    console.error('Delete SMS Logs Error:', error)
+    res.status(500).json({ error: 'Failed to delete SMS logs' })
+  }
+})
+
 // Get SMS Logs
 router.get('/admin/sms-logs', async (req, res) => {
   try {
