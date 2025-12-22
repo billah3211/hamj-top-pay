@@ -6,10 +6,10 @@ const { prisma } = require('../db/prisma')
 // Route: POST /api/payment/webhook
 router.post('/payment/webhook', async (req, res) => {
   try {
-    // 1. Log Raw Payload
+    // 1. Log Raw Payload (Crucial for Debugging)
     console.log('------------------------------------------------')
     console.log('Webhook Received at:', new Date().toISOString())
-    console.log('Payload:', JSON.stringify(req.body, null, 2))
+    console.log('Webhook Body:', JSON.stringify(req.body, null, 2))
 
     // 2. Extract Data
     // We do NOT filter by sender (Bkash, Nagad, etc.) - Universal Acceptance
@@ -17,21 +17,18 @@ router.post('/payment/webhook', async (req, res) => {
 
     if (!message) {
       console.log('Error: Message content missing')
-      return res.status(400).json({ error: 'Message content missing' })
+      return res.status(200).json({ status: 'ignored', reason: 'Message content missing' })
     }
 
-    // 3. Universal Regex Extraction
+    // 3. Robust Regex Extraction
     let extractedTrxID = payloadTrxID
     let extractedSenderNumber = null
 
-    // Universal TrxID Regex
-    // Captures ID after common labels: TrxID, TxnID, Trans ID, Ref, ID
-    // OR matches a distinct alphanumeric string of 6+ chars if clearly isolated
-    const trxIdPattern = /(?:TrxID|TxnID|TxnId|Trans\s*ID|Ref|ID)[\s:\.]*([A-Za-z0-9]{6,})/i
+    // Improved TrxID Regex: Captures ID after TxnID, TrxID, Trans ID, or Ref
+    const trxIdPattern = /(?:TxnID|TrxID|Trans\s*ID|Ref)[\s:\.]*([A-Z0-9]{6,})/i
     
-    // Universal Sender Number Regex (Bangladeshi 11 digits)
-    // Matches 01[3-9] followed by 8 digits anywhere in the body
-    const phonePattern = /(01[3-9]\d{8})/
+    // Improved Sender Number Regex: Captures 11-digit number after 'Sender:' or 'From:'
+    const phonePattern = /(?:Sender|From)[\s:\.]*(\+88)?(01\d{9})/i
 
     // Extract TrxID if not provided in payload
     if (!extractedTrxID) {
@@ -43,11 +40,11 @@ router.post('/payment/webhook', async (req, res) => {
 
     // Extract Sender Number
     const phoneMatch = message.match(phonePattern)
-    if (phoneMatch && phoneMatch[1]) {
-      extractedSenderNumber = phoneMatch[1]
+    if (phoneMatch && phoneMatch[2]) {
+      extractedSenderNumber = phoneMatch[2] // Group 2 captures the number 01...
     }
 
-    console.log('--- Universal Extraction Results ---')
+    console.log('--- Extraction Results ---')
     console.log('Extracted TrxID:', extractedTrxID)
     console.log('Extracted Sender Number:', extractedSenderNumber)
 
@@ -126,7 +123,8 @@ router.post('/payment/webhook', async (req, res) => {
 
   } catch (error) {
     console.error('Webhook Error:', error)
-    res.status(500).json({ error: 'Internal Server Error' })
+    // Always return 200 to gateway to prevent retries on logic errors, but log the error
+    res.status(200).json({ status: 'error', message: 'Internal Server Error' })
   }
 })
 
