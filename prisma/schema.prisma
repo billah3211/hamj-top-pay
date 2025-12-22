@@ -214,3 +214,11 @@ model ChatMessage {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 }
+
+model SMSLog {
+  id         Int      @id @default(autoincrement())
+  sender     String
+  message    String
+  receivedAt DateTime @default(now())
+  isPayment  Boolean  @default(false)
+}

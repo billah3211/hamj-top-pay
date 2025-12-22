@@ -37,7 +37,21 @@ router.post('/payment/webhook', async (req, res) => {
 
     // 2. Extract Data
     // We do NOT filter by sender (Bkash, Nagad, etc.) - Universal Acceptance
-    const { message, trxID: payloadTrxID } = req.body
+    const { message, trxID: payloadTrxID, sender } = req.body
+
+    // Save to SMSLog
+    let smsLog = null
+    try {
+      smsLog = await prisma.sMSLog.create({
+        data: {
+          sender: sender || 'Unknown',
+          message: message || '',
+          isPayment: false
+        }
+      })
+    } catch (e) {
+      console.error('Error logging SMS:', e)
+    }
 
     if (!message) {
       console.log('Error: Message content missing')
@@ -108,6 +122,14 @@ router.post('/payment/webhook', async (req, res) => {
         processedAt: new Date()
       }
     })
+
+    // Update SMSLog
+    if (smsLog) {
+      await prisma.sMSLog.update({
+        where: { id: smsLog.id },
+        data: { isPayment: true }
+      })
+    }
 
     // 6. Intelligent Notification Logic
     let notificationMessage = `Deposit Successful. ${topUpRequest.package.diamondAmount} Diamonds added via ${topUpRequest.package.name}.`
@@ -264,6 +286,20 @@ router.post('/admin/recover-payments', async (req, res) => {
     res.status(500).json({ status: 'error', message: error.message })
   }
   */
+})
+
+// Get SMS Inbox
+router.get('/admin/sms-inbox', async (req, res) => {
+  try {
+    const logs = await prisma.sMSLog.findMany({
+      take: 50,
+      orderBy: { receivedAt: 'desc' }
+    })
+    res.json(logs)
+  } catch (error) {
+    console.error(error)
+    res.status(500).json({ error: 'Failed to fetch SMS logs' })
+  }
 })
 
 module.exports = router

@@ -39,6 +39,7 @@ function getSidebar(active) {
         <li class="nav-item"><a href="/super-admin/topup-packages" class="${active === 'packages' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:package.svg?color=${active === 'packages' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Packages</a></li>
         <li class="nav-item"><a href="/super-admin/topup-wallets" class="${active === 'wallets' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=${active === 'wallets' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Wallets</a></li>
         <li class="nav-item"><a href="/super-admin/promote-settings" class="${active === 'promote' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:settings.svg?color=${active === 'promote' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Promote Settings</a></li>
+        <li class="nav-item"><a href="/super-admin/sms-inbox" class="${active === 'sms' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:message-square.svg?color=${active === 'sms' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Live SMS Inbox</a></li>
         <li class="nav-item"><a href="/super-admin/settings" class="${active === 'settings' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:sliders-horizontal.svg?color=${active === 'settings' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> System Settings</a></li>
         <li class="nav-item" style="margin-top:10px;border-top:1px solid rgba(236, 72, 153, 0.2);padding-top:10px"><a href="/admin/dashboard"><img src="https://api.iconify.design/lucide:layout-template.svg?color=%2394a3b8" class="nav-icon"> Normal Panel</a></li>
         <li class="nav-item" style="margin-top:auto"><a href="/admin/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
@@ -591,6 +592,95 @@ router.post('/guilds/action', requireSuperAdmin, async (req, res) => {
     console.error(e)
     res.redirect('/super-admin/guilds?error=' + encodeURIComponent(e.message))
   }
+})
+
+// SMS Inbox Route
+router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
+  const logs = await prisma.sMSLog.findMany({
+    take: 50,
+    orderBy: { receivedAt: 'desc' }
+  })
+
+  res.send(`
+    ${getHead('Live SMS Inbox')}
+    ${getSidebar('sms')}
+    <div class="main-content">
+      <div class="section-header" style="background: linear-gradient(to right, rgba(236, 72, 153, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(236, 72, 153, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
+        <div style="background: rgba(236, 72, 153, 0.2); padding: 12px; border-radius: 12px;">
+           <img src="https://api.iconify.design/lucide:message-square.svg?color=%23ec4899" width="32" height="32">
+        </div>
+        <div>
+          <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">Live SMS Inbox</div>
+          <div style="color:var(--text-muted); font-size: 16px;">View all incoming SMS messages in real-time</div>
+        </div>
+        <button id="refreshBtn" class="btn-premium" style="margin-left: auto;">
+          <img src="https://api.iconify.design/lucide:refresh-cw.svg?color=white" width="16" style="margin-right:8px"> Refresh
+        </button>
+      </div>
+
+      <div class="glass-panel" style="overflow:hidden">
+        <table style="width:100%;border-collapse:collapse" id="smsTable">
+          <thead>
+            <tr style="background:rgba(255,255,255,0.02);text-align:left">
+              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Time</th>
+              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Sender</th>
+              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Message</th>
+              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Status</th>
+            </tr>
+          </thead>
+          <tbody id="smsTableBody">
+            ${logs.map(log => `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                <td style="padding:16px;color:var(--text-muted);font-size:13px">${new Date(log.receivedAt).toLocaleString()}</td>
+                <td style="padding:16px;font-weight:600;color:#ec4899">${log.sender}</td>
+                <td style="padding:16px;color:white;max-width:400px;word-wrap:break-word">${log.message}</td>
+                <td style="padding:16px">
+                  ${log.isPayment 
+                    ? '<span style="background:rgba(34,197,94,0.1);color:#4ade80;padding:4px 8px;border-radius:4px;font-size:12px">Payment</span>' 
+                    : '<span style="background:rgba(255,255,255,0.1);color:var(--text-muted);padding:4px 8px;border-radius:4px;font-size:12px">Log</span>'}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    ${getScripts()}
+    <script>
+      const refreshBtn = document.getElementById('refreshBtn');
+      const tableBody = document.getElementById('smsTableBody');
+
+      refreshBtn.addEventListener('click', async () => {
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = '<img src="https://api.iconify.design/line-md:loading-loop.svg?color=white" width="16" style="margin-right:8px"> Loading...';
+        
+        try {
+          const res = await fetch('/api/admin/sms-inbox');
+          const data = await res.json();
+          
+          tableBody.innerHTML = data.map(log => \`
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                <td style="padding:16px;color:var(--text-muted);font-size:13px">\${new Date(log.receivedAt).toLocaleString()}</td>
+                <td style="padding:16px;font-weight:600;color:#ec4899">\${log.sender}</td>
+                <td style="padding:16px;color:white;max-width:400px;word-wrap:break-word">\${log.message}</td>
+                <td style="padding:16px">
+                  \${log.isPayment 
+                    ? '<span style="background:rgba(34,197,94,0.1);color:#4ade80;padding:4px 8px;border-radius:4px;font-size:12px">Payment</span>' 
+                    : '<span style="background:rgba(255,255,255,0.1);color:var(--text-muted);padding:4px 8px;border-radius:4px;font-size:12px">Log</span>'}
+                </td>
+              </tr>
+          \`).join('');
+          
+        } catch (err) {
+          console.error(err);
+          alert('Failed to refresh inbox');
+        } finally {
+          refreshBtn.disabled = false;
+          refreshBtn.innerHTML = '<img src="https://api.iconify.design/lucide:refresh-cw.svg?color=white" width="16" style="margin-right:8px"> Refresh';
+        }
+      });
+    </script>
+  `)
 })
 
 // Store Management Routes
