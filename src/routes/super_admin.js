@@ -637,7 +637,7 @@ router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
                 <td style="padding:16px;color:white;max-width:400px;word-wrap:break-word">${log.message}</td>
                 <td style="padding:16px;color:var(--text-muted);font-family:monospace">${log.trxId || '-'}</td>
                 <td style="padding:16px">
-                  ${log.status === 'PROCESSED' 
+                  ${log.status === 'PROCESSED_PAYMENT' || log.status === 'PROCESSED'
                     ? '<span style="background:rgba(34,197,94,0.1);color:#4ade80;padding:4px 8px;border-radius:4px;font-size:12px">Processed</span>' 
                     : '<span style="background:rgba(255,255,255,0.1);color:var(--text-muted);padding:4px 8px;border-radius:4px;font-size:12px">' + log.status + '</span>'}
                 </td>
@@ -667,7 +667,7 @@ router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
                 <td style="padding:16px;color:white;max-width:400px;word-wrap:break-word">\${log.message}</td>
                 <td style="padding:16px;color:var(--text-muted);font-family:monospace">\${log.trxId || '-'}</td>
                 <td style="padding:16px">
-                  \${log.status === 'PROCESSED' 
+                  \${log.status === 'PROCESSED_PAYMENT' || log.status === 'PROCESSED' 
                     ? '<span style="background:rgba(34,197,94,0.1);color:#4ade80;padding:4px 8px;border-radius:4px;font-size:12px">Processed</span>' 
                     : '<span style="background:rgba(255,255,255,0.1);color:var(--text-muted);padding:4px 8px;border-radius:4px;font-size:12px">' + log.status + '</span>'}
                 </td>

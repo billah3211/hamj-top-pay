@@ -35,40 +35,39 @@ router.post('/payment/webhook', async (req, res) => {
     console.log('Webhook Received at:', new Date().toISOString())
     console.log('Webhook Body:', JSON.stringify(req.body, null, 2))
 
-    // 2. Extract Data
-    // We do NOT filter by sender (Bkash, Nagad, etc.) - Universal Acceptance
     const { message, trxID: payloadTrxID, sender } = req.body
 
-    // Save to SMSLog
+    // STEP 1: FORCE SAVE SMS to DB (Immediately)
+    // Do not check for TrxID or Regex yet. Just save sender and message to DB.
     let smsLog = null
     try {
       smsLog = await prisma.sMSLog.create({
         data: {
           sender: sender || 'Unknown',
           message: message || '',
-          isPayment: false
+          status: 'RECEIVED'
         }
       })
+      console.log('SMS Logged with ID:', smsLog.id)
     } catch (e) {
-      console.error('Error logging SMS:', e)
+      console.error('CRITICAL ERROR: Failed to log SMS:', e)
     }
 
+    // If no message, we still logged it (if sender existed), but we can't process payment
     if (!message) {
       console.log('Error: Message content missing')
-      return res.status(200).json({ status: 'ignored', reason: 'Message content missing' })
+      return res.status(200).json({ success: true, message: 'Message content missing' })
     }
 
-    // 3. Robust Regex Extraction
+    // STEP 2: Process Payment
+    // Robust Regex Extraction
     let { extractedTrxID, extractedSenderNumber } = extractTransactionData(message)
 
     // If TrxID was provided in payload, use it (and normalize)
     if (payloadTrxID && !extractedTrxID) {
        extractedTrxID = payloadTrxID.toUpperCase()
     } else if (payloadTrxID && extractedTrxID && payloadTrxID.toUpperCase() !== extractedTrxID) {
-       // If both exist but differ, prefer the regex one from message as it's the raw source, 
-       // or prefer payload if we trust the gateway's extraction more.
-       // Let's stick to the extracted one from message if found, as that's what we validated.
-       // Actually, let's allow payloadTrxID to override if regex failed.
+       // Conflict: stick to extractedTrxID usually, or allow payload override
     }
     
     // Fallback: If regex failed but payload has it
@@ -82,10 +81,10 @@ router.post('/payment/webhook', async (req, res) => {
 
     if (!extractedTrxID) {
       console.log('Result: Ignored (No TrxID found)')
-      return res.status(200).json({ status: 'ignored', reason: 'No TrxID found' })
+      return res.status(200).json({ success: true, message: 'No TrxID found' })
     }
 
-    // 4. Strict Business Rules: Check DB for PENDING Request
+    // Check DB for PENDING Request
     const topUpRequest = await prisma.topUpRequest.findFirst({
       where: {
         trxId: extractedTrxID,
@@ -99,11 +98,11 @@ router.post('/payment/webhook', async (req, res) => {
 
     if (!topUpRequest) {
       console.log(`Result: Ignored (No PENDING request found for TrxID: ${extractedTrxID})`)
-      return res.status(200).json({ status: 'ignored', reason: 'TrxID not found or already processed' })
+      return res.status(200).json({ success: true, message: 'TrxID not found or already processed' })
     }
 
-    // 5. Action: Process TopUp IMMEDIATELY
-    console.log('Auto-Approved TrxID:', extractedTrxID) // Specific log requested by user
+    // Action: Process TopUp IMMEDIATELY
+    console.log('Auto-Approved TrxID:', extractedTrxID)
     console.log('Match Found! User:', topUpRequest.user.email)
     
     // Add Diamonds to User
@@ -123,18 +122,18 @@ router.post('/payment/webhook', async (req, res) => {
       }
     })
 
-    // Update SMSLog
+    // STEP 3: Update Log if Payment Approved
     if (smsLog) {
       await prisma.sMSLog.update({
         where: { id: smsLog.id },
         data: { 
-          status: 'PROCESSED',
+          status: 'PROCESSED_PAYMENT',
           trxId: extractedTrxID
         }
       })
     }
 
-    // 6. Intelligent Notification Logic
+    // Notification Logic
     let notificationMessage = `Deposit Successful. ${topUpRequest.package.diamondAmount} Diamonds added via ${topUpRequest.package.name}.`
     let senderMismatch = false
 
@@ -161,13 +160,13 @@ router.post('/payment/webhook', async (req, res) => {
     console.log(`TopUp Completed for User ${topUpRequest.userId} - TrxID: ${extractedTrxID}`)
     console.log('------------------------------------------------')
 
-    res.status(200).json({ status: 'success', message: 'TopUp processed successfully' })
-
   } catch (error) {
-    console.error('Webhook Error:', error)
-    // Always return 200 to gateway to prevent retries on logic errors, but log the error
-    res.status(200).json({ status: 'error', message: 'Internal Server Error' })
+    console.error('Webhook Logic Error:', error)
+    // We do NOT return error status, we return success so gateway doesn't retry infinitely for logic errors
   }
+
+  // STEP 4: Always return success at the end
+  return res.status(200).json({ success: true })
 })
 
 // Missed Payment Recovery Endpoint
@@ -177,118 +176,6 @@ router.post('/admin/recover-payments', async (req, res) => {
     status: 'error', 
     message: 'Recovery feature is currently disabled by administrator.' 
   })
-  
-  /* DISABLED FOR NOW
-  try {
-    console.log('Starting Missed Payment Recovery...')
-    
-    // 1. Fetch SMS API Key
-    let smsApiKey = process.env.SMS_API_KEY || ''
-    const config = await prisma.appConfig.findUnique({ where: { key: 'SMS_API_KEY' } })
-    if (config) smsApiKey = config.value
-
-    if (!smsApiKey) {
-      return res.status(500).json({ status: 'error', message: 'SMS_API_KEY not configured' })
-    }
-
-    // 2. Fetch last 50-100 SMS from Gateway
-    const response = await fetch(`https://api.smsmobileapi.com/sendsms/get_messages?api_key=${smsApiKey}`)
-    if (!response.ok) {
-      throw new Error(`Gateway returned status: ${response.status}`)
-    }
-    
-    const data = await response.json()
-    // Assume data.messages or data is the array. 
-    // The API documentation usually returns { messages: [...] } or just [...]
-    // We'll try to detect array.
-    let messages = []
-    if (Array.isArray(data)) {
-      messages = data
-    } else if (data.messages && Array.isArray(data.messages)) {
-      messages = data.messages
-    } else {
-      // Fallback: If it's a single object, wrap in array? Or error?
-      console.log('Unexpected API response format:', data)
-      // If data has 'error', return it
-      if (data.error) return res.status(400).json({ status: 'error', message: data.error })
-    }
-
-    // Slice to ensure we process at most 100
-    messages = messages.slice(0, 100)
-    
-    console.log(`Fetched ${messages.length} SMS messages for recovery analysis.`)
-    
-    const recoveredTrxIDs = []
-
-    // 3. Process Loop
-    for (const sms of messages) {
-      // SMS object usually has 'message' and 'sender'
-      const messageContent = sms.message
-      if (!messageContent) continue
-
-      const { extractedTrxID, extractedSenderNumber } = extractTransactionData(messageContent)
-      
-      if (!extractedTrxID) continue
-
-      // Check DB for PENDING request
-      const topUpRequest = await prisma.topUpRequest.findFirst({
-        where: {
-          trxId: extractedTrxID,
-          status: 'PENDING'
-        },
-        include: {
-          package: true,
-          user: true
-        }
-      })
-
-      if (topUpRequest) {
-        // Approve it!
-        console.log(`[RECOVERY] Found missed payment! TrxID: ${extractedTrxID}`)
-        
-        // Update User
-        await prisma.user.update({
-          where: { id: topUpRequest.userId },
-          data: { diamond: { increment: topUpRequest.package.diamondAmount } }
-        })
-
-        // Update Request
-        await prisma.topUpRequest.update({
-          where: { id: topUpRequest.id },
-          data: { status: 'COMPLETED', processedAt: new Date() }
-        })
-
-        // Notification
-        let notificationMessage = `Deposit Successful (Recovered). ${topUpRequest.package.diamondAmount} Diamonds added via ${topUpRequest.package.name}.`
-        let senderMismatch = false
-        if (extractedSenderNumber && topUpRequest.senderNumber !== extractedSenderNumber) {
-           senderMismatch = true
-           notificationMessage = `Deposit Approved (Recovered, Warning: Sender number mismatch (${extractedSenderNumber})).`
-        }
-
-        await prisma.notification.create({
-          data: {
-            userId: topUpRequest.userId,
-            message: notificationMessage,
-            type: senderMismatch ? 'alert' : 'credit'
-          }
-        })
-        
-        recoveredTrxIDs.push(extractedTrxID)
-      }
-    }
-
-    res.json({ 
-      message: 'Recovery run complete.', 
-      recovered_count: recoveredTrxIDs.length, 
-      recovered: recoveredTrxIDs 
-    })
-
-  } catch (error) {
-    console.error('Recovery Error:', error)
-    res.status(500).json({ status: 'error', message: error.message })
-  }
-  */
 })
 
 // Get SMS Logs
