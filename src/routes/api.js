@@ -6,42 +6,58 @@ const { prisma } = require('../db/prisma')
 // Route: POST /api/payment/webhook
 router.post('/payment/webhook', async (req, res) => {
   try {
-    console.log('Webhook Received:', req.body)
+    // 1. Log Raw Payload
+    console.log('------------------------------------------------')
+    console.log('Webhook Received at:', new Date().toISOString())
+    console.log('Payload:', JSON.stringify(req.body, null, 2))
 
-    // 1. Extract Data
-    // Payload usually comes as JSON or Form Data depending on the app. 
-    // We'll handle common fields.
-    // Expected fields: sender (phone), message (content), trxID (optional, if app parsed it)
+    // 2. Extract Data
     const { sender, message, trxID: payloadTrxID } = req.body
 
     if (!message) {
+      console.log('Error: Message content missing')
       return res.status(400).json({ error: 'Message content missing' })
     }
 
-    // 2. Extract TrxID from Message if not provided in payload
+    // 3. Smart Extraction Logic
     let extractedTrxID = payloadTrxID
+    let extractedSenderNumber = null
 
+    // Regex for TrxID (matches TrxID, TxnID, TransID followed by alphanumeric)
+    const trxIdPattern = /(?:TrxID|TxnID|TxnId|TransID)[\s:]*([A-Za-z0-9]+)/i
+    
+    // Regex for BD Phone Number (matches 01[3-9] followed by 8 digits)
+    // Matches "from 017..." or just "017..." inside text
+    const phonePattern = /(?:from|sender|mobile|num|Tk)[\s:\.]*(01[3-9]\d{8})/i
+    // Fallback simple phone pattern
+    const simplePhonePattern = /(01[3-9]\d{8})/
+
+    // Extract TrxID if not in payload
     if (!extractedTrxID) {
-      // Regex Patterns for BD Mobile Banking
-      const bkashPattern = /TrxID[\s:]+([A-Za-z0-9]+)/i
-      const nagadPattern = /TxnID[\s:]+([A-Za-z0-9]+)/i
-      const rocketPattern = /TxnId[\s:]+([A-Za-z0-9]+)/i
-      
-      const match = message.match(bkashPattern) || message.match(nagadPattern) || message.match(rocketPattern)
+      const match = message.match(trxIdPattern)
       if (match && match[1]) {
         extractedTrxID = match[1]
       }
     }
 
+    // Extract Sender Number from Body
+    const phoneMatch = message.match(phonePattern) || message.match(simplePhonePattern)
+    if (phoneMatch && phoneMatch[1]) {
+      extractedSenderNumber = phoneMatch[1]
+    }
+
+    console.log('--- Extraction Results ---')
+    console.log('Extracted TrxID:', extractedTrxID)
+    console.log('Extracted Sender Number:', extractedSenderNumber)
+
     if (!extractedTrxID) {
-      console.log('No TrxID found in message:', message)
+      console.log('Result: Ignored (No TrxID found)')
       return res.status(200).json({ status: 'ignored', reason: 'No TrxID found' })
     }
 
     extractedTrxID = extractedTrxID.toUpperCase()
-    console.log('Extracted TrxID:', extractedTrxID)
 
-    // 3. Find Pending Request with this TrxID
+    // 4. Verification Logic: Search DB for PENDING request
     const topUpRequest = await prisma.topUpRequest.findFirst({
       where: {
         trxId: extractedTrxID,
@@ -54,16 +70,26 @@ router.post('/payment/webhook', async (req, res) => {
     })
 
     if (!topUpRequest) {
-      console.log('No pending request found for TrxID:', extractedTrxID)
+      console.log(`Result: Ignored (No PENDING request found for TrxID: ${extractedTrxID})`)
       return res.status(200).json({ status: 'ignored', reason: 'TrxID not found or already processed' })
     }
 
-    // 4. Verify Sender (Optional but recommended)
-    // Some gateways send the sender address (e.g., "bKash", "16247"). 
-    // We can check if the SMS is actually from the bank if we want strict security.
-    // For now, we assume the Gateway App is trusted.
+    console.log('Match Found! User:', topUpRequest.user.email, 'Requested Sender:', topUpRequest.senderNumber)
 
-    // 5. Process TopUp
+    // Optional: Verify Sender Number
+    if (extractedSenderNumber) {
+      // Normalize numbers (remove +88 if present, though regex handles 01...)
+      if (topUpRequest.senderNumber !== extractedSenderNumber) {
+        console.warn(`[WARNING] Sender Number Mismatch! Request: ${topUpRequest.senderNumber}, SMS says: ${extractedSenderNumber}`)
+        // We log it but proceed because TrxID is the unique proof of payment.
+        // You can uncomment the next line to STRICTLY block mismatches:
+        // return res.status(200).json({ status: 'failed', reason: 'Sender number mismatch' })
+      } else {
+        console.log('Sender Number Verified: Match ✅')
+      }
+    }
+
+    // 5. Action: Process TopUp
     // Add Diamonds to User
     await prisma.user.update({
       where: { id: topUpRequest.userId },
@@ -91,6 +117,7 @@ router.post('/payment/webhook', async (req, res) => {
     })
 
     console.log(`TopUp Completed for User ${topUpRequest.userId} - TrxID: ${extractedTrxID}`)
+    console.log('------------------------------------------------')
 
     res.status(200).json({ status: 'success', message: 'TopUp processed successfully' })
 
