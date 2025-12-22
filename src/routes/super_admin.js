@@ -597,8 +597,8 @@ router.post('/guilds/action', requireSuperAdmin, async (req, res) => {
 // SMS Inbox Route
 router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
   const logs = await prisma.sMSLog.findMany({
-    take: 50,
-    orderBy: { receivedAt: 'desc' }
+    take: 100,
+    orderBy: { createdAt: 'desc' }
   })
 
   res.send(`
@@ -625,19 +625,21 @@ router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
               <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Time</th>
               <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Sender</th>
               <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Message</th>
+              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">TrxID</th>
               <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Status</th>
             </tr>
           </thead>
           <tbody id="smsTableBody">
             ${logs.map(log => `
               <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
-                <td style="padding:16px;color:var(--text-muted);font-size:13px">${new Date(log.receivedAt).toLocaleString()}</td>
+                <td style="padding:16px;color:var(--text-muted);font-size:13px">${new Date(log.createdAt).toLocaleString()}</td>
                 <td style="padding:16px;font-weight:600;color:#ec4899">${log.sender}</td>
                 <td style="padding:16px;color:white;max-width:400px;word-wrap:break-word">${log.message}</td>
+                <td style="padding:16px;color:var(--text-muted);font-family:monospace">${log.trxId || '-'}</td>
                 <td style="padding:16px">
-                  ${log.isPayment 
-                    ? '<span style="background:rgba(34,197,94,0.1);color:#4ade80;padding:4px 8px;border-radius:4px;font-size:12px">Payment</span>' 
-                    : '<span style="background:rgba(255,255,255,0.1);color:var(--text-muted);padding:4px 8px;border-radius:4px;font-size:12px">Log</span>'}
+                  ${log.status === 'PROCESSED' 
+                    ? '<span style="background:rgba(34,197,94,0.1);color:#4ade80;padding:4px 8px;border-radius:4px;font-size:12px">Processed</span>' 
+                    : '<span style="background:rgba(255,255,255,0.1);color:var(--text-muted);padding:4px 8px;border-radius:4px;font-size:12px">' + log.status + '</span>'}
                 </td>
               </tr>
             `).join('')}
@@ -655,18 +657,19 @@ router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
         refreshBtn.innerHTML = '<img src="https://api.iconify.design/line-md:loading-loop.svg?color=white" width="16" style="margin-right:8px"> Loading...';
         
         try {
-          const res = await fetch('/api/admin/sms-inbox');
+          const res = await fetch('/api/admin/sms-logs');
           const data = await res.json();
           
           tableBody.innerHTML = data.map(log => \`
               <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
-                <td style="padding:16px;color:var(--text-muted);font-size:13px">\${new Date(log.receivedAt).toLocaleString()}</td>
+                <td style="padding:16px;color:var(--text-muted);font-size:13px">\${new Date(log.createdAt).toLocaleString()}</td>
                 <td style="padding:16px;font-weight:600;color:#ec4899">\${log.sender}</td>
                 <td style="padding:16px;color:white;max-width:400px;word-wrap:break-word">\${log.message}</td>
+                <td style="padding:16px;color:var(--text-muted);font-family:monospace">\${log.trxId || '-'}</td>
                 <td style="padding:16px">
-                  \${log.isPayment 
-                    ? '<span style="background:rgba(34,197,94,0.1);color:#4ade80;padding:4px 8px;border-radius:4px;font-size:12px">Payment</span>' 
-                    : '<span style="background:rgba(255,255,255,0.1);color:var(--text-muted);padding:4px 8px;border-radius:4px;font-size:12px">Log</span>'}
+                  \${log.status === 'PROCESSED' 
+                    ? '<span style="background:rgba(34,197,94,0.1);color:#4ade80;padding:4px 8px;border-radius:4px;font-size:12px">Processed</span>' 
+                    : '<span style="background:rgba(255,255,255,0.1);color:var(--text-muted);padding:4px 8px;border-radius:4px;font-size:12px">' + log.status + '</span>'}
                 </td>
               </tr>
           \`).join('');

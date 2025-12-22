@@ -127,7 +127,10 @@ router.post('/payment/webhook', async (req, res) => {
     if (smsLog) {
       await prisma.sMSLog.update({
         where: { id: smsLog.id },
-        data: { isPayment: true }
+        data: { 
+          status: 'PROCESSED',
+          trxId: extractedTrxID
+        }
       })
     }
 
@@ -288,12 +291,12 @@ router.post('/admin/recover-payments', async (req, res) => {
   */
 })
 
-// Get SMS Inbox
-router.get('/admin/sms-inbox', async (req, res) => {
+// Get SMS Logs
+router.get('/admin/sms-logs', async (req, res) => {
   try {
     const logs = await prisma.sMSLog.findMany({
-      take: 50,
-      orderBy: { receivedAt: 'desc' }
+      take: 100,
+      orderBy: { createdAt: 'desc' }
     })
     res.json(logs)
   } catch (error) {

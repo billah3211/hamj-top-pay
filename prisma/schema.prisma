@@ -216,9 +216,10 @@ model ChatMessage {
 }
 
 model SMSLog {
-  id         Int      @id @default(autoincrement())
-  sender     String
-  message    String
-  receivedAt DateTime @default(now())
-  isPayment  Boolean  @default(false)
+  id        Int      @id @default(autoincrement())
+  sender    String
+  message   String
+  trxId     String?
+  status    String   @default("RECEIVED")
+  createdAt DateTime @default(now())
 }
