@@ -25,7 +25,8 @@ router.post('/payment/webhook', async (req, res) => {
     let extractedSenderNumber = null
 
     // Improved TrxID Regex: Captures ID after TxnID, TrxID, Trans ID, or Ref
-    const trxIdPattern = /(?:TxnID|TrxID|Trans\s*ID|Ref)[\s:\.]*([A-Z0-9]{6,})/i
+    // Updated as per user request to handle Nagad 'TxnID' and other variations perfectly
+    const trxIdPattern = /(?:TrxID|TxnID|Trans\s*ID|Ref)[\s:\.]*([A-Za-z0-9]{6,})/i
     
     // Improved Sender Number Regex: Captures 11-digit number after 'Sender:' or 'From:'
     const phonePattern = /(?:Sender|From)[\s:\.]*(\+88)?(01\d{9})/i
@@ -53,7 +54,7 @@ router.post('/payment/webhook', async (req, res) => {
       return res.status(200).json({ status: 'ignored', reason: 'No TrxID found' })
     }
 
-    extractedTrxID = extractedTrxID.toUpperCase()
+    extractedTrxID = extractedTrxID.toUpperCase() // Normalize to uppercase for DB search
 
     // 4. Strict Business Rules: Check DB for PENDING Request
     const topUpRequest = await prisma.topUpRequest.findFirst({
@@ -73,6 +74,7 @@ router.post('/payment/webhook', async (req, res) => {
     }
 
     // 5. Action: Process TopUp IMMEDIATELY
+    console.log('Auto-Approved TrxID:', extractedTrxID) // Specific log requested by user
     console.log('Match Found! User:', topUpRequest.user.email)
     
     // Add Diamonds to User
