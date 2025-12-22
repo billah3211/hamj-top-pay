@@ -926,6 +926,55 @@ router.get('/settings', requireSuperAdmin, async (req, res) => {
           </button>
         </form>
       </div>
+      <div class="glass-panel" style="padding: 32px; border-top: 4px solid #ec4899; margin-top: 24px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+          <div style="background: rgba(236, 72, 153, 0.2); padding: 10px; border-radius: 10px;">
+            <img src="https://api.iconify.design/lucide:activity.svg?color=%23ec4899" width="24" height="24">
+          </div>
+          <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Missed Payment Recovery</h3>
+        </div>
+
+        <div style="margin-bottom: 24px; color: var(--text-muted); font-size: 14px; line-height: 1.6;">
+          If a user's payment was not automatically processed (due to server downtime or webhook failure), use this tool. 
+          It will fetch the last 100 SMS messages from the gateway and check for any valid TrxIDs that are still 'PENDING' in our database.
+        </div>
+
+        <button id="recoverBtn" class="btn-premium full-width" style="padding: 14px; font-size: 16px; background: linear-gradient(135deg, #10b981, #059669);">
+          <img src="https://api.iconify.design/lucide:search.svg?color=white" width="18" style="vertical-align: middle; margin-right: 8px;">
+          🔍 Check & Recover Missed Payments
+        </button>
+      </div>
+
+      <script>
+        const recoverBtn = document.getElementById('recoverBtn');
+        if (recoverBtn) {
+          recoverBtn.addEventListener('click', async () => {
+            if (!confirm('Are you sure you want to scan for missed payments? This may take a few seconds.')) return;
+
+            const originalText = recoverBtn.innerHTML;
+            recoverBtn.disabled = true;
+            recoverBtn.innerHTML = '<img src="https://api.iconify.design/line-md:loading-loop.svg?color=white" width="18" style="vertical-align: middle; margin-right: 8px;"> Checking...';
+
+            try {
+              const res = await fetch('/api/admin/recover-payments', { method: 'POST' });
+              const data = await res.json();
+
+              if (data.status === 'error') {
+                alert('Error: ' + data.message);
+              } else {
+                alert(data.message + (data.recovered_count > 0 ? ' Recovered: ' + data.recovered_count : ''));
+                window.location.reload();
+              }
+            } catch (err) {
+              console.error(err);
+              alert('Failed to check payments. Check console for details.');
+            } finally {
+              recoverBtn.disabled = false;
+              recoverBtn.innerHTML = originalText;
+            }
+          });
+        }
+      </script>
     </div>
     ${getScripts()}
   `)
