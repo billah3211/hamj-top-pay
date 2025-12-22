@@ -148,6 +148,12 @@ router.post('/payment/webhook', async (req, res) => {
 // Missed Payment Recovery Endpoint
 // Route: POST /api/admin/recover-payments
 router.post('/admin/recover-payments', async (req, res) => {
+  return res.status(503).json({ 
+    status: 'error', 
+    message: 'Recovery feature is currently disabled by administrator.' 
+  })
+  
+  /* DISABLED FOR NOW
   try {
     console.log('Starting Missed Payment Recovery...')
     
@@ -257,6 +263,7 @@ router.post('/admin/recover-payments', async (req, res) => {
     console.error('Recovery Error:', error)
     res.status(500).json({ status: 'error', message: error.message })
   }
+  */
 })
 
 module.exports = router
