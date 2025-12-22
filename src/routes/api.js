@@ -96,7 +96,7 @@ router.post('/payment/webhook', async (req, res) => {
     await prisma.user.update({
       where: { id: topUpRequest.userId },
       data: {
-        diamonds: { increment: topUpRequest.package.diamondAmount }
+        diamond: { increment: topUpRequest.package.diamondAmount }
       }
     })
 
@@ -161,7 +161,7 @@ router.post('/admin/recover-payments', async (req, res) => {
     }
 
     // 2. Fetch last 50-100 SMS from Gateway
-    const response = await fetch(`https://api.smsmobileapi.com/received/get?api_key=${smsApiKey}`)
+    const response = await fetch(`https://api.smsmobileapi.com/sendsms/get_messages?api_key=${smsApiKey}`)
     if (!response.ok) {
       throw new Error(`Gateway returned status: ${response.status}`)
     }
@@ -218,7 +218,7 @@ router.post('/admin/recover-payments', async (req, res) => {
         // Update User
         await prisma.user.update({
           where: { id: topUpRequest.userId },
-          data: { diamonds: { increment: topUpRequest.package.diamondAmount } }
+          data: { diamond: { increment: topUpRequest.package.diamondAmount } }
         })
 
         // Update Request
