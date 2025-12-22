@@ -188,6 +188,13 @@ model SystemSetting {
   value String
 }
 
+model AppConfig {
+  id          Int     @id @default(autoincrement())
+  key         String  @unique
+  value       String
+  description String?
+}
+
 model SupportSession {
   id        Int      @id @default(autoincrement())
   userId    Int

@@ -39,6 +39,7 @@ function getSidebar(active) {
         <li class="nav-item"><a href="/super-admin/topup-packages" class="${active === 'packages' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:package.svg?color=${active === 'packages' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Packages</a></li>
         <li class="nav-item"><a href="/super-admin/topup-wallets" class="${active === 'wallets' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=${active === 'wallets' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Wallets</a></li>
         <li class="nav-item"><a href="/super-admin/promote-settings" class="${active === 'promote' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:settings.svg?color=${active === 'promote' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Promote Settings</a></li>
+        <li class="nav-item"><a href="/super-admin/settings" class="${active === 'settings' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:sliders-horizontal.svg?color=${active === 'settings' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> System Settings</a></li>
         <li class="nav-item" style="margin-top:10px;border-top:1px solid rgba(236, 72, 153, 0.2);padding-top:10px"><a href="/admin/dashboard"><img src="https://api.iconify.design/lucide:layout-template.svg?color=%2394a3b8" class="nav-icon"> Normal Panel</a></li>
         <li class="nav-item" style="margin-top:auto"><a href="/admin/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
       </ul>
@@ -861,6 +862,100 @@ router.post('/promote-settings', requireSuperAdmin, async (req, res) => {
   })
 
   res.redirect('/super-admin/promote-settings?success=Settings+updated')
+})
+
+// System Settings Route (Dynamic AppConfig)
+router.get('/settings', requireSuperAdmin, async (req, res) => {
+  const configs = await prisma.appConfig.findMany()
+  const configMap = {}
+  configs.forEach(c => configMap[c.key] = c.value)
+
+  // Fallback to env if not in DB (for display purposes, or empty)
+  const smsKey = configMap['SMS_API_KEY'] || ''
+  const geminiKey = configMap['GEMINI_API_KEY'] || ''
+
+  res.send(`
+    ${getHead('System Settings')}
+    ${getSidebar('settings')}
+    <div class="main-content">
+      <div class="section-header" style="margin-bottom: 32px;">
+        <div>
+          <div class="section-title" style="font-size: 24px;">System Settings</div>
+          <div style="color:var(--text-muted)">Manage API Keys and dynamic configurations</div>
+        </div>
+      </div>
+
+      ${req.query.success ? `<div class="alert success" style="margin-bottom: 24px;">${req.query.success}</div>` : ''}
+      ${req.query.error ? `<div class="alert error" style="margin-bottom: 24px;">${req.query.error}</div>` : ''}
+
+      <div class="glass-panel" style="padding: 32px; border-top: 4px solid #ec4899;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+          <div style="background: rgba(236, 72, 153, 0.2); padding: 10px; border-radius: 10px;">
+            <img src="https://api.iconify.design/lucide:key.svg?color=%23ec4899" width="24" height="24">
+          </div>
+          <h3 style="font-size: 18px; font-weight: 600; margin: 0;">API Configuration</h3>
+        </div>
+
+        <form action="/super-admin/settings/update" method="POST">
+          
+          <!-- SMS API Key -->
+          <div class="form-group" style="margin-bottom: 24px;">
+            <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 500;">
+              SMS Mobile API Key
+            </label>
+            <div style="position: relative;">
+              <input type="text" name="SMS_API_KEY" value="${smsKey}" class="form-input" style="width: 100%; padding: 14px 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 12px; color: white; font-size: 16px;" placeholder="Enter SMS API Key">
+            </div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px; padding-left: 4px;">Used for sending SMS notifications.</div>
+          </div>
+
+          <!-- Gemini API Key -->
+          <div class="form-group" style="margin-bottom: 32px;">
+            <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 500;">
+              Gemini API Key
+            </label>
+            <div style="position: relative;">
+              <input type="text" name="GEMINI_API_KEY" value="${geminiKey}" class="form-input" style="width: 100%; padding: 14px 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 12px; color: white; font-size: 16px;" placeholder="Enter Gemini API Key">
+            </div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px; padding-left: 4px;">Used for AI Support Assistant.</div>
+          </div>
+
+          <button type="submit" class="btn-premium full-width" style="padding: 14px; font-size: 16px; background: linear-gradient(135deg, #ec4899, #8b5cf6);">
+            <img src="https://api.iconify.design/lucide:save.svg?color=white" width="18" style="vertical-align: middle; margin-right: 8px;">
+            Save Configurations
+          </button>
+        </form>
+      </div>
+    </div>
+    ${getScripts()}
+  `)
+})
+
+router.post('/settings/update', requireSuperAdmin, async (req, res) => {
+  try {
+    const { SMS_API_KEY, GEMINI_API_KEY } = req.body
+
+    if (SMS_API_KEY !== undefined) {
+      await prisma.appConfig.upsert({
+        where: { key: 'SMS_API_KEY' },
+        update: { value: SMS_API_KEY },
+        create: { key: 'SMS_API_KEY', value: SMS_API_KEY, description: 'SMS Service API Key' }
+      })
+    }
+
+    if (GEMINI_API_KEY !== undefined) {
+      await prisma.appConfig.upsert({
+        where: { key: 'GEMINI_API_KEY' },
+        update: { value: GEMINI_API_KEY },
+        create: { key: 'GEMINI_API_KEY', value: GEMINI_API_KEY, description: 'Google Gemini AI API Key' }
+      })
+    }
+
+    res.redirect('/super-admin/settings?success=Configuration+updated+successfully')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/settings?error=' + encodeURIComponent(e.message))
+  }
 })
 
 // ==========================================

@@ -1,16 +1,7 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { prisma } = require('../db/prisma');
 
-// Initialize Gemini
-// Ensure API Key is loaded
-if (!process.env.GEMINI_API_KEY) {
-  console.error("GEMINI_API_KEY is missing in environment variables");
-}
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
-const model = genAI.getGenerativeModel({
-  model: "gemini-2.0-flash",
-  systemInstruction: `You are the 'Hamj Top Pay Assistant'. You work for the website 'Hamj Top Pay'.
+const SYSTEM_INSTRUCTION = `You are the 'Hamj Top Pay Assistant'. You work for the website 'Hamj Top Pay'.
 Your role is to help users with top-up and payment queries in Bangla and English.
 NEVER admit you are Google, Gemini, or an AI. You are a support assistant for Hamj Top Pay.
 Keep answers concise and helpful.
@@ -29,8 +20,7 @@ User: "I need human help"
 Response: "[HANDOVER] Sure, I am connecting you to a support agent. Please wait a moment."
 
 Otherwise, just answer the question normally without the tag.
-`
-});
+`;
 
 /**
  * Get response from Gemini AI
@@ -40,6 +30,24 @@ Otherwise, just answer the question normally without the tag.
  */
 async function getAIResponse(message, history = []) {
   try {
+    // Fetch API Key from DB or Env
+    const config = await prisma.appConfig.findUnique({ where: { key: 'GEMINI_API_KEY' } });
+    const apiKey = config ? config.value : process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is missing in DB and environment variables");
+      return {
+        text: "System Configuration Error: AI Service is currently unavailable.",
+        handover: true
+      };
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction: SYSTEM_INSTRUCTION
+    });
+
     const chat = model.startChat({
       history: history,
       generationConfig: {
