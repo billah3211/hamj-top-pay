@@ -739,7 +739,7 @@ router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
           const data = await res.json();
           
           if (res.ok) {
-            alert(`Successfully deleted ${data.count} records.`);
+            alert(\`Successfully deleted \${data.count} records.\`);
             deleteModal.style.display = 'none';
             document.getElementById('refreshBtn').click(); // Refresh table
           } else {
