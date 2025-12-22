@@ -59,6 +59,55 @@ router.post('/payment/webhook', async (req, res) => {
       return res.status(200).json({ success: true, message: 'Message content missing' })
     }
 
+    // SECURITY: Whitelist Validation (Prevent Fake SMS)
+    const allowedSenders = ['bkash', 'nagad', 'rocket', '16216', 'upay']
+    const senderNormalized = sender ? sender.toLowerCase() : ''
+    
+    // Check if sender is in the whitelist
+    if (!allowedSenders.includes(senderNormalized)) {
+      console.warn(`Security Alert: Fake SMS attempt from ${sender}`)
+
+      // Find the Culprit: Extract TrxID from this fake SMS
+      let { extractedTrxID } = extractTransactionData(message)
+      
+      // Fallback if regex failed but payload has it
+      if (!extractedTrxID && payloadTrxID) {
+        extractedTrxID = payloadTrxID.toUpperCase()
+      }
+
+      if (extractedTrxID) {
+        // Find the PENDING request with that TrxID
+        const culpritRequest = await prisma.topUpRequest.findFirst({
+          where: { 
+            trxId: extractedTrxID,
+            status: 'PENDING'
+          }
+        })
+
+        if (culpritRequest) {
+          console.log(`Culprit Found! Rejecting Request for TrxID: ${extractedTrxID}`)
+
+          // Punish: Reject immediately
+          await prisma.topUpRequest.update({
+            where: { id: culpritRequest.id },
+            data: { status: 'REJECTED' }
+          })
+
+          // Notify: Warn the user
+          await prisma.notification.create({
+            data: {
+              userId: culpritRequest.userId,
+              message: "WARNING: Fake SMS detected from a personal number. Your request is rejected and account flagged.",
+              type: 'alert'
+            }
+          })
+        }
+      }
+
+      // Stop further processing
+      return res.status(200).json({ success: true, message: 'Blocked: Sender not allowed' })
+    }
+
     // STEP 2: Process Payment
     // Robust Regex Extraction
     let { extractedTrxID, extractedSenderNumber } = extractTransactionData(message)
