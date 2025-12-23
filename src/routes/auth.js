@@ -553,7 +553,7 @@ router.post('/reset-password/:token', async (req, res) => {
   const { password, confirm } = req.body
 
   if (password !== confirm) {
-    return res.redirect(\`/reset-password/\${token}?error=Passwords do not match\`)
+    return res.redirect(`/reset-password/${token}?error=Passwords do not match`)
   }
 
   try {
@@ -582,7 +582,7 @@ router.post('/reset-password/:token', async (req, res) => {
 
   } catch (error) {
     console.error('Reset Password Error:', error)
-    return res.redirect(\`/reset-password/\${token}?error=Something went wrong\`)
+    return res.redirect(`/reset-password/${token}?error=Something went wrong`)
   }
 })
 
