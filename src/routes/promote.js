@@ -1120,4 +1120,35 @@ router.post('/tasks/report', requireLogin, async (req, res) => {
   }
 })
 
+// Fix: Back navigation for submission
+router.get('/submission/:id/back', requireLogin, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id)
+    if (isNaN(id)) return res.redirect('/promote')
+
+    const submission = await prisma.linkSubmission.findUnique({
+      where: { id },
+      include: { promotedLink: true }
+    })
+
+    if (!submission) return res.redirect('/promote')
+
+    // If user is the visitor (Earner) -> Go to Tasks
+    if (submission.visitorId === req.session.userId) {
+      return res.redirect('/promote/tasks')
+    }
+
+    // If user is the link owner (Promoter) -> Go to History Detail
+    if (submission.promotedLink.userId === req.session.userId) {
+      return res.redirect(`/promote/history/${submission.promotedLinkId}`)
+    }
+
+    // Fallback
+    res.redirect('/promote')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/promote')
+  }
+})
+
 module.exports = router
