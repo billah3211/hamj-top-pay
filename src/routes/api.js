@@ -367,6 +367,27 @@ router.post('/admin/force-approve-sms', async (req, res) => {
     console.error('Force Approve Error:', error)
     res.status(500).json({ error: 'Failed to force approve payment' })
   }
+}) 
+        status: 'MANUALLY_APPROVED', 
+        trxId: extractedTrxID 
+      }
+    })
+    
+    // Notification
+    await prisma.notification.create({
+      data: {
+        userId: topUpRequest.userId,
+        message: `Deposit Approved Manually. ${topUpRequest.package.diamondAmount} Diamonds added via ${topUpRequest.package.name}.`,
+        type: 'credit'
+      }
+    })
+
+    res.json({ success: true, message: 'Payment Force Approved' })
+
+  } catch (error) {
+    console.error('Force Approve Error:', error)
+    res.status(500).json({ error: 'Failed to force approve payment' })
+  }
 })
 
 // Route C: Delete Single Log

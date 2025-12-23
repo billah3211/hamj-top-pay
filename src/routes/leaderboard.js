@@ -262,6 +262,7 @@ const getFooter = (user, level, levelProgress) => `
         viewProfileContent.innerHTML = '<div style="text-align:center; color:white; padding: 20px;">Loading profile...</div>';
         
         try {
+            // Note: The /api/profile/:username route is now available in api.js
             const res = await fetch('/api/profile/' + username);
             const data = await res.json();
             
