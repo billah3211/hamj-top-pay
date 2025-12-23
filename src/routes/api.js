@@ -432,18 +432,25 @@ router.get('/profile/:username', async (req, res) => {
             currentAvatar: true,
             bio: true,
             website: true,
-            social: true
+            social: true,
+            coin: true
         }
     })
     
     if (!user) return res.status(404).json({ error: 'User not found' })
 
     const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+    const pendingCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'PENDING' } })
+    const rejectedCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'REJECTED' } })
+
     const level = calculateLevel(taskCount)
     const levelProgress = getLevelProgress(taskCount)
 
     res.json({
         ...user,
+        taskCount,
+        pendingCount,
+        rejectedCount,
         level,
         levelProgress
     })
