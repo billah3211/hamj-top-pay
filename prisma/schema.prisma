@@ -39,14 +39,13 @@ model User {
   promotedLinks PromotedLink[]
   linkSubmissions LinkSubmission[]
   topUpRequests TopUpRequest[]
+  withdrawalRequests WithdrawalRequest[]
   supportSessions SupportSession[]
 
   guildId       Int?
   guild         Guild?   @relation(fields: [guildId], references: [id])
   ownedGuild    Guild?   @relation("GuildLeader")
 }
-
-
 
 model Guild {
   id              Int      @id @default(autoincrement())
@@ -222,4 +221,16 @@ model SMSLog {
   trxId     String?
   status    String   @default("RECEIVED")
   createdAt DateTime @default(now())
+}
+
+model WithdrawalRequest {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  amount    Int
+  method    String
+  details   String
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt DateTime @default(now())
+  processedAt DateTime?
 }

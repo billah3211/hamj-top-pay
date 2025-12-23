@@ -1,4 +1,6 @@
 const express = require('express')
+const path = require('path')
+const expressLayouts = require('express-ejs-layouts')
 console.log('Starting application with dependencies refreshed...');
 require('dotenv').config()
 const session = require('express-session')
@@ -29,6 +31,13 @@ const { Server } = require('socket.io')
 const { getAIResponse } = require('./services/aiService')
 
 const app = express()
+
+// View Engine Setup
+app.use(expressLayouts)
+app.set('view engine', 'ejs')
+app.set('views', path.join(__dirname, 'views'))
+app.set('layout', 'admin/layout') // Set default layout
+
 const httpServer = createServer(app)
 const io = new Server(httpServer, {
   cors: {
@@ -185,6 +194,7 @@ app.get('/health', async (req, res) => {
 })
 
 app.use('/', authRoutes)
+app.use('/admin/withdrawals', require('./routes/admin/withdrawals'))
 app.use('/admin', adminRoutes)
 app.use('/super-admin', superAdminRoutes)
 app.use('/store', storeRoutes)

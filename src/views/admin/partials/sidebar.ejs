@@ -1,0 +1,18 @@
+<nav class="sidebar-premium" id="sidebar">
+  <div class="brand-logo"><span>A</span> Admin Panel</div>
+  <ul class="nav-links">
+    <li class="nav-item"><a href="/admin/dashboard" class="<%= active === 'dashboard' ? 'active' : '' %>"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
+    <li class="nav-item"><a href="/admin/users" class="<%= active === 'users' ? 'active' : '' %>"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Users</a></li>
+    <li class="nav-item"><a href="/admin/withdrawals" class="<%= active === 'withdrawals' ? 'active' : '' %>"><img src="https://api.iconify.design/lucide:banknote.svg?color=%2394a3b8" class="nav-icon"> Withdrawals</a></li>
+    <li class="nav-item"><a href="/admin/topup-requests" class="<%= active === 'topup-requests' ? 'active' : '' %>"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up Requests</a></li>
+    <li class="nav-item"><a href="/admin/guild-requests" class="<%= active === 'guild-requests' ? 'active' : '' %>"><img src="https://api.iconify.design/lucide:shield.svg?color=%2394a3b8" class="nav-icon"> Guild Requests</a></li>
+    <li class="nav-item"><a href="/admin/guild-settings" class="<%= active === 'guild-settings' ? 'active' : '' %>"><img src="https://api.iconify.design/lucide:settings-2.svg?color=%2394a3b8" class="nav-icon"> Guild Settings</a></li>
+    <li class="nav-item"><a href="/admin/promote-requests" class="<%= active === 'promote-requests' ? 'active' : '' %>"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Requests</a></li>
+    <li class="nav-item"><a href="/admin/link-search" class="<%= active === 'link-search' ? 'active' : '' %>"><img src="https://api.iconify.design/lucide:search.svg?color=%2394a3b8" class="nav-icon"> Search Link</a></li>
+    <li class="nav-item"><a href="/admin/support" class="<%= active === 'support' ? 'active' : '' %>"><img src="https://api.iconify.design/lucide:message-square.svg?color=%2394a3b8" class="nav-icon"> Live Support</a></li>
+    <% if (typeof user !== 'undefined' && user.role === 'SUPER_ADMIN') { %>
+      <li class="nav-item" style="margin-top:10px;border-top:1px solid rgba(255,255,255,0.1);padding-top:10px"><a href="/super-admin/dashboard"><img src="https://api.iconify.design/lucide:shield-alert.svg?color=%23ec4899" class="nav-icon" style="color:#ec4899"> Super Admin</a></li>
+    <% } %>
+    <li class="nav-item" style="margin-top:auto"><a href="/admin/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
+  </ul>
+</nav>
