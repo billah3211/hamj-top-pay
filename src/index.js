@@ -195,6 +195,7 @@ app.get('/health', async (req, res) => {
 
 app.use('/', authRoutes)
 app.use('/admin/withdrawals', require('./routes/admin/withdrawals'))
+app.use('/admin/reported', require('./routes/admin/reported'))
 app.use('/admin', adminRoutes)
 app.use('/super-admin', superAdminRoutes)
 app.use('/store', storeRoutes)
