@@ -49,13 +49,17 @@ io.on('connection', (socket) => {
 
     // Load Chat History
     try {
-      const session = await prisma.supportSession.findFirst({
-        where: { userId: parseInt(userId), status: { not: 'RESOLVED' } },
-        include: { messages: { orderBy: { createdAt: 'asc' } } }
-      })
+      if (userId) {
+        const session = await prisma.supportSession.findFirst({
+          where: { userId: parseInt(userId), status: { not: 'RESOLVED' } },
+          include: { messages: { orderBy: { createdAt: 'asc' } } }
+        })
 
-      if (session && session.messages.length > 0) {
-        socket.emit('chat_history', session.messages)
+        if (session && session.messages.length > 0) {
+          socket.emit('chat_history', session.messages)
+        }
+      } else {
+        console.warn('Skipping chat history: userId is missing')
       }
     } catch (error) {
       console.error('Error loading chat history:', error)
