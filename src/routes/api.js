@@ -60,65 +60,73 @@ router.post('/payment/webhook', async (req, res) => {
       return res.status(200).json({ success: true, message: 'Message content missing' })
     }
 
-    // STEP 2: Security Check (Whitelist)
-    const allowedSenders = ['bkash', 'nagad', 'rocket', '16216', 'upay']
-    const senderNormalized = sender ? sender.toLowerCase() : ''
+    // STEP 2: Security Check & Sender Normalization
+    // Normalize Sender: Remove +88 or 880 prefix to get 11-digit local format
+    let normalizedSender = sender ? sender.toString().replace(/^(\+?88)?0/, '0') : ''
     
-    // Check if sender is in the allowed list
-    if (!allowedSenders.includes(senderNormalized)) {
-      console.warn(`Security Alert: Fake SMS attempt from ${sender}`)
+    // Explicitly handle 880 case: if it starts with 880, replace with 0
+    if (sender && sender.toString().startsWith('880')) {
+        normalizedSender = sender.toString().replace(/^880/, '0')
+    }
+    
+    const normalizedLower = normalizedSender.toLowerCase()
+    
+    console.log(`Original Sender: ${sender}, Normalized: ${normalizedSender}`)
 
-      // IF BLOCKED (Fake Sender): Update the existing log status
-      if (log) {
-        await prisma.sMSLog.update({
-          where: { id: log.id },
-          data: { status: 'SUSPICIOUS' }
-        })
-      }
+    const allowedSenders = ['bkash', 'nagad', 'rocket', '16216', 'upay']
+    
+    // Check 1: Is it a Personal Number? (Starts with 01 and is 11 digits)
+    // AND NOT in the allowed list (just in case an allowed sender matches this pattern, though unlikely for names)
+    const isPersonalNumber = /^01\d{9}$/.test(normalizedSender)
+    
+    // Check 2: Is it in the whitelist?
+    // We check against the original lowercased sender OR the normalized one (in case sender is 'bKash')
+    const isWhitelisted = allowedSenders.includes(sender.toLowerCase()) || allowedSenders.includes(normalizedLower)
 
-      // Find the Culprit: Extract TrxID from this fake SMS
-      let { extractedTrxID } = extractTransactionData(message)
-      
-      // Fallback if regex failed but payload has it
-      if (!extractedTrxID && payloadTrxID) {
-        extractedTrxID = payloadTrxID.toUpperCase()
-      }
+    if (isWhitelisted) {
+       // --- CASE A: LEGITIMATE SENDER (Process Payment) ---
+       console.log('Sender is Whitelisted. Proceeding to Payment Logic...')
+       
+       // Proceed to existing payment logic below...
 
-      if (extractedTrxID) {
-        // Find the PENDING request with that TrxID
-        const culpritRequest = await prisma.topUpRequest.findFirst({
-          where: { 
-            trxId: extractedTrxID,
-            status: 'PENDING'
-          }
-        })
+    } else if (isPersonalNumber) {
+       // --- CASE B: FAKE/PERSONAL SENDER (Block & Mark Suspicious) ---
+       console.warn(`Security Alert: Fake SMS attempt from Personal Number ${sender} (${normalizedSender})`)
 
-        if (culpritRequest) {
-          console.log(`Culprit Found! Rejecting Request for TrxID: ${extractedTrxID}`)
+       if (log) {
+         await prisma.sMSLog.update({
+           where: { id: log.id },
+           data: { status: 'SUSPICIOUS' }
+         })
+       }
 
-          // Punish: Reject immediately
-          await prisma.topUpRequest.update({
-            where: { id: culpritRequest.id },
-            data: { status: 'REJECTED' }
-          })
+       // Find the Culprit logic (Reject Request)...
+       let { extractedTrxID } = extractTransactionData(message)
+       if (!extractedTrxID && payloadTrxID) extractedTrxID = payloadTrxID.toUpperCase()
 
-          // Notify: Warn the user
-          await prisma.notification.create({
-            data: {
-              userId: culpritRequest.userId,
-              message: "WARNING: Fake SMS detected from a personal number. Your request is rejected and account flagged.",
-              type: 'alert'
-            }
-          })
-        }
-      }
+       if (extractedTrxID) {
+         const culpritRequest = await prisma.topUpRequest.findFirst({
+           where: { trxId: extractedTrxID, status: 'PENDING' }
+         })
+         if (culpritRequest) {
+           console.log(`Culprit Found! Rejecting Request for TrxID: ${extractedTrxID}`)
+           await prisma.topUpRequest.update({ where: { id: culpritRequest.id }, data: { status: 'REJECTED' } })
+           await prisma.notification.create({
+             data: { userId: culpritRequest.userId, message: "WARNING: Fake SMS detected from a personal number. Your request is rejected.", type: 'alert' }
+           })
+         }
+       }
+       return res.status(200).json({ success: true, message: 'Blocked: Personal Number Detected' })
 
-      // Return response and STOP.
-      return res.status(200).json({ success: true, message: 'Blocked: Sender not allowed' })
+    } else {
+       // --- CASE C: UNKNOWN SENDER (e.g. GP_Offer) ---
+       // Neither whitelisted nor personal number. Just ignore but keep log as RECEIVED.
+       console.log(`Sender ${sender} is unknown but not explicitly suspicious. Leaving log as RECEIVED.`)
+       return res.status(200).json({ success: true, message: 'Ignored: Unknown Sender' })
     }
 
-    // STEP 3: Process Real Payment
-    // If allowed, proceed to extract TrxID and approve payment.
+    // --- PAYMENT PROCESSING LOGIC (Only runs if isWhitelisted is true) ---
+
     
     // Robust Regex Extraction
     let { extractedTrxID, extractedSenderNumber } = extractTransactionData(message)
