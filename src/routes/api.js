@@ -37,40 +37,41 @@ router.post('/payment/webhook', async (req, res) => {
 
     const { message, trxID: payloadTrxID, sender } = req.body
 
-    // STEP 1: FORCE SAVE SMS to DB (Immediately)
-    // Do not check for TrxID or Regex yet. Just save sender and message to DB.
-    let smsLog = null
+    // STEP 1: SAVE FIRST (Crucial)
+    // Immediately upon receiving the request, create the SMSLog record.
+    let log = null
     try {
-      smsLog = await prisma.sMSLog.create({
+      log = await prisma.sMSLog.create({
         data: {
           sender: sender || 'Unknown',
           message: message || '',
           status: 'RECEIVED'
         }
       })
-      console.log('SMS Logged with ID:', smsLog.id)
+      console.log('SMS Logged with ID:', log.id)
     } catch (e) {
       console.error('CRITICAL ERROR: Failed to log SMS:', e)
+      // If logging fails, we might still try to process, but usually this is fatal.
     }
 
-    // If no message, we still logged it (if sender existed), but we can't process payment
+    // If no message, we can't process
     if (!message) {
       console.log('Error: Message content missing')
       return res.status(200).json({ success: true, message: 'Message content missing' })
     }
 
-    // SECURITY: Whitelist Validation (Prevent Fake SMS)
+    // STEP 2: Security Check (Whitelist)
     const allowedSenders = ['bkash', 'nagad', 'rocket', '16216', 'upay']
     const senderNormalized = sender ? sender.toLowerCase() : ''
     
-    // Check if sender is in the whitelist
+    // Check if sender is in the allowed list
     if (!allowedSenders.includes(senderNormalized)) {
       console.warn(`Security Alert: Fake SMS attempt from ${sender}`)
 
-      // Update Log Status to SUSPICIOUS
-      if (smsLog) {
+      // IF BLOCKED (Fake Sender): Update the existing log status
+      if (log) {
         await prisma.sMSLog.update({
-          where: { id: smsLog.id },
+          where: { id: log.id },
           data: { status: 'SUSPICIOUS' }
         })
       }
@@ -112,11 +113,13 @@ router.post('/payment/webhook', async (req, res) => {
         }
       }
 
-      // Stop further processing
+      // Return response and STOP.
       return res.status(200).json({ success: true, message: 'Blocked: Sender not allowed' })
     }
 
-    // STEP 2: Process Payment
+    // STEP 3: Process Real Payment
+    // If allowed, proceed to extract TrxID and approve payment.
+    
     // Robust Regex Extraction
     let { extractedTrxID, extractedSenderNumber } = extractTransactionData(message)
 
@@ -179,10 +182,10 @@ router.post('/payment/webhook', async (req, res) => {
       }
     })
 
-    // STEP 3: Update Log if Payment Approved
-    if (smsLog) {
+    // Update Log if Payment Approved
+    if (log) {
       await prisma.sMSLog.update({
-        where: { id: smsLog.id },
+        where: { id: log.id },
         data: { 
           status: 'PROCESSED_PAYMENT',
           trxId: extractedTrxID
