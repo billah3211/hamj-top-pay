@@ -8,7 +8,7 @@
   "scripts": {
     "start": "npx prisma migrate deploy && node src/index.js",
     "dev": "nodemon src/index.js",
-    "build": "npx prisma generate",
+    "build": "npm install && npx prisma generate",
     "postinstall": "npx prisma generate || echo 'Prisma generate skipped'",
     "prisma:generate": "prisma generate"
   },
