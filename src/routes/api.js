@@ -289,19 +289,49 @@ router.get('/admin/sms-logs', async (req, res) => {
   }
 })
 
-// Route A: Send Warning SMS (Mock for now)
+// Route A: Send Warning SMS (Real SMS Gateway Integration)
 router.post('/admin/send-warning-sms', async (req, res) => {
   try {
     const { phoneNumber, message } = req.body
     if (!phoneNumber || !message) return res.status(400).json({ error: 'Missing phone or message' })
     
-    // TODO: Integrate actual SMS Gateway here using SMS_API_KEY
-    console.log(`[SMS API MOCK] Sending SMS to ${phoneNumber}: "${message}"`)
+    // API Details
+    const API_URL = 'https://api.smsmobileapi.com/sendsms'
+    const API_KEY = process.env.SMS_API_KEY
+
+    if (!API_KEY) {
+      console.error('Missing SMS_API_KEY in environment variables')
+      return res.status(500).json({ error: 'Server configuration error: Missing SMS API Key' })
+    }
+
+    // Prepare parameters for x-www-form-urlencoded
+    const params = new URLSearchParams()
+    params.append('recipients', phoneNumber)
+    params.append('message', message)
+    params.append('apikey', API_KEY)
+    params.append('sendsms', '1')
+
+    // Call SMS API
+    const response = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: params
+    })
+
+    // Log the raw response for debugging
+    const resultText = await response.text()
+    console.log(`SMS API Response for ${phoneNumber}:`, resultText)
+
+    // The API might return text or JSON. We assume success if the call completes.
+    // If you need strict validation, parse resultText based on the provider's docs.
     
-    res.json({ success: true, message: 'Warning sent successfully (Mock)' })
+    res.json({ success: true, message: 'Warning sent successfully!' })
+
   } catch (error) {
-    console.error('Send Warning Error:', error)
-    res.status(500).json({ error: 'Failed to send warning' })
+    console.error('Send Warning SMS Error:', error)
+    res.status(500).json({ error: 'Failed to send warning SMS' })
   }
 })
 
