@@ -350,9 +350,14 @@ router.get('/', async (req, res) => {
 
   // Fetch Top 100 Users by Task Count
   // Prisma groupBy + orderBy count
+  // LOGIC FIX: Explicitly count LinkSubmission by visitorId (Tasks Completed)
+  // NOT visits received (which would be by promotedLink.userId)
   const topStats = await prisma.linkSubmission.groupBy({
     by: ['visitorId'],
-    where: { status: 'APPROVED' },
+    where: { 
+        status: 'APPROVED',
+        visitorId: { not: null } // Ensure we only count valid users
+    },
     _count: {
       visitorId: true
     },

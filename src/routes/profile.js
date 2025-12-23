@@ -50,7 +50,7 @@ router.get('/', async (req, res) => {
   }
 
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
-  const pendingCount = await prisma.topUpRequest.count({ where: { userId: user.id, status: 'PENDING' } })
+  const pendingCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'PENDING' } })
   const rejectedCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'REJECTED' } })
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const level = calculateLevel(taskCount)
