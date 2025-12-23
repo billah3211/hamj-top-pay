@@ -67,6 +67,35 @@ const getScripts = () => `
 </html>
 `
 
+// API for Real-time Stats
+router.get('/api/stats', requireAdmin, async (req, res) => {
+  try {
+    const totalUsers = await prisma.user.count({ where: { role: 'USER' } })
+    const activeUsers = await prisma.user.count({ where: { role: 'USER', isBlocked: false } })
+    const inactiveUsers = await prisma.user.count({ where: { role: 'USER', isBlocked: true } })
+    
+    const balanceFilter = { role: { not: 'SUPER_ADMIN' } }
+    
+    const totalDiamonds = await prisma.user.aggregate({ where: balanceFilter, _sum: { diamond: true } }).then(r => r._sum.diamond || 0)
+    const totalCoins = await prisma.user.aggregate({ where: balanceFilter, _sum: { coin: true } }).then(r => r._sum.coin || 0)
+    const totalTk = await prisma.user.aggregate({ where: balanceFilter, _sum: { tk: true } }).then(r => r._sum.tk || 0)
+    const totalLora = await prisma.user.aggregate({ where: balanceFilter, _sum: { lora: true } }).then(r => r._sum.lora || 0)
+
+    const pendingTopUps = await prisma.topUpRequest.count({ where: { status: 'PENDING' } })
+    const pendingGuilds = await prisma.guild.count({ where: { status: 'PENDING' } })
+    const pendingLinks = await prisma.linkSubmission.count({ where: { status: 'PENDING' } })
+
+    res.json({
+      totalUsers, activeUsers, inactiveUsers,
+      totalDiamonds, totalCoins, totalTk, totalLora,
+      pendingTopUps, pendingGuilds, pendingLinks
+    })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Failed to fetch stats' })
+  }
+})
+
 // Dashboard
 router.get('/dashboard', requireAdmin, async (req, res) => {
   // Stats
@@ -97,34 +126,34 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom: 30px;">
           <div class="stat-card" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05)); border: 1px solid rgba(59, 130, 246, 0.2);">
              <h3 style="color:#60a5fa">Total Users</h3>
-             <div class="value">${totalUsers}</div>
+             <div class="value" id="stat-totalUsers">${totalUsers}</div>
           </div>
           <div class="stat-card" style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05)); border: 1px solid rgba(34, 197, 94, 0.2);">
              <h3 style="color:#4ade80">Active Users</h3>
-             <div class="value">${activeUsers}</div>
+             <div class="value" id="stat-activeUsers">${activeUsers}</div>
           </div>
           <div class="stat-card" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05)); border: 1px solid rgba(239, 68, 68, 0.2);">
              <h3 style="color:#f87171">Inactive Users</h3>
-             <div class="value">${inactiveUsers}</div>
+             <div class="value" id="stat-inactiveUsers">${inactiveUsers}</div>
           </div>
        </div>
 
        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom: 30px;">
           <div class="stat-card" style="background:rgba(0,0,0,0.2);">
              <h3 style="color:#f472b6">Total Diamonds</h3>
-             <div class="value">💎 ${totalDiamonds}</div>
+             <div class="value" id="stat-totalDiamonds">💎 ${totalDiamonds}</div>
           </div>
           <div class="stat-card" style="background:rgba(0,0,0,0.2);">
              <h3 style="color:#fbbf24">Total Coins</h3>
-             <div class="value">🪙 ${totalCoins}</div>
+             <div class="value" id="stat-totalCoins">🪙 ${totalCoins}</div>
           </div>
           <div class="stat-card" style="background:rgba(0,0,0,0.2);">
              <h3 style="color:white">Total Tk</h3>
-             <div class="value">৳ ${totalTk}</div>
+             <div class="value" id="stat-totalTk">৳ ${totalTk}</div>
           </div>
           <div class="stat-card" style="background:rgba(0,0,0,0.2);">
              <h3 style="color:#38bdf8">Total HaMJ T</h3>
-             <div class="value">T ${totalLora}</div>
+             <div class="value" id="stat-totalLora">T ${totalLora}</div>
           </div>
        </div>
 
@@ -132,21 +161,51 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap:20px;">
           <div class="stat-card">
              <h3>Pending TopUps</h3>
-             <div class="value">${pendingTopUps}</div>
+             <div class="value" id="stat-pendingTopUps">${pendingTopUps}</div>
              <a href="/admin/topup-requests" class="btn-premium" style="margin-top:10px; display:inline-block; font-size:12px;">View</a>
           </div>
           <div class="stat-card">
              <h3>Pending Guilds</h3>
-             <div class="value">${pendingGuilds}</div>
+             <div class="value" id="stat-pendingGuilds">${pendingGuilds}</div>
              <a href="/admin/guild-requests" class="btn-premium" style="margin-top:10px; display:inline-block; font-size:12px;">View</a>
           </div>
           <div class="stat-card">
              <h3>Pending Links</h3>
-             <div class="value">${pendingLinks}</div>
+             <div class="value" id="stat-pendingLinks">${pendingLinks}</div>
              <a href="/admin/promote-requests" class="btn-premium" style="margin-top:10px; display:inline-block; font-size:12px;">View</a>
           </div>
        </div>
     </div>
+
+    <script>
+      async function updateStats() {
+        try {
+          const res = await fetch('/admin/api/stats');
+          const data = await res.json();
+          
+          if(data.error) return;
+
+          document.getElementById('stat-totalUsers').innerText = data.totalUsers;
+          document.getElementById('stat-activeUsers').innerText = data.activeUsers;
+          document.getElementById('stat-inactiveUsers').innerText = data.inactiveUsers;
+          
+          document.getElementById('stat-totalDiamonds').innerText = '💎 ' + data.totalDiamonds;
+          document.getElementById('stat-totalCoins').innerText = '🪙 ' + data.totalCoins;
+          document.getElementById('stat-totalTk').innerText = '৳ ' + data.totalTk;
+          document.getElementById('stat-totalLora').innerText = 'T ' + data.totalLora;
+          
+          document.getElementById('stat-pendingTopUps').innerText = data.pendingTopUps;
+          document.getElementById('stat-pendingGuilds').innerText = data.pendingGuilds;
+          document.getElementById('stat-pendingLinks').innerText = data.pendingLinks;
+          
+        } catch(e) {
+          console.error('Stats update failed:', e);
+        }
+      }
+      
+      // Update every 5 seconds
+      setInterval(updateStats, 5000);
+    </script>
     ${getScripts()}
   `)
 })
