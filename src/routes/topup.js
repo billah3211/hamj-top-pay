@@ -58,6 +58,10 @@ const getLevelProgress = (points) => {
 
 const getProfileModal = (user) => {
   if (!user || !user.levelProgress) return ''
+  // Handle case where user.name might be undefined or null
+  const initial = user.name ? user.name.charAt(0).toUpperCase() : (user.username ? user.username.charAt(0).toUpperCase() : 'U');
+  const displayName = user.name || user.username || 'User';
+
   return `
 <div id="profile-modal" class="modal">
   <div class="modal-content" style="max-width: 400px;">
@@ -67,9 +71,9 @@ const getProfileModal = (user) => {
     </div>
     <div class="modal-body" style="text-align: center;">
       <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #6366f1, #a855f7); border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; color: white;">
-        ${user.name.charAt(0).toUpperCase()}
+        ${initial}
       </div>
-      <h2 style="font-size: 24px; margin-bottom: 5px; color: white;">${user.name}</h2>
+      <h2 style="font-size: 24px; margin-bottom: 5px; color: white;">${displayName}</h2>
       <div style="color: #94a3b8; margin-bottom: 20px;">${user.email}</div>
       
       <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 16px; margin-bottom: 20px;">
