@@ -329,6 +329,6 @@ router.get('/:username', async (req, res) => {
     </body>
     </html>
   `)
-)
+})
 
 module.exports = router
