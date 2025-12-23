@@ -244,21 +244,21 @@ const getFooter = (user, level, levelProgress) => `
 
     // View Other User Profile Logic
     const viewProfileModal = document.getElementById('viewProfileModal');
-    const viewProfileOverlay = document.getElementById('viewProfileOverlay');
+    // const viewProfileOverlay = document.getElementById('viewProfileOverlay'); // Removed
     const viewProfileBack = document.getElementById('viewProfileBack');
     const viewProfileContent = document.getElementById('viewProfileContent');
 
     function closeViewProfile() {
         viewProfileModal.classList.remove('open');
-        viewProfileOverlay.classList.add('hidden');
+        // viewProfileOverlay.classList.add('hidden'); // Removed
     }
 
     if(viewProfileBack) viewProfileBack.addEventListener('click', closeViewProfile);
-    if(viewProfileOverlay) viewProfileOverlay.addEventListener('click', closeViewProfile);
+    // if(viewProfileOverlay) viewProfileOverlay.addEventListener('click', closeViewProfile); // Removed
 
     async function showUserProfile(username) {
         viewProfileModal.classList.add('open');
-        viewProfileOverlay.classList.remove('hidden');
+        // viewProfileOverlay.classList.remove('hidden'); // Removed
         viewProfileContent.innerHTML = '<div style="text-align:center; color:white; padding: 20px;">Loading profile...</div>';
         
         try {
