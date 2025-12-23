@@ -380,4 +380,77 @@ router.delete('/admin/sms-log/:id', async (req, res) => {
   }
 })
 
+// Helper: Calculate User Level
+const calculateLevel = (count) => {
+  if (count < 100) return 0;
+  if (count < 500) return 1;
+  if (count < 1200) return 2;
+  if (count < 2000) return 3;
+  if (count < 5000) return 4;
+  if (count < 10000) return 5;
+  if (count < 15000) return 6;
+  return 7 + Math.floor((count - 15000) / 5000);
+}
+
+// Helper: Get Level Progress
+const getLevelProgress = (count) => {
+  let start = 0, next = 100;
+  if (count < 100) { start = 0; next = 100; }
+  else if (count < 500) { start = 100; next = 500; }
+  else if (count < 1200) { start = 500; next = 1200; }
+  else if (count < 2000) { start = 1200; next = 2000; }
+  else if (count < 5000) { start = 2000; next = 5000; }
+  else if (count < 10000) { start = 5000; next = 10000; }
+  else if (count < 15000) { start = 10000; next = 15000; }
+  else {
+    const base = 15000;
+    const step = 5000;
+    const diff = count - base;
+    const levelOffset = Math.floor(diff / step);
+    start = base + levelOffset * step;
+    next = start + step;
+  }
+  
+  const percent = Math.min(100, Math.max(0, ((count - start) / (next - start)) * 100));
+  
+  return { current: count, next, start, percent };
+}
+
+// Get Public User Profile (JSON)
+router.get('/profile/:username', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ 
+        where: { username: req.params.username },
+        select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            email: true,
+            country: true,
+            createdAt: true,
+            currentAvatar: true,
+            bio: true,
+            website: true,
+            social: true
+        }
+    })
+    
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+    const level = calculateLevel(taskCount)
+    const levelProgress = getLevelProgress(taskCount)
+
+    res.json({
+        ...user,
+        level,
+        levelProgress
+    })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Failed to fetch profile' })
+  }
+})
+
 module.exports = router

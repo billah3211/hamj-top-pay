@@ -25,6 +25,42 @@ function requireSuperAdmin(req, res, next) {
   return res.redirect('/admin/login')
 }
 
+// Helper: Calculate User Level
+const calculateLevel = (count) => {
+  if (count < 100) return 0;
+  if (count < 500) return 1;
+  if (count < 1200) return 2;
+  if (count < 2000) return 3;
+  if (count < 5000) return 4;
+  if (count < 10000) return 5;
+  if (count < 15000) return 6;
+  return 7 + Math.floor((count - 15000) / 5000);
+}
+
+// Helper: Get Level Progress
+const getLevelProgress = (count) => {
+  let start = 0, next = 100;
+  if (count < 100) { start = 0; next = 100; }
+  else if (count < 500) { start = 100; next = 500; }
+  else if (count < 1200) { start = 500; next = 1200; }
+  else if (count < 2000) { start = 1200; next = 2000; }
+  else if (count < 5000) { start = 2000; next = 5000; }
+  else if (count < 10000) { start = 5000; next = 10000; }
+  else if (count < 15000) { start = 10000; next = 15000; }
+  else {
+    const base = 15000;
+    const step = 5000;
+    const diff = count - base;
+    const levelOffset = Math.floor(diff / step);
+    start = base + levelOffset * step;
+    next = start + step;
+  }
+  
+  const percent = Math.min(100, Math.max(0, ((count - start) / (next - start)) * 100));
+  
+  return { current: count, next, start, percent };
+}
+
 function getSidebar(active) {
   return `
     <nav class="sidebar-premium" id="sidebar" style="border-right: 1px solid rgba(236, 72, 153, 0.3);">
@@ -177,6 +213,10 @@ router.get(['/users', '/balance'], requireSuperAdmin, async (req, res) => {
     for (const user of users) {
        user.pendingTasks = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'PENDING' } })
        user.approvedTasks = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+       
+       // Calculate level progress
+       user.level = calculateLevel(user.approvedTasks)
+       user.levelProgress = getLevelProgress(user.approvedTasks)
     }
   }
 
@@ -222,6 +262,16 @@ router.get(['/users', '/balance'], requireSuperAdmin, async (req, res) => {
                       <div>Status: <span style="color:${u.isBlocked ? '#ef4444' : '#10b981'}; font-weight:bold;">${u.isBlocked ? 'Inactive/Blocked' : 'Active'}</span></div>
                       <div>Tasks Approved: <span style="color:#22c55e;">${u.approvedTasks}</span></div>
                       <div>Tasks Pending: <span style="color:#fbbf24;">${u.pendingTasks}</span></div>
+                   </div>
+                   
+                   <div style="margin-top: 15px; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                             <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 10px; padding: 2px 8px; border-radius: 20px;">Level ${u.level}</div>
+                             <div style="font-size: 10px; color: #94a3b8;">${u.levelProgress.current} / ${u.levelProgress.next} Tasks</div>
+                        </div>
+                        <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden;" title="${u.levelProgress.percent.toFixed(1)}% to Level ${u.level + 1}">
+                            <div style="width: ${u.levelProgress.percent}%; height: 100%; background: #facc15;"></div>
+                        </div>
                    </div>
                 </div>
 

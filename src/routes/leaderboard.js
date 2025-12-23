@@ -169,6 +169,7 @@ const getViewProfileModal = () => `
 <div id="viewProfileOverlay" class="modal-overlay hidden"></div>
 `
 
+// Helper: Calculate User Level
 const calculateLevel = (count) => {
   if (count < 100) return 0;
   if (count < 500) return 1;
@@ -180,9 +181,33 @@ const calculateLevel = (count) => {
   return 7 + Math.floor((count - 15000) / 5000);
 }
 
-const getFooter = (user, level) => `
+// Helper: Get Level Progress
+const getLevelProgress = (count) => {
+  let start = 0, next = 100;
+  if (count < 100) { start = 0; next = 100; }
+  else if (count < 500) { start = 100; next = 500; }
+  else if (count < 1200) { start = 500; next = 1200; }
+  else if (count < 2000) { start = 1200; next = 2000; }
+  else if (count < 5000) { start = 2000; next = 5000; }
+  else if (count < 10000) { start = 5000; next = 10000; }
+  else if (count < 15000) { start = 10000; next = 15000; }
+  else {
+    const base = 15000;
+    const step = 5000;
+    const diff = count - base;
+    const levelOffset = Math.floor(diff / step);
+    start = base + levelOffset * step;
+    next = start + step;
+  }
+  
+  const percent = Math.min(100, Math.max(0, ((count - start) / (next - start)) * 100));
+  
+  return { current: count, next, start, percent };
+}
+
+const getFooter = (user, level, levelProgress) => `
   <button class="menu-trigger" id="mobileMenuBtn">☰</button>
-  ${getProfileModal(user, level)}
+  ${getProfileModal(user, level, levelProgress)}
   ${getViewProfileModal()}
   
   <script>
@@ -250,7 +275,15 @@ const getFooter = (user, level) => `
                 <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
                    <div style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">\${data.firstName} \${data.lastName}</div>
                    <div style="color: #60a5fa; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@\${data.username}</div>
-                   <div style="display:inline-block; background:linear-gradient(90deg, #facc15, #fbbf24); color:black; font-weight:bold; font-size:12px; padding:2px 8px; border-radius:4px; margin-bottom:8px;">Level \${data.level}</div>
+                   <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
+                     <div style="display: flex; align-items: center; gap: 10px;">
+                       <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level \${data.level}</div>
+                       \${data.levelProgress ? \`<div style="font-size: 11px; color: #94a3b8;">\${data.levelProgress.current} / \${data.levelProgress.next} Tasks</div>\` : ''}
+                     </div>
+                     \${data.levelProgress ? \`<div style="width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;" title="\${data.levelProgress.percent.toFixed(1)}% to Level \${data.level + 1}">
+                       <div style="width: \${data.levelProgress.percent}%; height: 100%; background: #facc15;"></div>
+                     </div>\` : ''}
+                   </div>
                    <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
                        <div>📧 \${data.email}</div>
                        <div>📅 Joined: \${new Date(data.createdAt).toLocaleDateString()}</div>
@@ -294,6 +327,7 @@ router.get('/', async (req, res) => {
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
+  const levelProgress = getLevelProgress(taskCount)
 
   // Fetch Top 100 Users by Task Count
   // Prisma groupBy + orderBy count
@@ -362,7 +396,7 @@ router.get('/', async (req, res) => {
         ${leaderboard.length === 0 ? '<div style="text-align:center; color:var(--text-muted); margin-top:40px;">No data available yet</div>' : ''}
       </div>
     </div>
-    ${getFooter(user, level)}
+    ${getFooter(user, level, levelProgress)}
   `)
 })
 

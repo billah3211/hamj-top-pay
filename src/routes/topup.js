@@ -11,6 +11,105 @@ const requireAuth = (req, res, next) => {
   next()
 }
 
+// Calculate Level Helper
+const calculateLevel = (points) => {
+  if (points < 10) return 1
+  if (points < 20) return 2
+  if (points < 30) return 3
+  if (points < 50) return 4
+  if (points < 80) return 5
+  if (points < 150) return 6
+  if (points < 300) return 7
+  if (points < 500) return 8
+  if (points < 1000) return 9
+  return 10
+}
+
+const getLevelProgress = (points) => {
+  const levels = [
+    { level: 1, max: 10 },
+    { level: 2, max: 20 },
+    { level: 3, max: 30 },
+    { level: 4, max: 50 },
+    { level: 5, max: 80 },
+    { level: 6, max: 150 },
+    { level: 7, max: 300 },
+    { level: 8, max: 500 },
+    { level: 9, max: 1000 }
+  ]
+  
+  const current = points
+  const levelObj = levels.find(l => current < l.max) || { level: 10, max: 1000 }
+  const prevMax = levels.find(l => l.level === levelObj.level - 1)?.max || 0
+  
+  // For progress bar
+  const totalForLevel = levelObj.max - prevMax
+  const currentInLevel = current - prevMax
+  const percent = Math.min(100, Math.max(0, (currentInLevel / totalForLevel) * 100))
+  
+  return {
+    level: levelObj.level,
+    current: current,
+    next: levelObj.max,
+    percent: percent,
+    remaining: levelObj.max - current
+  }
+}
+
+const getProfileModal = (user) => {
+  if (!user || !user.levelProgress) return ''
+  return `
+<div id="profile-modal" class="modal">
+  <div class="modal-content" style="max-width: 400px;">
+    <div class="modal-header">
+      <h3 class="modal-title">My Profile</h3>
+      <button class="close-modal">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center;">
+      <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #6366f1, #a855f7); border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: bold; color: white;">
+        ${user.name.charAt(0).toUpperCase()}
+      </div>
+      <h2 style="font-size: 24px; margin-bottom: 5px; color: white;">${user.name}</h2>
+      <div style="color: #94a3b8; margin-bottom: 20px;">${user.email}</div>
+      
+      <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 16px; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
+          <div style="text-align: left;">
+            <div style="font-size: 14px; color: #94a3b8;">Current Level</div>
+            <div style="font-size: 24px; font-weight: 800; color: #facc15;">Level ${user.level}</div>
+          </div>
+          <div style="text-align: right;">
+             <div style="font-size: 14px; color: #94a3b8;">Total Tasks</div>
+             <div style="font-size: 18px; font-weight: 600; color: white;">${user.levelProgress.current}</div>
+          </div>
+        </div>
+        
+        <div style="background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 8px;">
+           <div style="width: ${user.levelProgress.percent}%; height: 100%; background: linear-gradient(90deg, #facc15, #eab308);"></div>
+        </div>
+        <div style="font-size: 12px; color: #94a3b8; text-align: right;">
+          ${user.levelProgress.remaining} tasks to Level ${user.level + 1}
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+         <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px;">
+            <div style="font-size: 12px; color: #94a3b8;">Joined</div>
+            <div style="font-size: 14px; color: white;">${new Date(user.createdAt).toLocaleDateString()}</div>
+         </div>
+         <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px;">
+            <div style="font-size: 12px; color: #94a3b8;">Country</div>
+            <div style="font-size: 14px; color: white;">${user.country || 'N/A'}</div>
+         </div>
+      </div>
+      
+      <a href="/logout" class="btn-premium" style="background: rgba(239,68,68,0.2); color: #fca5a5; width: 100%; margin-top: 20px; justify-content: center;">Logout</a>
+    </div>
+  </div>
+</div>
+`
+}
+
 // Helper to render layout
 const renderLayout = (title, content, user, unreadCount = 0) => {
   const active = title === 'Top Up' ? 'topup' : title === 'History' ? 'history' : ''
@@ -67,6 +166,7 @@ const renderLayout = (title, content, user, unreadCount = 0) => {
       </div>
     </div>
   </div>
+  ${getProfileModal(user)}
   <script>
     const menuBtn = document.getElementById('mobileMenuBtn');
     const sidebar = document.getElementById('sidebar');
@@ -80,6 +180,32 @@ const renderLayout = (title, content, user, unreadCount = 0) => {
           }
         });
     }
+
+    // Modal Logic
+    const profileLink = document.querySelector('a[href="#profile"]');
+    const modal = document.getElementById('profile-modal');
+    const closeBtn = document.querySelector('.close-modal');
+
+    if (profileLink && modal) {
+      profileLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        modal.classList.add('active');
+      });
+    }
+
+    if (closeBtn && modal) {
+      closeBtn.addEventListener('click', () => {
+        modal.classList.remove('active');
+      });
+    }
+
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.remove('active');
+        }
+      });
+    }
   </script>
 </body>
 </html>
@@ -92,6 +218,14 @@ router.get('/', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
     const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+    
+    // Level Progress
+    const approvedCount = await prisma.linkSubmission.count({
+      where: { userId: user.id, status: 'APPROVED' }
+    })
+    user.levelProgress = getLevelProgress(approvedCount)
+    user.level = user.levelProgress.level
+
     let packages = await prisma.topUpPackage.findMany({ where: { isActive: true }, orderBy: { price: 'asc' } })
     
     // Filter packages based on user country
@@ -145,6 +279,15 @@ router.get('/', requireAuth, async (req, res) => {
 router.get('/:pkgId/wallets', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+    const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+    
+    // Level Progress
+    const approvedCount = await prisma.linkSubmission.count({
+      where: { userId: user.id, status: 'APPROVED' }
+    })
+    user.levelProgress = getLevelProgress(approvedCount)
+    user.level = user.levelProgress.level
+
     const pkg = await prisma.topUpPackage.findUnique({ where: { id: parseInt(req.params.pkgId) } })
     
     if (!pkg) return res.redirect('/topup')
@@ -184,7 +327,7 @@ router.get('/:pkgId/wallets', requireAuth, async (req, res) => {
         ${wallets.length === 0 ? '<div class="alert">No payment methods available.</div>' : ''}
       </div>
     `
-    res.send(renderLayout('Top Up', content, user))
+    res.send(renderLayout('Top Up', content, user, unreadCount))
   } catch (error) {
     console.error(error)
     res.status(500).send('Server Error')
@@ -196,6 +339,14 @@ router.get('/:pkgId/pay/:walletId', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
     const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+    
+    // Level Progress
+    const approvedCount = await prisma.linkSubmission.count({
+      where: { userId: user.id, status: 'APPROVED' }
+    })
+    user.levelProgress = getLevelProgress(approvedCount)
+    user.level = user.levelProgress.level
+
     const pkg = await prisma.topUpPackage.findUnique({ where: { id: parseInt(req.params.pkgId) } })
     const wallet = await prisma.topUpWallet.findUnique({ where: { id: parseInt(req.params.walletId) } })
     
@@ -274,6 +425,14 @@ router.post('/submit', requireAuth, async (req, res) => {
     senderNumber = senderNumber ? senderNumber.trim() : ''
 
     if (!trxId || !senderNumber) {
+       // For error pages, we might skip full level calculation for simplicity or add it if needed
+       // Adding it to be safe
+       const approvedCount = await prisma.linkSubmission.count({
+         where: { userId: user.id, status: 'APPROVED' }
+       })
+       user.levelProgress = getLevelProgress(approvedCount)
+       user.level = user.levelProgress.level
+
        return res.send(renderLayout('Error', `
          <div class="alert error">Please provide all required details.</div>
          <a href="/topup/${pkgId}/pay/${walletId}" class="btn-premium">Try Again</a>
@@ -283,6 +442,12 @@ router.post('/submit', requireAuth, async (req, res) => {
     // Check if TrxID exists (Case Insensitive via normalization)
     const existing = await prisma.topUpRequest.findUnique({ where: { trxId } })
     if (existing) {
+       const approvedCount = await prisma.linkSubmission.count({
+         where: { userId: user.id, status: 'APPROVED' }
+       })
+       user.levelProgress = getLevelProgress(approvedCount)
+       user.level = user.levelProgress.level
+
        return res.send(renderLayout('Error', `
          <div class="alert error">Transaction ID '${trxId}' already used! Please check again.</div>
          <a href="/topup/${pkgId}/pay/${walletId}" class="btn-premium">Try Again</a>
@@ -317,6 +482,13 @@ router.post('/submit', requireAuth, async (req, res) => {
     // Handle Unique Constraint Violation if race condition occurs
     if (error.code === 'P2002') {
        const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+       
+       const approvedCount = await prisma.linkSubmission.count({
+         where: { userId: user.id, status: 'APPROVED' }
+       })
+       user.levelProgress = getLevelProgress(approvedCount)
+       user.level = user.levelProgress.level
+       
        return res.send(renderLayout('Error', `
          <div class="alert error">Transaction ID already used! Please check again.</div>
          <a href="/topup" class="btn-premium">Try Again</a>
@@ -331,6 +503,15 @@ router.post('/submit', requireAuth, async (req, res) => {
 router.get('/history', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+    const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+    
+    // Level Progress
+    const approvedCount = await prisma.linkSubmission.count({
+      where: { userId: user.id, status: 'APPROVED' }
+    })
+    user.levelProgress = getLevelProgress(approvedCount)
+    user.level = user.levelProgress.level
+
     const requests = await prisma.topUpRequest.findMany({
       where: { userId: user.id },
       include: { package: true, wallet: true },
@@ -374,7 +555,7 @@ router.get('/history', requireAuth, async (req, res) => {
         </table>
       </div>
     `
-    res.send(renderLayout('History', content, user))
+    res.send(renderLayout('History', content, user, unreadCount))
   } catch (error) {
     console.error(error)
     res.status(500).send('Server Error')

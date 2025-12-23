@@ -15,6 +15,30 @@ const calculateLevel = (count) => {
   return 7 + Math.floor((count - 15000) / 5000);
 }
 
+// Helper: Get Level Progress
+const getLevelProgress = (count) => {
+  let start = 0, next = 100;
+  if (count < 100) { start = 0; next = 100; }
+  else if (count < 500) { start = 100; next = 500; }
+  else if (count < 1200) { start = 500; next = 1200; }
+  else if (count < 2000) { start = 1200; next = 2000; }
+  else if (count < 5000) { start = 2000; next = 5000; }
+  else if (count < 10000) { start = 5000; next = 10000; }
+  else if (count < 15000) { start = 10000; next = 15000; }
+  else {
+    const base = 15000;
+    const step = 5000;
+    const diff = count - base;
+    const levelOffset = Math.floor(diff / step);
+    start = base + levelOffset * step;
+    next = start + step;
+  }
+  
+  const percent = Math.min(100, Math.max(0, ((count - start) / (next - start)) * 100));
+  
+  return { current: count, next, start, percent };
+}
+
 router.get('/', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login')
   
@@ -30,6 +54,7 @@ router.get('/', async (req, res) => {
   const rejectedCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'REJECTED' } })
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const level = calculateLevel(taskCount)
+  const progress = getLevelProgress(taskCount)
 
   const sidebar = getUserSidebar('profile', unreadCount, user.id, user.role)
 
@@ -75,10 +100,16 @@ router.get('/', async (req, res) => {
                    <div style="flex: 1; padding-bottom: 10px;">
                      <div style="font-size: 28px; font-weight: 800; color: white;">${user.firstName} ${user.lastName}</div>
                      <div style="color: #94a3b8; margin-bottom: 5px;">@${user.username}</div>
-                     <div style="display: inline-flex; align-items: center; gap: 10px;">
-                       <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level ${level}</div>
-                       <div style="color: #94a3b8; font-size: 13px;">Joined ${new Date(user.createdAt).toLocaleDateString()}</div>
-                     </div>
+                     <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 5px;">
+                      <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level ${level}</div>
+                        <div style="font-size: 11px; color: #94a3b8;">${progress.current} / ${progress.next} Tasks</div>
+                      </div>
+                      <div style="width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;" title="${progress.percent.toFixed(1)}% to Level ${level + 1}">
+                        <div style="width: ${progress.percent}%; height: 100%; background: #facc15;"></div>
+                      </div>
+                      <div style="color: #64748b; font-size: 12px;">Joined ${new Date(user.createdAt).toLocaleDateString()}</div>
+                    </div>
                    </div>
                  </div>
                </div>
@@ -202,6 +233,7 @@ router.get('/:username', async (req, res) => {
   
   const unreadCount = await prisma.notification.count({ where: { userId: currentUser.id, isRead: false } })
   const level = calculateLevel(taskCount)
+  const progress = getLevelProgress(taskCount)
 
   const sidebar = getUserSidebar('profile', unreadCount, currentUser.id, currentUser.role)
 
@@ -245,10 +277,16 @@ router.get('/:username', async (req, res) => {
                    <div style="flex: 1; padding-bottom: 10px;">
                      <div style="font-size: 28px; font-weight: 800; color: white;">${user.firstName} ${user.lastName}</div>
                      <div style="color: #94a3b8; margin-bottom: 5px;">@${user.username}</div>
-                     <div style="display: inline-flex; align-items: center; gap: 10px;">
-                       <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level ${level}</div>
-                       <div style="color: #94a3b8; font-size: 13px;">Joined ${new Date(user.createdAt).toLocaleDateString()}</div>
-                     </div>
+                     <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 5px;">
+                      <div style="display: flex; align-items: center; gap: 10px;">
+                        <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level ${level}</div>
+                        <div style="font-size: 11px; color: #94a3b8;">${progress.current} / ${progress.next} Tasks</div>
+                      </div>
+                      <div style="width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;" title="${progress.percent.toFixed(1)}% to Level ${level + 1}">
+                        <div style="width: ${progress.percent}%; height: 100%; background: #facc15;"></div>
+                      </div>
+                      <div style="color: #64748b; font-size: 12px;">Joined ${new Date(user.createdAt).toLocaleDateString()}</div>
+                    </div>
                    </div>
                  </div>
                </div>

@@ -9,9 +9,28 @@ async function openUserProfile(username) {
         document.getElementById('upName').innerText = user.firstName + ' ' + user.lastName;
         document.getElementById('upUsername').innerText = '@' + user.username;
         const levelEl = document.getElementById('upLevel');
+        const levelTextEl = document.getElementById('upLevelText');
+        const progressContainer = document.getElementById('upProgressContainer');
+        const progressBar = document.getElementById('upProgressBar');
+
         if (levelEl) {
              levelEl.innerText = 'Level ' + (user.level || 0);
-             levelEl.style.display = 'inline-block';
+             levelEl.style.display = 'block';
+        }
+
+        if (user.levelProgress) {
+            if (levelTextEl) {
+                levelTextEl.innerText = `${user.levelProgress.current} / ${user.levelProgress.next} Tasks`;
+                levelTextEl.style.display = 'block';
+            }
+            if (progressContainer && progressBar) {
+                progressBar.style.width = user.levelProgress.percent + '%';
+                progressContainer.title = user.levelProgress.percent.toFixed(1) + '% to Level ' + ((user.level || 0) + 1);
+                progressContainer.style.display = 'block';
+            }
+        } else {
+             if (levelTextEl) levelTextEl.style.display = 'none';
+             if (progressContainer) progressContainer.style.display = 'none';
         }
         document.getElementById('upEmail').innerText = '📧 ' + user.email;
         document.getElementById('upJoined').innerText = '📅 Joined: ' + new Date(user.createdAt).toLocaleDateString();

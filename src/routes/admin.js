@@ -10,6 +10,42 @@ const requireAdmin = (req, res, next) => {
   next()
 }
 
+// Helper: Calculate User Level
+const calculateLevel = (count) => {
+  if (count < 100) return 0;
+  if (count < 500) return 1;
+  if (count < 1200) return 2;
+  if (count < 2000) return 3;
+  if (count < 5000) return 4;
+  if (count < 10000) return 5;
+  if (count < 15000) return 6;
+  return 7 + Math.floor((count - 15000) / 5000);
+}
+
+// Helper: Get Level Progress
+const getLevelProgress = (count) => {
+  let start = 0, next = 100;
+  if (count < 100) { start = 0; next = 100; }
+  else if (count < 500) { start = 100; next = 500; }
+  else if (count < 1200) { start = 500; next = 1200; }
+  else if (count < 2000) { start = 1200; next = 2000; }
+  else if (count < 5000) { start = 2000; next = 5000; }
+  else if (count < 10000) { start = 5000; next = 10000; }
+  else if (count < 15000) { start = 10000; next = 15000; }
+  else {
+    const base = 15000;
+    const step = 5000;
+    const diff = count - base;
+    const levelOffset = Math.floor(diff / step);
+    start = base + levelOffset * step;
+    next = start + step;
+  }
+  
+  const percent = Math.min(100, Math.max(0, ((count - start) / (next - start)) * 100));
+  
+  return { current: count, next, start, percent };
+}
+
 // Helpers
 const getHead = (title) => `
 <!doctype html>
@@ -296,6 +332,10 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
 
     if (!user) return res.redirect('/admin/users')
 
+    const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+    const level = calculateLevel(taskCount)
+    const levelProgress = getLevelProgress(taskCount)
+
     res.send(`
       ${getHead(`User: ${user.username}`)}
       ${getSidebar('users', req.session.role)}
@@ -318,6 +358,17 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
                         <div style="color:#94a3b8; font-size:12px;">${user.email}</div>
                     </div>
                 </div>
+
+                <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                         <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level ${level}</div>
+                         <div style="font-size: 11px; color: #94a3b8;">${levelProgress.current} / ${levelProgress.next} Tasks</div>
+                    </div>
+                    <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;" title="${levelProgress.percent.toFixed(1)}% to Level ${level + 1}">
+                        <div style="width: ${levelProgress.percent}%; height: 100%; background: #facc15;"></div>
+                    </div>
+                </div>
+
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; font-size:14px;">
                     <div>
                         <div style="color:#94a3b8; font-size:12px;">Country</div>

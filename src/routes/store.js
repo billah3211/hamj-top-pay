@@ -21,8 +21,32 @@ const calculateLevel = (count) => {
   return 7 + Math.floor((count - 15000) / 5000);
 }
 
+// Helper: Get Level Progress
+const getLevelProgress = (count) => {
+  let start = 0, next = 100;
+  if (count < 100) { start = 0; next = 100; }
+  else if (count < 500) { start = 100; next = 500; }
+  else if (count < 1200) { start = 500; next = 1200; }
+  else if (count < 2000) { start = 1200; next = 2000; }
+  else if (count < 5000) { start = 2000; next = 5000; }
+  else if (count < 10000) { start = 5000; next = 10000; }
+  else if (count < 15000) { start = 10000; next = 15000; }
+  else {
+    const base = 15000;
+    const step = 5000;
+    const diff = count - base;
+    const levelOffset = Math.floor(diff / step);
+    start = base + levelOffset * step;
+    next = start + step;
+  }
+  
+  const percent = Math.min(100, Math.max(0, ((count - start) / (next - start)) * 100));
+  
+  return { current: count, next, start, percent };
+}
+
 // Helper: Profile Modal
-const getProfileModal = (user, level) => `
+const getProfileModal = (user, level, levelProgress) => `
     <div id="profileModal" class="modal-premium" style="align-items: center; justify-content: center; padding: 20px;">
       <div class="modal-content" style="background: transparent; border: none; box-shadow: none; width: 100%; max-width: 600px; padding: 0;">
         <div style="position: relative;">
@@ -31,7 +55,17 @@ const getProfileModal = (user, level) => `
                 <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
                    <div style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">${user.firstName} ${user.lastName}</div>
                    <div style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@${user.username}</div>
-                   <div style="display:inline-block; background:linear-gradient(90deg, #facc15, #fbbf24); color:black; font-weight:bold; font-size:12px; padding:2px 8px; border-radius:4px; margin-bottom:8px;">Level ${level}</div>
+                   
+                   <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
+                     <div style="display: flex; align-items: center; gap: 10px;">
+                       <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level ${level}</div>
+                       ${levelProgress ? `<div style="font-size: 11px; color: #94a3b8;">${levelProgress.current} / ${levelProgress.next} Tasks</div>` : ''}
+                     </div>
+                     ${levelProgress ? `<div style="width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;" title="${levelProgress.percent.toFixed(1)}% to Level ${level + 1}">
+                       <div style="width: ${levelProgress.percent}%; height: 100%; background: #facc15;"></div>
+                     </div>` : ''}
+                   </div>
+
                    <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
                        <div>📧 ${user.email}</div>
                        <div>📅 Joined: ${new Date(user.createdAt).toLocaleDateString()}</div>
@@ -104,8 +138,8 @@ const getHead = (title) => `
     <button class="menu-trigger" id="mobileMenuBtn">☰</button>
 `
 
-const getFooter = (user, level) => `
-    ${getProfileModal(user, level)}
+const getFooter = (user, level, levelProgress) => `
+    ${getProfileModal(user, level, levelProgress)}
     <script>
       const menuBtn = document.getElementById('mobileMenuBtn');
       const sidebar = document.getElementById('sidebar');
@@ -148,6 +182,7 @@ router.get('/', requireLogin, async (req, res) => {
   
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
+  const levelProgress = getLevelProgress(taskCount)
 
   // Get IDs of items user already owns
   const ownedItemIds = user.items.map(ui => ui.itemId)
@@ -229,7 +264,7 @@ router.get('/', requireLogin, async (req, res) => {
         document.getElementById('tab-' + type).classList.add('active');
       }
     </script>
-    ${getFooter(user, level)}
+    ${getFooter(user, level, levelProgress)}
   `)
 })
 
@@ -292,6 +327,7 @@ router.get('/my', requireLogin, async (req, res) => {
   
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
+  const levelProgress = getLevelProgress(taskCount)
 
   const myItems = user.items.map(ui => ui.item)
   const avatars = myItems.filter(i => i.type === 'avatar')
@@ -362,7 +398,7 @@ router.get('/my', requireLogin, async (req, res) => {
         document.getElementById('tab-' + type).classList.add('active');
       }
     </script>
-    ${getFooter(user, level)}
+    ${getFooter(user, level, levelProgress)}
   `)
 })
 

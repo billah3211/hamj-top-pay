@@ -18,6 +18,30 @@ const calculateLevel = (count) => {
   return 7 + Math.floor((count - 15000) / 5000);
 }
 
+// Helper: Get Level Progress
+const getLevelProgress = (count) => {
+  let start = 0, next = 100;
+  if (count < 100) { start = 0; next = 100; }
+  else if (count < 500) { start = 100; next = 500; }
+  else if (count < 1200) { start = 500; next = 1200; }
+  else if (count < 2000) { start = 1200; next = 2000; }
+  else if (count < 5000) { start = 2000; next = 5000; }
+  else if (count < 10000) { start = 5000; next = 10000; }
+  else if (count < 15000) { start = 10000; next = 15000; }
+  else {
+    const base = 15000;
+    const step = 5000;
+    const diff = count - base;
+    const levelOffset = Math.floor(diff / step);
+    start = base + levelOffset * step;
+    next = start + step;
+  }
+  
+  const percent = Math.min(100, Math.max(0, ((count - start) / (next - start)) * 100));
+  
+  return { current: count, next, start, percent };
+}
+
 function makeBaseUsername(firstName, lastName) {
   const a = (firstName || '').toLowerCase().replace(/[^a-z0-9]/g, '')
   const b = (lastName || '').toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -353,6 +377,7 @@ router.get('/dashboard', async (req, res) => {
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const level = calculateLevel(taskCount)
+  const levelProgress = getLevelProgress(taskCount)
   
   // Generate Codes for Cards
   const digitsPhone = String(user.phone || '').replace(/\D/g,'')
@@ -386,7 +411,16 @@ router.get('/dashboard', async (req, res) => {
                 <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
                    <div style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">${user.firstName} ${user.lastName}</div>
                    <div style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@${user.username}</div>
-                   <div style="display:inline-block; background:linear-gradient(90deg, #facc15, #fbbf24); color:black; font-weight:bold; font-size:12px; padding:2px 8px; border-radius:4px; margin-bottom:8px;">Level ${level}</div>
+                   
+                   <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
+                     <div style="display: flex; align-items: center; gap: 10px;">
+                       <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level ${level}</div>
+                       <div style="font-size: 11px; color: #94a3b8;">${levelProgress.current} / ${levelProgress.next} Tasks</div>
+                     </div>
+                     <div style="width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;" title="${levelProgress.percent.toFixed(1)}% to Level ${level + 1}">
+                       <div style="width: ${levelProgress.percent}%; height: 100%; background: #facc15;"></div>
+                     </div>
+                   </div>
                    
                    <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
                        <div>📧 ${user.email}</div>
@@ -699,6 +733,7 @@ router.get('/settings', async (req, res) => {
   
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
+  const levelProgress = getLevelProgress(taskCount)
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
 
   const sidebar = getUserSidebar('settings', unreadCount)
@@ -717,7 +752,16 @@ router.get('/settings', async (req, res) => {
                 <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
                    <div style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">${user.firstName} ${user.lastName}</div>
                    <div style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@${user.username}</div>
-                   <div style="display:inline-block; background:linear-gradient(90deg, #facc15, #fbbf24); color:black; font-weight:bold; font-size:12px; padding:2px 8px; border-radius:4px; margin-bottom:8px;">Level ${level}</div>
+                   
+                   <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
+                     <div style="display: flex; align-items: center; gap: 10px;">
+                       <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level ${level}</div>
+                       <div style="font-size: 11px; color: #94a3b8;">${levelProgress.current} / ${levelProgress.next} Tasks</div>
+                     </div>
+                     <div style="width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;" title="${levelProgress.percent.toFixed(1)}% to Level ${level + 1}">
+                       <div style="width: ${levelProgress.percent}%; height: 100%; background: #facc15;"></div>
+                     </div>
+                   </div>
                    
                    <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
                        <div>📧 ${user.email}</div>
@@ -998,8 +1042,9 @@ router.get('/api/profile/:username', async (req, res) => {
     const pendingCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'PENDING' } })
     const rejectedCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'REJECTED' } })
     const level = calculateLevel(taskCount)
+    const levelProgress = getLevelProgress(taskCount)
 
-    res.json({ ...user, level, taskCount, pendingCount, rejectedCount })
+    res.json({ ...user, level, taskCount, pendingCount, rejectedCount, levelProgress })
   } catch (e) {
     res.status(500).json({ error: e.message })
   }
