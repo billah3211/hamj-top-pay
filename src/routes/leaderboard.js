@@ -152,16 +152,15 @@ const getProfileModal = (user, level) => `
 `
 
 // Generic View Profile Modal (Empty initially, populated via JS)
-const getViewProfileModal = () => `
+        const getViewProfileModal = () => `
 <div id="viewProfileModal" class="modal-premium" style="align-items: center; justify-content: center; padding: 20px;">
   <div class="modal-content" style="background: transparent; border: none; box-shadow: none; width: 100%; max-width: 600px; padding: 0;">
     <div style="position: relative;">
         <button class="modal-close" id="viewProfileBack" style="position: absolute; top: -15px; right: -15px; background: rgba(0,0,0,0.5); color: white; border: 2px solid rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; z-index: 100; font-size: 20px; display: flex; align-items: center; justify-content: center;">×</button>
-        <div style="background: linear-gradient(135deg, #065f46 0%, #10b981 100%); padding: 30px 20px 20px; border-radius: 24px; position: relative; overflow: visible; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);">
-            <div id="viewProfileContent">
-                <!-- Content will be loaded here -->
-                <div style="text-align:center; color:white;">Loading...</div>
-            </div>
+        <!-- Modal Body: Mimics Profile Page Structure -->
+        <div id="viewProfileContent" style="display: flex; flex-direction: column; gap: 20px;">
+            <!-- Content will be loaded here -->
+            <div style="text-align:center; color:white;">Loading...</div>
         </div>
     </div>
   </div>
@@ -272,60 +271,102 @@ const getFooter = (user, level, levelProgress) => `
             }
 
             viewProfileContent.innerHTML = \`
-                <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
-                   <div style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">\${data.firstName} \${data.lastName}</div>
-                   <div style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@\${data.username}</div>
-                   <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
-                     <div style="display: flex; align-items: center; gap: 10px;">
-                       <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level \${data.level}</div>
-                       \${data.levelProgress ? \`<div style="font-size: 11px; color: #94a3b8;">\${data.levelProgress.current} / \${data.levelProgress.next} Tasks</div>\` : ''}
+                <!-- Profile Header Card (Glass Panel style like main profile) -->
+                <div class="glass-panel" style="padding: 0; overflow: hidden; position: relative; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border-radius: 24px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                   <div style="height: 150px; background: linear-gradient(135deg, #065f46 0%, #10b981 100%);"></div>
+                   
+                   <div style="padding: 0 30px 30px; margin-top: -50px; position: relative;">
+                     <div style="display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap;">
+                       <div style="width: 120px; height: 120px; border-radius: 50%; border: 4px solid #0f172a; overflow: hidden; background: #1e293b; flex-shrink: 0;">
+                         <img src="\${data.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" style="width: 100%; height: 100%; object-fit: cover;">
+                       </div>
+                       
+                       <div style="flex: 1; padding-bottom: 10px;">
+                         <div style="font-size: 28px; font-weight: 800; color: white;">\${data.firstName} \${data.lastName}</div>
+                         <div style="color: #94a3b8; margin-bottom: 5px;">@\${data.username}</div>
+                         <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 5px;">
+                          <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level \${data.level}</div>
+                            <!-- LOGIC: This uses taskCount which is now strictly Approved Tasks -->
+                            <div style="font-size: 11px; color: #94a3b8;">\${data.taskCount} / \${data.levelProgress ? data.levelProgress.next : 100} Tasks</div>
+                          </div>
+                          \${data.levelProgress ? \`<div style="width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;" title="\${data.levelProgress.percent.toFixed(1)}% to Level \${data.level + 1}">
+                            <div style="width: \${data.levelProgress.percent}%; height: 100%; background: #facc15;"></div>
+                          </div>\` : ''}
+                          <div style="color: #64748b; font-size: 12px;">Joined \${new Date(data.createdAt).toLocaleDateString()}</div>
+                        </div>
+                       </div>
                      </div>
-                     \${data.levelProgress ? \`<div style="width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;" title="\${data.levelProgress.percent.toFixed(1)}% to Level \${data.level + 1}">
-                       <div style="width: \${data.levelProgress.percent}%; height: 100%; background: #facc15;"></div>
-                     </div>\` : ''}
-                     <div style="color: #64748b; font-size: 12px;">Joined \${new Date(data.createdAt).toLocaleDateString()}</div>
                    </div>
                 </div>
 
-                <div style="display: flex; gap: 20px; align-items: flex-start; margin-bottom: 20px;">
-                    <div style="width: 110px; height: 110px; border-radius: 50%; border: 6px solid #000; overflow: hidden; background: #1a1a2e; flex-shrink: 0; z-index: 10; margin-top: -10px; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
-                        <img src="\${data.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" style="width: 100%; height: 100%; object-fit: cover;">
-                    </div>
-                    <div style="background: #000; padding: 20px; border-radius: 16px; flex-grow: 1; border: 1px solid rgba(255,255,255,0.1);">
-                        <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <div style="font-size: 13px; color: #e2e8f0;">
-                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Country</span><br>
-                                \${data.country}
-                            </div>
-                            <div style="font-size: 13px; color: #e2e8f0;">
-                                <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Bio</span><br>
-                                \${data.bio || '<span style="opacity:0.5">No bio added</span>'}
-                            </div>
+                <!-- Stats & Info Grid -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                  
+                  <!-- Contact Info (Phone Hidden as requested) -->
+                  <div class="glass-panel" style="padding: 25px; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
+                      <img src="https://api.iconify.design/lucide:contact.svg?color=%2310b981" width="20"> Contact Info
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                      <div>
+                        <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Email Address</div>
+                        <div style="color: white;">\${data.email}</div>
+                      </div>
+                      <!-- Phone Number HIDDEN per user request -->
+                      <div>
+                        <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Country</div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                          <span style="color: white;">\${data.country}</span>
                         </div>
+                      </div>
                     </div>
+                  </div>
+
+                  <!-- About & Social -->
+                  <div class="glass-panel" style="padding: 25px; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                    <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
+                      <img src="https://api.iconify.design/lucide:info.svg?color=%233b82f6" width="20"> About & Social
+                    </h3>
+                    <div style="display: flex; flex-direction: column; gap: 15px;">
+                      <div>
+                        <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Bio</div>
+                        <div style="color: white; line-height: 1.5;">\${data.bio || '<span style="opacity:0.5; font-style:italic;">No bio added yet.</span>'}</div>
+                      </div>
+                      <div>
+                        <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Website</div>
+                        <div>\${data.website ? \`<a href="\${data.website}" target="_blank" style="color: #60a5fa; text-decoration: none;">\${data.website}</a>\` : '<span style="opacity:0.5; font-style:italic;">No website added.</span>'}</div>
+                      </div>
+                      <div>
+                        <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Social Links</div>
+                        <div>\${data.social || '<span style="opacity:0.5; font-style:italic;">No social links added.</span>'}</div>
+                      </div>
+                    </div>
+                  </div>
+
                 </div>
 
                 <!-- Activity Stats -->
-                <div style="background: #000; padding: 20px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1);">
-                   <h3 style="margin-bottom: 15px; font-size: 14px; color: white; display: flex; align-items: center; gap: 10px; text-transform: uppercase; letter-spacing: 1px;">
-                      Activity Stats
+                <div class="glass-panel" style="padding: 25px; background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.1);">
+                   <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
+                      <img src="https://api.iconify.design/lucide:activity.svg?color=%23f472b6" width="20"> Activity Stats
                    </h3>
-                   <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; text-align: center;">
-                     <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px;">
-                       <div style="font-size: 18px; font-weight: bold; color: #4ade80;">\${data.taskCount}</div>
-                       <div style="font-size: 10px; color: #94a3b8;">Completed</div>
+                   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 15px; text-align: center;">
+                     <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
+                       <div style="font-size: 24px; font-weight: bold; color: #4ade80;">\${data.taskCount}</div>
+                       <div style="font-size: 12px; color: #94a3b8;">Completed</div>
                      </div>
-                     <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px;">
-                       <div style="font-size: 18px; font-weight: bold; color: #fb923c;">\${data.pendingCount}</div>
-                       <div style="font-size: 10px; color: #94a3b8;">Pending</div>
+                     <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
+                       <div style="font-size: 24px; font-weight: bold; color: #fb923c;">\${data.pendingCount}</div>
+                       <div style="font-size: 12px; color: #94a3b8;">Pending</div>
                      </div>
-                     <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px;">
-                       <div style="font-size: 18px; font-weight: bold; color: #f87171;">\${data.rejectedCount}</div>
-                       <div style="font-size: 10px; color: #94a3b8;">Rejected</div>
+                     <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
+                       <div style="font-size: 24px; font-weight: bold; color: #f87171;">\${data.rejectedCount}</div>
+                       <div style="font-size: 12px; color: #94a3b8;">Rejected</div>
                      </div>
-                     <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 12px;">
-                       <div style="font-size: 18px; font-weight: bold; color: #fbbf24;">\${data.coin || 0}</div>
-                       <div style="font-size: 10px; color: #94a3b8;">Coins</div>
+                     <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
+                       <div style="font-size: 24px; font-weight: bold; color: #fbbf24;">\${data.coin || 0}</div>
+                       <div style="font-size: 12px; color: #94a3b8;">Coins</div>
                      </div>
                    </div>
                 </div>
