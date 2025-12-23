@@ -157,18 +157,24 @@ app.set('trust proxy', 1) // Trust Render proxy for secure cookies
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-// Initialize Redis client connection with error handling
-const redisStore = new RedisStore({
-  client: redis,
-  prefix: "hamj:",
-})
-
-redis.connect().catch(err => {
-  console.error('Redis connection error:', err)
-})
+// Initialize Session Store (Redis or Memory Fallback)
+let sessionStore;
+if (process.env.REDIS_URL) {
+  const redisStore = new RedisStore({
+    client: redis,
+    prefix: "hamj:",
+  })
+  redis.connect().catch(err => {
+    console.error('Redis connection error:', err)
+  })
+  sessionStore = redisStore
+  console.log('Using Redis for session storage')
+} else {
+  console.log('REDIS_URL not found. Using MemoryStore. (Sessions will be lost on restart)')
+}
 
 app.use(session({
-  store: redisStore,
+  store: sessionStore,
   secret: process.env.SESSION_SECRET || 'dev-secret',
   resave: false,
   saveUninitialized: false,
