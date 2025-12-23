@@ -909,6 +909,54 @@ router.get('/link-search', requireAdmin, async (req, res) => {
   `);
 });
 
+router.post('/link-action', requireAdmin, async (req, res) => {
+    const { linkId, action, value } = req.body
+    const id = parseInt(linkId)
+    
+    if (isNaN(id)) return res.redirect('/admin/link-search')
+
+    const link = await prisma.promotedLink.findUnique({ 
+        where: { id },
+        include: { user: true }
+    })
+
+    if (!link) return res.redirect('/admin/link-search?q=' + id)
+
+    // Check permissions (Admins cannot edit Super Admin links)
+    if (link.user.role === 'SUPER_ADMIN' && req.session.role !== 'SUPER_ADMIN') {
+        return res.redirect('/admin/link-search?q=' + id)
+    }
+
+    if (action === 'update_visits') {
+        const visits = parseInt(value)
+        if (!isNaN(visits) && visits >= 0) {
+            await prisma.promotedLink.update({
+                where: { id },
+                data: { completedVisits: visits }
+            })
+        }
+    } else if (action === 'block') {
+        await prisma.promotedLink.update({
+            where: { id },
+            data: { status: 'BLOCKED' }
+        })
+    } else if (action === 'unblock') {
+        await prisma.promotedLink.update({
+            where: { id },
+            data: { status: 'ACTIVE' }
+        })
+    } else if (action === 'delete') {
+        // Delete related submissions first
+        await prisma.$transaction([
+            prisma.linkSubmission.deleteMany({ where: { promotedLinkId: id } }),
+            prisma.promotedLink.delete({ where: { id } })
+        ])
+        return res.redirect('/admin/link-search?success=Link deleted successfully')
+    }
+
+    res.redirect('/admin/link-search?q=' + id + '&success=Action completed')
+})
+
 // Login/Logout (simplified for admin)
 router.get('/login', (req, res) => {
   res.send(`
