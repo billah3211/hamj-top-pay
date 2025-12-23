@@ -153,8 +153,8 @@ const getProfileModal = (user, level) => `
 
 // Generic View Profile Modal (Empty initially, populated via JS)
         const getViewProfileModal = () => `
-<div id="viewProfileModal" class="modal-premium" style="align-items: center; justify-content: center; padding: 20px;">
-  <div class="modal-content" style="background: transparent; border: none; box-shadow: none; width: 100%; max-width: 600px; padding: 0;">
+<div id="viewProfileModal" class="modal-premium">
+  <div class="modal-content" style="background: transparent; border: none; box-shadow: none; padding: 0;">
     <div style="position: relative;">
         <button class="modal-close" id="viewProfileBack" style="position: absolute; top: -15px; right: -15px; background: rgba(0,0,0,0.5); color: white; border: 2px solid rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; z-index: 100; font-size: 20px; display: flex; align-items: center; justify-content: center;">×</button>
         <!-- Modal Body: Mimics Profile Page Structure -->
@@ -165,7 +165,7 @@ const getProfileModal = (user, level) => `
     </div>
   </div>
 </div>
-<div id="viewProfileOverlay" class="modal-overlay hidden"></div>
+<!-- Overlay removed as it is integrated into modal-premium -->
 `
 
 // Helper: Calculate User Level
@@ -287,12 +287,7 @@ const getFooter = (user, level, levelProgress) => `
                          <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 5px;">
                           <div style="display: flex; align-items: center; gap: 10px;">
                             <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level \${data.level}</div>
-                            <!-- LOGIC: This uses taskCount which is now strictly Approved Tasks -->
-                            <div style="font-size: 11px; color: #94a3b8;">\${data.taskCount} / \${data.levelProgress ? data.levelProgress.next : 100} Tasks</div>
                           </div>
-                          \${data.levelProgress ? \`<div style="width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;" title="\${data.levelProgress.percent.toFixed(1)}% to Level \${data.level + 1}">
-                            <div style="width: \${data.levelProgress.percent}%; height: 100%; background: #facc15;"></div>
-                          </div>\` : ''}
                           <div style="color: #64748b; font-size: 12px;">Joined \${new Date(data.createdAt).toLocaleDateString()}</div>
                         </div>
                        </div>
