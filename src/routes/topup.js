@@ -221,7 +221,7 @@ router.get('/', requireAuth, async (req, res) => {
     
     // Level Progress
     const approvedCount = await prisma.linkSubmission.count({
-      where: { userId: user.id, status: 'APPROVED' }
+      where: { visitorId: user.id, status: 'APPROVED' }
     })
     user.levelProgress = getLevelProgress(approvedCount)
     user.level = user.levelProgress.level
@@ -283,7 +283,7 @@ router.get('/:pkgId/wallets', requireAuth, async (req, res) => {
     
     // Level Progress
     const approvedCount = await prisma.linkSubmission.count({
-      where: { userId: user.id, status: 'APPROVED' }
+      where: { visitorId: user.id, status: 'APPROVED' }
     })
     user.levelProgress = getLevelProgress(approvedCount)
     user.level = user.levelProgress.level
@@ -342,7 +342,7 @@ router.get('/:pkgId/pay/:walletId', requireAuth, async (req, res) => {
     
     // Level Progress
     const approvedCount = await prisma.linkSubmission.count({
-      where: { userId: user.id, status: 'APPROVED' }
+      where: { visitorId: user.id, status: 'APPROVED' }
     })
     user.levelProgress = getLevelProgress(approvedCount)
     user.level = user.levelProgress.level
@@ -428,7 +428,7 @@ router.post('/submit', requireAuth, async (req, res) => {
        // For error pages, we might skip full level calculation for simplicity or add it if needed
        // Adding it to be safe
        const approvedCount = await prisma.linkSubmission.count({
-         where: { userId: user.id, status: 'APPROVED' }
+         where: { visitorId: user.id, status: 'APPROVED' }
        })
        user.levelProgress = getLevelProgress(approvedCount)
        user.level = user.levelProgress.level
@@ -443,7 +443,7 @@ router.post('/submit', requireAuth, async (req, res) => {
     const existing = await prisma.topUpRequest.findUnique({ where: { trxId } })
     if (existing) {
        const approvedCount = await prisma.linkSubmission.count({
-         where: { userId: user.id, status: 'APPROVED' }
+         where: { visitorId: user.id, status: 'APPROVED' }
        })
        user.levelProgress = getLevelProgress(approvedCount)
        user.level = user.levelProgress.level
@@ -507,7 +507,7 @@ router.get('/history', requireAuth, async (req, res) => {
     
     // Level Progress
     const approvedCount = await prisma.linkSubmission.count({
-      where: { userId: user.id, status: 'APPROVED' }
+      where: { visitorId: user.id, status: 'APPROVED' }
     })
     user.levelProgress = getLevelProgress(approvedCount)
     user.level = user.levelProgress.level

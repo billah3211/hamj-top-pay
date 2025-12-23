@@ -45,6 +45,9 @@ model User {
   guildId       Int?
   guild         Guild?   @relation(fields: [guildId], references: [id])
   ownedGuild    Guild?   @relation("GuildLeader")
+
+  resetPasswordToken String?
+  resetPasswordExpires DateTime?
 }
 
 model Guild {

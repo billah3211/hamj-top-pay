@@ -1,5 +1,7 @@
 const express = require('express')
 const bcrypt = require('bcryptjs')
+const crypto = require('crypto')
+const nodemailer = require('nodemailer')
 const { prisma } = require('../db/prisma')
 const path = require('path')
 const countries = require('../data/countries')
@@ -324,7 +326,7 @@ router.get('/login', (req, res) => {
             </div>
 
             <div style="text-align:right;margin-bottom:24px;">
-              <a href="#" style="color:var(--text-muted);font-size:13px;text-decoration:none">Forgot Password?</a>
+              <a href="/forgot-password" style="color:var(--text-muted);font-size:13px;text-decoration:none">Forgot Password?</a>
             </div>
 
             <button class="btn-premium" type="submit" style="width:100%;justify-content:center;">Login</button>
@@ -365,6 +367,224 @@ const loginHandler = async (req, res) => {
 
 router.post('/login', loginHandler)
 router.post('/auth/login', loginHandler)
+
+// Forgot Password Routes
+router.get('/forgot-password', (req, res) => {
+  const error = req.query.error || ''
+  const message = req.query.message || ''
+  res.send(`
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>Forgot Password - HaMJ toP PaY</title>
+      <link rel="stylesheet" href="/style.css">
+      <style>
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-label { display: block; color: var(--text-muted); font-size: 14px; margin-bottom: 8px; font-weight: 500; }
+        .form-input { 
+          width: 100%; 
+          background: rgba(15, 23, 42, 0.6); 
+          border: 1px solid var(--glass-border); 
+          color: white; 
+          padding: 12px 16px; 
+          border-radius: 12px; 
+          font-size: 16px; 
+          transition: all 0.3s ease; 
+        }
+        .form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2); background: rgba(15, 23, 42, 0.8); }
+      </style>
+    </head>
+    <body>
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;">
+        <div class="glass-panel" style="width:100%;max-width:420px;padding:40px;">
+          <div style="text-align:center;margin-bottom:32px;">
+            <div style="font-size:28px;font-weight:800;color:white;margin-bottom:8px;">Forgot Password</div>
+            <div style="color:var(--text-muted)">Enter your email to reset password</div>
+          </div>
+
+          ${error ? `<div style="background:rgba(248, 113, 113, 0.2);border:1px solid #f87171;color:#fca5a5;padding:12px;border-radius:8px;margin-bottom:20px;text-align:center;font-size:14px;">${error}</div>` : ''}
+          ${message ? `<div style="background:rgba(74, 222, 128, 0.2);border:1px solid #4ade80;color:#4ade80;padding:12px;border-radius:8px;margin-bottom:20px;text-align:center;font-size:14px;">${message}</div>` : ''}
+
+          <form method="post" action="/forgot-password">
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <input class="form-input" type="email" name="email" required placeholder="john@example.com">
+            </div>
+
+            <button class="btn-premium" type="submit" style="width:100%;justify-content:center;">Send Reset Link</button>
+            
+            <div style="text-align:center;margin-top:24px;color:var(--text-muted);font-size:14px;">
+              Remember password? <a href="/login" style="color:var(--primary);text-decoration:none;font-weight:600">Login</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </body>
+    </html>
+  `)
+})
+
+router.post('/forgot-password', async (req, res) => {
+  const { email } = req.body
+  try {
+    const user = await prisma.user.findUnique({ where: { email } })
+    if (!user) {
+      // Don't reveal if user exists or not
+      return res.redirect('/forgot-password?message=If an account exists, a reset link has been sent.')
+    }
+
+    const token = crypto.randomBytes(20).toString('hex')
+    const expires = new Date(Date.now() + 3600000) // 1 hour
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetPasswordToken: token,
+        resetPasswordExpires: expires
+      }
+    })
+
+    const resetUrl = `${req.protocol}://${req.get('host')}/reset-password/${token}`
+    
+    // Send Email
+    const transporter = nodemailer.createTransport({
+      service: 'gmail', // or your service
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    })
+
+    const mailOptions = {
+      to: user.email,
+      from: process.env.EMAIL_USER || 'noreply@hamjtoppay.com',
+      subject: 'Password Reset Request',
+      text: `You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n` +
+            `Please click on the following link, or paste this into your browser to complete the process:\n\n` +
+            `${resetUrl}\n\n` +
+            `If you did not request this, please ignore this email and your password will remain unchanged.\n`
+    }
+
+    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
+        await transporter.sendMail(mailOptions)
+    } else {
+        console.log('RESET LINK (Dev Mode):', resetUrl)
+    }
+
+    return res.redirect('/forgot-password?message=If an account exists, a reset link has been sent.')
+
+  } catch (error) {
+    console.error('Forgot Password Error:', error)
+    return res.redirect('/forgot-password?error=Something went wrong')
+  }
+})
+
+router.get('/reset-password/:token', async (req, res) => {
+  const { token } = req.params
+  const user = await prisma.user.findFirst({
+    where: {
+      resetPasswordToken: token,
+      resetPasswordExpires: { gt: new Date() }
+    }
+  })
+
+  if (!user) {
+    return res.redirect('/forgot-password?error=Password reset token is invalid or has expired.')
+  }
+
+  const error = req.query.error || ''
+  res.send(`
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <title>Reset Password - HaMJ toP PaY</title>
+      <link rel="stylesheet" href="/style.css">
+      <style>
+        .form-group { margin-bottom: 20px; text-align: left; }
+        .form-label { display: block; color: var(--text-muted); font-size: 14px; margin-bottom: 8px; font-weight: 500; }
+        .form-input { 
+          width: 100%; 
+          background: rgba(15, 23, 42, 0.6); 
+          border: 1px solid var(--glass-border); 
+          color: white; 
+          padding: 12px 16px; 
+          border-radius: 12px; 
+          font-size: 16px; 
+          transition: all 0.3s ease; 
+        }
+        .form-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2); background: rgba(15, 23, 42, 0.8); }
+      </style>
+    </head>
+    <body>
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;">
+        <div class="glass-panel" style="width:100%;max-width:420px;padding:40px;">
+          <div style="text-align:center;margin-bottom:32px;">
+            <div style="font-size:28px;font-weight:800;color:white;margin-bottom:8px;">Reset Password</div>
+            <div style="color:var(--text-muted)">Create a new password</div>
+          </div>
+
+          ${error ? `<div style="background:rgba(248, 113, 113, 0.2);border:1px solid #f87171;color:#fca5a5;padding:12px;border-radius:8px;margin-bottom:20px;text-align:center;font-size:14px;">${error}</div>` : ''}
+
+          <form method="post" action="/reset-password/${token}">
+            <div class="form-group">
+              <label class="form-label">New Password</label>
+              <input class="form-input" type="password" name="password" required placeholder="••••••••">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Confirm Password</label>
+              <input class="form-input" type="password" name="confirm" required placeholder="••••••••">
+            </div>
+
+            <button class="btn-premium" type="submit" style="width:100%;justify-content:center;">Reset Password</button>
+          </form>
+        </div>
+      </div>
+    </body>
+    </html>
+  `)
+})
+
+router.post('/reset-password/:token', async (req, res) => {
+  const { token } = req.params
+  const { password, confirm } = req.body
+
+  if (password !== confirm) {
+    return res.redirect(\`/reset-password/\${token}?error=Passwords do not match\`)
+  }
+
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: { gt: new Date() }
+      }
+    })
+
+    if (!user) {
+      return res.redirect('/forgot-password?error=Password reset token is invalid or has expired.')
+    }
+
+    const hash = await bcrypt.hash(password, 10)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: hash,
+        resetPasswordToken: null,
+        resetPasswordExpires: null
+      }
+    })
+
+    res.redirect('/login?message=Password+changed+successfully')
+
+  } catch (error) {
+    console.error('Reset Password Error:', error)
+    return res.redirect(\`/reset-password/\${token}?error=Something went wrong\`)
+  }
+})
 
 router.get('/dashboard', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login')
