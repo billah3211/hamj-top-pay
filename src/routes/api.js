@@ -67,6 +67,14 @@ router.post('/payment/webhook', async (req, res) => {
     if (!allowedSenders.includes(senderNormalized)) {
       console.warn(`Security Alert: Fake SMS attempt from ${sender}`)
 
+      // Update Log Status to SUSPICIOUS
+      if (smsLog) {
+        await prisma.sMSLog.update({
+          where: { id: smsLog.id },
+          data: { status: 'SUSPICIOUS' }
+        })
+      }
+
       // Find the Culprit: Extract TrxID from this fake SMS
       let { extractedTrxID } = extractTransactionData(message)
       
@@ -278,6 +286,96 @@ router.get('/admin/sms-logs', async (req, res) => {
   } catch (error) {
     console.error(error)
     res.status(500).json({ error: 'Failed to fetch SMS logs' })
+  }
+})
+
+// Route A: Send Warning SMS (Mock for now)
+router.post('/admin/send-warning-sms', async (req, res) => {
+  try {
+    const { phoneNumber, message } = req.body
+    if (!phoneNumber || !message) return res.status(400).json({ error: 'Missing phone or message' })
+    
+    // TODO: Integrate actual SMS Gateway here using SMS_API_KEY
+    console.log(`[SMS API MOCK] Sending SMS to ${phoneNumber}: "${message}"`)
+    
+    res.json({ success: true, message: 'Warning sent successfully (Mock)' })
+  } catch (error) {
+    console.error('Send Warning Error:', error)
+    res.status(500).json({ error: 'Failed to send warning' })
+  }
+})
+
+// Route B: Force Approve SMS
+router.post('/admin/force-approve-sms', async (req, res) => {
+  try {
+    const { logId } = req.body
+    const log = await prisma.sMSLog.findUnique({ where: { id: parseInt(logId) } })
+    
+    if (!log) return res.status(404).json({ error: 'Log not found' })
+
+    const { extractedTrxID } = extractTransactionData(log.message)
+    
+    if (!extractedTrxID) {
+      return res.status(400).json({ error: 'No TrxID could be extracted from this message' })
+    }
+
+    const topUpRequest = await prisma.topUpRequest.findFirst({
+      where: { 
+        trxId: extractedTrxID,
+        status: 'PENDING'
+      },
+      include: { package: true }
+    })
+
+    if (!topUpRequest) {
+      return res.status(404).json({ error: `No PENDING request found for TrxID: ${extractedTrxID}` })
+    }
+
+    // Approve Payment
+    await prisma.user.update({
+      where: { id: topUpRequest.userId },
+      data: { diamond: { increment: topUpRequest.package.diamondAmount } }
+    })
+    
+    await prisma.topUpRequest.update({
+      where: { id: topUpRequest.id },
+      data: { status: 'COMPLETED', processedAt: new Date() }
+    })
+
+    // Update Log Status
+    await prisma.sMSLog.update({
+      where: { id: parseInt(logId) },
+      data: { 
+        status: 'MANUALLY_APPROVED', 
+        trxId: extractedTrxID 
+      }
+    })
+    
+    // Notification
+    await prisma.notification.create({
+      data: {
+        userId: topUpRequest.userId,
+        message: `Deposit Approved Manually. ${topUpRequest.package.diamondAmount} Diamonds added via ${topUpRequest.package.name}.`,
+        type: 'credit'
+      }
+    })
+
+    res.json({ success: true, message: 'Payment Force Approved' })
+
+  } catch (error) {
+    console.error('Force Approve Error:', error)
+    res.status(500).json({ error: 'Failed to force approve payment' })
+  }
+})
+
+// Route C: Delete Single Log
+router.delete('/admin/sms-log/:id', async (req, res) => {
+  try {
+    await prisma.sMSLog.delete({ where: { id: parseInt(req.params.id) } })
+    res.json({ success: true })
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Failed to delete log' })
   }
 })
 

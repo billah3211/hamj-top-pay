@@ -623,34 +623,174 @@ router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
         </div>
       </div>
 
-      <div class="glass-panel" style="overflow:hidden">
-        <table style="width:100%;border-collapse:collapse" id="smsTable">
-          <thead>
-            <tr style="background:rgba(255,255,255,0.02);text-align:left">
-              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Time</th>
-              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Sender</th>
-              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Message</th>
-              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">TrxID</th>
-              <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Status</th>
-            </tr>
-          </thead>
-          <tbody id="smsTableBody">
-            ${logs.map(log => `
-              <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
-                <td style="padding:16px;color:var(--text-muted);font-size:13px">${new Date(log.createdAt).toLocaleString()}</td>
-                <td style="padding:16px;font-weight:600;color:#ec4899">${log.sender}</td>
-                <td style="padding:16px;color:white;max-width:400px;word-wrap:break-word">${log.message}</td>
-                <td style="padding:16px;color:var(--text-muted);font-family:monospace">${log.trxId || '-'}</td>
-                <td style="padding:16px">
-                  ${log.status === 'PROCESSED_PAYMENT' || log.status === 'PROCESSED'
-                    ? '<span style="background:rgba(34,197,94,0.1);color:#4ade80;padding:4px 8px;border-radius:4px;font-size:12px">Processed</span>' 
-                    : '<span style="background:rgba(255,255,255,0.1);color:var(--text-muted);padding:4px 8px;border-radius:4px;font-size:12px">' + log.status + '</span>'}
-                </td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+      <!-- Tabs -->
+      <div style="display:flex;gap:16px;margin-bottom:24px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:16px;">
+          <button onclick="switchTab('all')" id="tab-all" class="tab-btn active" style="background:rgba(236,72,153,0.1);color:#ec4899;border:1px solid rgba(236,72,153,0.2);padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600;">📥 All Messages</button>
+          <button onclick="switchTab('suspicious')" id="tab-suspicious" class="tab-btn" style="background:transparent;color:var(--text-muted);border:1px solid transparent;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600;">🚨 Suspicious / Fake</button>
       </div>
+
+      <!-- All Messages Tab -->
+      <div id="view-all" class="tab-content">
+          <div class="glass-panel" style="overflow:hidden">
+            <table style="width:100%;border-collapse:collapse" id="smsTable">
+              <thead>
+                <tr style="background:rgba(255,255,255,0.02);text-align:left">
+                  <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Time</th>
+                  <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Sender</th>
+                  <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Message</th>
+                  <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">TrxID</th>
+                  <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Status</th>
+                </tr>
+              </thead>
+              <tbody id="smsTableBody">
+                ${logs.map(log => `
+                  <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                    <td style="padding:16px;color:var(--text-muted);font-size:13px">${new Date(log.createdAt).toLocaleString()}</td>
+                    <td style="padding:16px;font-weight:600;color:#ec4899">${log.sender}</td>
+                    <td style="padding:16px;color:white;max-width:400px;word-wrap:break-word">${log.message}</td>
+                    <td style="padding:16px;color:var(--text-muted);font-family:monospace">${log.trxId || '-'}</td>
+                    <td style="padding:16px">
+                      ${log.status === 'PROCESSED_PAYMENT' || log.status === 'PROCESSED'
+                        ? '<span style="background:rgba(34,197,94,0.1);color:#4ade80;padding:4px 8px;border-radius:4px;font-size:12px">Processed</span>' 
+                        : log.status === 'SUSPICIOUS' 
+                          ? '<span style="background:rgba(239,68,68,0.1);color:#fca5a5;padding:4px 8px;border-radius:4px;font-size:12px">Suspicious</span>'
+                          : '<span style="background:rgba(255,255,255,0.1);color:var(--text-muted);padding:4px 8px;border-radius:4px;font-size:12px">' + log.status + '</span>'}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+      </div>
+
+      <!-- Suspicious Tab -->
+      <div id="view-suspicious" class="tab-content" style="display:none;">
+          <div class="glass-panel" style="overflow:hidden">
+              <table style="width:100%;border-collapse:collapse">
+                  <thead>
+                      <tr style="background:rgba(255,255,255,0.02);text-align:left">
+                          <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase">Details</th>
+                          <th style="padding:16px;color:var(--text-muted);font-weight:500;font-size:13px;text-transform:uppercase;width:400px;">Actions</th>
+                      </tr>
+                  </thead>
+                  <tbody>
+                      ${logs.filter(l => l.status === 'SUSPICIOUS').length === 0 ? '<tr><td colspan="2" style="padding:32px;text-align:center;color:var(--text-muted)">No suspicious messages found</td></tr>' : ''}
+                      ${logs.filter(l => l.status === 'SUSPICIOUS').map(log => `
+                          <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                              <td style="padding:16px;">
+                                  <div style="font-weight:600;color:#ec4899;margin-bottom:4px;">${log.sender}</div>
+                                  <div style="color:white;font-size:14px;margin-bottom:4px;">${log.message}</div>
+                                  <div style="color:var(--text-muted);font-size:12px;">${new Date(log.createdAt).toLocaleString()}</div>
+                              </td>
+                              <td style="padding:16px;">
+                                  <div style="display:flex;flex-direction:column;gap:8px;">
+                                      <div style="display:flex;gap:8px;">
+                                          <input type="text" id="warn-msg-${log.id}" placeholder="Type warning message..." style="background:rgba(0,0,0,0.2);border:1px solid rgba(255,255,255,0.1);color:white;padding:6px 10px;border-radius:6px;font-size:12px;flex:1;">
+                                          <button onclick="sendWarning('${log.id}', '${log.sender}')" style="background:rgba(234,179,8,0.1);color:#facc15;border:1px solid rgba(234,179,8,0.2);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;white-space:nowrap;">
+                                              ⚠️ Send Warning
+                                          </button>
+                                      </div>
+                                      <div style="display:flex;gap:8px;">
+                                          <button onclick="forceApprove('${log.id}')" style="background:rgba(34,197,94,0.1);color:#4ade80;border:1px solid rgba(34,197,94,0.2);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;flex:1;">
+                                              ✅ Force Approve
+                                          </button>
+                                          <button onclick="deleteLog('${log.id}')" style="background:rgba(239,68,68,0.1);color:#fca5a5;border:1px solid rgba(239,68,68,0.2);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:12px;flex:1;">
+                                              ❌ Delete
+                                          </button>
+                                      </div>
+                                  </div>
+                              </td>
+                          </tr>
+                      `).join('')}
+                  </tbody>
+              </table>
+          </div>
+      </div>
+
+      <script>
+          function switchTab(tab) {
+              document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+              document.querySelectorAll('.tab-btn').forEach(el => {
+                  el.classList.remove('active');
+                  el.style.background = 'transparent';
+                  el.style.color = 'var(--text-muted)';
+                  el.style.borderColor = 'transparent';
+              });
+              
+              document.getElementById('view-' + tab).style.display = 'block';
+              const activeBtn = document.getElementById('tab-' + tab);
+              activeBtn.classList.add('active');
+              activeBtn.style.background = 'rgba(236,72,153,0.1)';
+              activeBtn.style.color = '#ec4899';
+              activeBtn.style.borderColor = 'rgba(236,72,153,0.2)';
+          }
+
+          async function sendWarning(logId, phoneNumber) {
+              const msgInput = document.getElementById('warn-msg-' + logId);
+              const message = msgInput.value;
+              if (!message) return alert('Please type a warning message');
+              
+              if(!confirm('Send this warning SMS to ' + phoneNumber + '?')) return;
+
+              try {
+                  const res = await fetch('/api/admin/send-warning-sms', {
+                      method: 'POST',
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({ phoneNumber, message })
+                  });
+                  const data = await res.json();
+                  if(data.success) {
+                      alert('Warning sent!');
+                      msgInput.value = '';
+                  } else {
+                      alert('Failed: ' + data.error);
+                  }
+              } catch(e) {
+                  alert('Error sending warning');
+              }
+          }
+
+          async function forceApprove(logId) {
+              if(!confirm('Are you sure you want to FORCE APPROVE this SMS? This will add balance to the user.')) return;
+              
+              try {
+                  const res = await fetch('/api/admin/force-approve-sms', {
+                      method: 'POST',
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({ logId })
+                  });
+                  const data = await res.json();
+                  if(data.success) {
+                      alert('Approved successfully!');
+                      window.location.reload();
+                  } else {
+                      alert('Failed: ' + data.error);
+                  }
+              } catch(e) {
+                  alert('Error approving');
+              }
+          }
+
+          async function deleteLog(logId) {
+              if(!confirm('Permanently delete this log?')) return;
+              
+              try {
+                  const res = await fetch('/api/admin/delete-sms-log', {
+                      method: 'POST',
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({ logId })
+                  });
+                  const data = await res.json();
+                  if(data.success) {
+                      window.location.reload();
+                  } else {
+                      alert('Failed: ' + data.error);
+                  }
+              } catch(e) {
+                  alert('Error deleting');
+              }
+          }
+      </script>
     </div>
 
     <!-- Delete Modal -->
