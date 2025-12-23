@@ -35,17 +35,22 @@ router.post('/payment/webhook', async (req, res) => {
     console.log('Webhook Received at:', new Date().toISOString())
     console.log('Webhook Body:', JSON.stringify(req.body, null, 2))
 
-    const { message, trxID: payloadTrxID, sender } = req.body
+    const { message, trxID: payloadTrxID } = req.body
+
+    // Check ALL possible fields for sender
+    const rawSender = req.body.sender || req.body.number || req.body.from || 'Unknown'
 
     // Phone Number Normalization (CRITICAL)
-    const normalizedSender = sender ? sender.toString().replace(/^(\+?88|88)/, '') : ''
+    const normalizedSender = rawSender.toString().replace(/^(\+?88|88)/, '')
+    
+    console.log('Incoming SMS:', rawSender, 'Normalized:', normalizedSender)
 
     // STEP 1: Immediate Database Save (Crucial)
     let log = null
     try {
       log = await prisma.sMSLog.create({
         data: {
-          sender: sender || 'Unknown', // Keep original sender
+          sender: rawSender, // Keep original raw sender
           message: message || '',
           status: 'RECEIVED'
         }
