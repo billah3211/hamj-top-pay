@@ -256,6 +256,7 @@ router.get('/users', requireAdmin, async (req, res) => {
                     </td>
                     <td style="padding:15px;">
                       <div style="display:flex; gap:5px;">
+                        <a href="/admin/user/${user.id}" style="padding:6px 12px; border-radius:5px; text-decoration:none; background:rgba(59,130,246,0.2); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); font-size:13px;">View</a>
                         <form action="/admin/user-action" method="POST" onsubmit="return confirm('Are you sure?');">
                             <input type="hidden" name="userId" value="${user.id}">
                             <input type="hidden" name="action" value="${user.isBlocked ? 'unblock' : 'block'}">
@@ -274,6 +275,156 @@ router.get('/users', requireAdmin, async (req, res) => {
     </div>
     ${getScripts()}
   `)
+})
+
+// User Details
+router.get('/user/:id', requireAdmin, async (req, res) => {
+    const userId = parseInt(req.params.id)
+    if(isNaN(userId)) return res.redirect('/admin/users')
+
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+            topUpRequests: { orderBy: { createdAt: 'desc' }, take: 10, include: { package: true } },
+            linkSubmissions: { orderBy: { submittedAt: 'desc' }, take: 10, include: { promotedLink: true } },
+            ownedGuild: true,
+            guild: true
+        }
+    })
+
+    if (!user) return res.redirect('/admin/users')
+
+    res.send(`
+      ${getHead(`User: ${user.username}`)}
+      ${getSidebar('users', req.session.role)}
+      <div class="main-content">
+         <div style="display:flex; align-items:center; gap:15px; margin-bottom:20px;">
+            <a href="/admin/users" style="color:#94a3b8; text-decoration:none;">&larr; Back</a>
+            <div class="section-title" style="margin:0;">User Profile: ${user.firstName} ${user.lastName}</div>
+         </div>
+
+         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:20px; margin-bottom:30px;">
+            <!-- Profile Card -->
+            <div class="glass-panel" style="padding:25px;">
+                <div style="display:flex; gap:20px; align-items:center; margin-bottom:20px;">
+                    <div style="width:60px; height:60px; border-radius:50%; background:linear-gradient(45deg, #ec4899, #8b5cf6); display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:bold; color:white;">
+                        ${user.firstName[0]}
+                    </div>
+                    <div>
+                        <div style="font-size:18px; font-weight:bold; color:white;">${user.firstName} ${user.lastName}</div>
+                        <div style="color:#94a3b8;">@${user.username}</div>
+                        <div style="color:#94a3b8; font-size:12px;">${user.email}</div>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; font-size:14px;">
+                    <div>
+                        <div style="color:#94a3b8; font-size:12px;">Country</div>
+                        <div style="color:white;">${user.country}</div>
+                    </div>
+                    <div>
+                        <div style="color:#94a3b8; font-size:12px;">Phone</div>
+                        <div style="color:white;">${user.phone}</div>
+                    </div>
+                    <div>
+                        <div style="color:#94a3b8; font-size:12px;">Joined</div>
+                        <div style="color:white;">${new Date(user.createdAt).toLocaleDateString()}</div>
+                    </div>
+                    <div>
+                        <div style="color:#94a3b8; font-size:12px;">Status</div>
+                        <span style="color:${user.isBlocked ? '#ef4444' : '#22c55e'};">${user.isBlocked ? 'Blocked' : 'Active'}</span>
+                    </div>
+                </div>
+                
+                <div style="margin-top:20px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.1); display:flex; gap:10px;">
+                     <form action="/admin/user-action" method="POST" onsubmit="return confirm('Are you sure?');" style="flex:1;">
+                        <input type="hidden" name="userId" value="${user.id}">
+                        <input type="hidden" name="action" value="${user.isBlocked ? 'unblock' : 'block'}">
+                        <button style="width:100%; padding:10px; border-radius:8px; border:none; cursor:pointer; background:${user.isBlocked ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}; color:${user.isBlocked ? '#86efac' : '#fca5a5'}; border:1px solid ${user.isBlocked ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'};">
+                            ${user.isBlocked ? 'Unblock User' : 'Block User'}
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Wallet Card -->
+            <div class="glass-panel" style="padding:25px;">
+                <h3 style="margin-top:0; color:#f472b6;">Wallet Balance</h3>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:20px;">
+                    <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:10px;">
+                        <div style="color:#94a3b8; font-size:12px;">Diamonds</div>
+                        <div style="color:#f472b6; font-size:20px; font-weight:bold;">💎 ${user.diamond}</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:10px;">
+                        <div style="color:#94a3b8; font-size:12px;">Coins</div>
+                        <div style="color:#fbbf24; font-size:20px; font-weight:bold;">🪙 ${user.coin}</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:10px;">
+                        <div style="color:#94a3b8; font-size:12px;">BDT Balance</div>
+                        <div style="color:white; font-size:20px; font-weight:bold;">৳ ${user.tk}</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:10px;">
+                        <div style="color:#94a3b8; font-size:12px;">HaMJ T</div>
+                        <div style="color:#38bdf8; font-size:20px; font-weight:bold;">T ${user.lora}</div>
+                    </div>
+                </div>
+            </div>
+         </div>
+
+         <!-- Recent Activity -->
+         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap:20px;">
+            <div class="glass-panel" style="padding:0; overflow:hidden;">
+                <div style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1); font-weight:bold;">Recent TopUps</div>
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                        <tr style="background:rgba(255,255,255,0.02); text-align:left;">
+                            <th style="padding:12px; color:#94a3b8;">Package</th>
+                            <th style="padding:12px; color:#94a3b8;">Amount</th>
+                            <th style="padding:12px; color:#94a3b8;">Status</th>
+                            <th style="padding:12px; color:#94a3b8;">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${user.topUpRequests.length > 0 ? user.topUpRequests.map(r => `
+                            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                                <td style="padding:12px; color:white;">${r.package ? r.package.name : 'Unknown'}</td>
+                                <td style="padding:12px; color:#f472b6;">💎 ${r.package ? r.package.diamondAmount : 0}</td>
+                                <td style="padding:12px;">
+                                    <span style="padding:2px 6px; border-radius:4px; font-size:10px; background:${r.status === 'COMPLETED' ? '#22c55e' : r.status === 'PENDING' ? '#eab308' : '#ef4444'}; color:white;">${r.status}</span>
+                                </td>
+                                <td style="padding:12px; color:#94a3b8;">${new Date(r.createdAt).toLocaleDateString()}</td>
+                            </tr>
+                        `).join('') : '<tr><td colspan="4" style="padding:20px; text-align:center; color:#94a3b8;">No recent topups</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="glass-panel" style="padding:0; overflow:hidden;">
+                <div style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1); font-weight:bold;">Link Tasks</div>
+                <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                        <tr style="background:rgba(255,255,255,0.02); text-align:left;">
+                            <th style="padding:12px; color:#94a3b8;">Task</th>
+                            <th style="padding:12px; color:#94a3b8;">Status</th>
+                            <th style="padding:12px; color:#94a3b8;">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${user.linkSubmissions.length > 0 ? user.linkSubmissions.map(s => `
+                            <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                                <td style="padding:12px; color:white;">${s.promotedLink ? s.promotedLink.title : 'Unknown'}</td>
+                                <td style="padding:12px;">
+                                    <span style="padding:2px 6px; border-radius:4px; font-size:10px; background:${s.status === 'APPROVED' ? '#22c55e' : s.status === 'PENDING' ? '#eab308' : '#ef4444'}; color:white;">${s.status}</span>
+                                </td>
+                                <td style="padding:12px; color:#94a3b8;">${new Date(s.submittedAt).toLocaleDateString()}</td>
+                            </tr>
+                        `).join('') : '<tr><td colspan="3" style="padding:20px; text-align:center; color:#94a3b8;">No tasks submitted</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+         </div>
+      </div>
+      ${getScripts()}
+    `)
 })
 
 router.post('/user-action', requireAdmin, async (req, res) => {
