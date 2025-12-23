@@ -6,7 +6,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "start": "npx prisma migrate deploy && node src/index.js",
+    "start": "npx prisma db push && node src/index.js",
     "dev": "nodemon src/index.js",
     "build": "npm install && npx prisma generate",
     "postinstall": "npx prisma generate || echo 'Prisma generate skipped'",
