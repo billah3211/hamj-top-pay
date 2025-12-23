@@ -1103,9 +1103,26 @@ router.post('/store/delete', requireSuperAdmin, async (req, res) => {
 router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
   const timer = await prisma.systemSetting.findUnique({ where: { key: 'visit_timer' } })
   const screenshotCount = await prisma.systemSetting.findUnique({ where: { key: 'screenshot_count' } })
+  const autoApprove = await prisma.systemSetting.findUnique({ where: { key: 'promote_auto_approve_seconds' } })
 
   const timerVal = timer ? timer.value : '50'
   const screenshotVal = screenshotCount ? screenshotCount.value : '2'
+  const autoApproveSeconds = autoApprove ? parseInt(autoApprove.value) : 0
+  
+  // Convert back to best unit
+  let autoApproveVal = autoApproveSeconds
+  let autoApproveUnit = 'seconds'
+  
+  if (autoApproveSeconds > 0) {
+      if (autoApproveSeconds % 31536000 === 0) { autoApproveVal = autoApproveSeconds / 31536000; autoApproveUnit = 'years'; }
+      else if (autoApproveSeconds % 2592000 === 0) { autoApproveVal = autoApproveSeconds / 2592000; autoApproveUnit = 'months'; }
+      else if (autoApproveSeconds % 86400 === 0) { autoApproveVal = autoApproveSeconds / 86400; autoApproveUnit = 'days'; }
+      else if (autoApproveSeconds % 3600 === 0) { autoApproveVal = autoApproveSeconds / 3600; autoApproveUnit = 'hours'; }
+      else if (autoApproveSeconds % 60 === 0) { autoApproveVal = autoApproveSeconds / 60; autoApproveUnit = 'minutes'; }
+  }
+
+  const activeTaskCount = await prisma.promotedLink.count({ where: { status: 'ACTIVE' } })
+  const pendingSubmissionCount = await prisma.linkSubmission.count({ where: { status: 'PENDING' } })
 
   res.send(`
     ${getHead('Promote Settings')}
@@ -1119,6 +1136,28 @@ router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
       </div>
 
       ${req.query.success ? `<div class="alert success" style="margin-bottom: 24px;">${req.query.success}</div>` : ''}
+
+      <!-- Stats Grid -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-bottom: 32px;">
+        <div class="glass-panel" style="padding: 24px; display: flex; align-items: center; gap: 20px;">
+           <div style="background: rgba(16, 185, 129, 0.2); padding: 12px; border-radius: 12px;">
+             <img src="https://api.iconify.design/lucide:activity.svg?color=%2310b981" width="24">
+           </div>
+           <div>
+             <div style="font-size: 24px; font-weight: 700; color: white;">${activeTaskCount}</div>
+             <div style="color: var(--text-muted); font-size: 14px;">Total Active Tasks</div>
+           </div>
+        </div>
+        <div class="glass-panel" style="padding: 24px; display: flex; align-items: center; gap: 20px;">
+           <div style="background: rgba(245, 158, 11, 0.2); padding: 12px; border-radius: 12px;">
+             <img src="https://api.iconify.design/lucide:clock.svg?color=%23f59e0b" width="24">
+           </div>
+           <div>
+             <div style="font-size: 24px; font-weight: 700; color: white;">${pendingSubmissionCount}</div>
+             <div style="color: var(--text-muted); font-size: 14px;">Pending Submissions</div>
+           </div>
+        </div>
+      </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
         <!-- Settings Card -->
@@ -1142,7 +1181,7 @@ router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
               <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px; padding-left: 4px;">Time users must wait before submitting proof. Default: 50s</div>
             </div>
 
-            <div class="form-group" style="margin-bottom: 32px;">
+            <div class="form-group" style="margin-bottom: 24px;">
               <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 500;">
                 <img src="https://api.iconify.design/lucide:image.svg?color=%2394a3b8" width="16" style="vertical-align: middle; margin-right: 6px;">
                 Required Screenshots
@@ -1151,6 +1190,25 @@ router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
                 <input type="number" name="screenshots" value="${screenshotVal}" class="form-input" style="width: 100%; padding: 14px 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 12px; color: white; font-size: 16px;">
               </div>
               <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px; padding-left: 4px;">Number of proofs required. Default: 2</div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 32px;">
+              <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 500;">
+                <img src="https://api.iconify.design/lucide:clock.svg?color=%2394a3b8" width="16" style="vertical-align: middle; margin-right: 6px;">
+                Auto Approve Time
+              </label>
+              <div style="display: flex; gap: 10px;">
+                <input type="number" name="auto_approve_val" value="${autoApproveVal}" class="form-input" style="flex: 1; padding: 14px 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 12px; color: white; font-size: 16px;">
+                <select name="auto_approve_unit" class="form-input" style="width: 120px; padding: 14px 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 12px; color: white; font-size: 16px;">
+                    <option value="seconds" ${autoApproveUnit === 'seconds' ? 'selected' : ''}>Seconds</option>
+                    <option value="minutes" ${autoApproveUnit === 'minutes' ? 'selected' : ''}>Minutes</option>
+                    <option value="hours" ${autoApproveUnit === 'hours' ? 'selected' : ''}>Hours</option>
+                    <option value="days" ${autoApproveUnit === 'days' ? 'selected' : ''}>Days</option>
+                    <option value="months" ${autoApproveUnit === 'months' ? 'selected' : ''}>Months</option>
+                    <option value="years" ${autoApproveUnit === 'years' ? 'selected' : ''}>Years</option>
+                </select>
+              </div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px; padding-left: 4px;">Submissions older than this will be auto-approved.</div>
             </div>
 
             <button type="submit" class="btn-premium full-width" style="padding: 14px; font-size: 16px; background: linear-gradient(135deg, #ec4899, #8b5cf6);">

@@ -147,18 +147,22 @@ router.get('/', async (req, res) => {
                <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
                   <img src="https://api.iconify.design/lucide:activity.svg?color=%23f472b6" width="20"> Activity Stats
                </h3>
-               <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 15px; text-align: center;">
                  <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
-                   <div style="font-size: 24px; font-weight: bold; color: #f472b6;">${taskCount}</div>
-                   <div style="font-size: 12px; color: #94a3b8;">Tasks Completed</div>
+                   <div style="font-size: 24px; font-weight: bold; color: #4ade80;">${taskCount}</div>
+                   <div style="font-size: 12px; color: #94a3b8;">Completed</div>
+                 </div>
+                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
+                   <div style="font-size: 24px; font-weight: bold; color: #fb923c;">${pendingCount}</div>
+                   <div style="font-size: 12px; color: #94a3b8;">Pending</div>
+                 </div>
+                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
+                   <div style="font-size: 24px; font-weight: bold; color: #f87171;">${rejectedCount}</div>
+                   <div style="font-size: 12px; color: #94a3b8;">Rejected</div>
                  </div>
                  <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
                    <div style="font-size: 24px; font-weight: bold; color: #fbbf24;">${user.coin}</div>
-                   <div style="font-size: 12px; color: #94a3b8;">Coins Earned</div>
-                 </div>
-                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
-                   <div style="font-size: 24px; font-weight: bold; color: #a78bfa;">${user.diamond}</div>
-                   <div style="font-size: 12px; color: #94a3b8;">Diamonds</div>
+                   <div style="font-size: 12px; color: #94a3b8;">Coins</div>
                  </div>
                </div>
             </div>
