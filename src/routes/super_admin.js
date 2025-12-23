@@ -1185,7 +1185,7 @@ router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
 })
 
 router.post('/promote-settings', requireSuperAdmin, async (req, res) => {
-  const { timer, screenshots } = req.body
+  const { timer, screenshots, auto_approve_val, auto_approve_unit } = req.body
   
   await prisma.systemSetting.upsert({
     where: { key: 'visit_timer' },
@@ -1197,6 +1197,20 @@ router.post('/promote-settings', requireSuperAdmin, async (req, res) => {
     where: { key: 'screenshot_count' },
     update: { value: screenshots.toString() },
     create: { key: 'screenshot_count', value: screenshots.toString() }
+  })
+
+  // Calculate Seconds
+  let seconds = parseInt(auto_approve_val)
+  if (auto_approve_unit === 'minutes') seconds *= 60
+  if (auto_approve_unit === 'hours') seconds *= 3600
+  if (auto_approve_unit === 'days') seconds *= 86400
+  if (auto_approve_unit === 'months') seconds *= 2592000 // 30 days
+  if (auto_approve_unit === 'years') seconds *= 31536000 // 365 days
+
+  await prisma.systemSetting.upsert({
+    where: { key: 'promote_auto_approve_seconds' },
+    update: { value: seconds.toString() },
+    create: { key: 'promote_auto_approve_seconds', value: seconds.toString() }
   })
 
   res.redirect('/super-admin/promote-settings?success=Settings+updated')

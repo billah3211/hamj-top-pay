@@ -127,6 +127,7 @@ const getProfileModal = (user, level) => `
         <div style="position: relative;">
             <button class="modal-close" id="profileBack" style="position: absolute; top: -15px; right: -15px; background: rgba(0,0,0,0.5); color: white; border: 2px solid rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; z-index: 100; font-size: 20px; display: flex; align-items: center; justify-content: center;">×</button>
             <div style="background: linear-gradient(135deg, #065f46 0%, #10b981 100%); padding: 30px 20px 20px; border-radius: 24px; position: relative; overflow: visible; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);">
+                <input type="hidden" id="profileUsername" value="${user.username}">
                 <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
                    <div style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">${user.firstName} ${user.lastName}</div>
                    <div style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@${user.username}</div>
@@ -135,6 +136,23 @@ const getProfileModal = (user, level) => `
                        <div>📧 ${user.email}</div>
                        <div>📅 Joined: ${new Date(user.createdAt).toLocaleDateString()}</div>
                    </div>
+                   
+                   <!-- Task Stats -->
+                   <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 15px; text-align: center; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+                        <div style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 8px;">
+                            <div style="font-weight: bold; color: #4ade80; font-size: 16px;" id="p_completed">-</div>
+                            <div style="font-size: 10px; color: #cbd5e1; text-transform: uppercase;">Completed</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 8px;">
+                            <div style="font-weight: bold; color: #fb923c; font-size: 16px;" id="p_pending">-</div>
+                            <div style="font-size: 10px; color: #cbd5e1; text-transform: uppercase;">Pending</div>
+                        </div>
+                        <div style="background: rgba(255,255,255,0.1); padding: 8px; border-radius: 8px;">
+                            <div style="font-weight: bold; color: #f87171; font-size: 16px;" id="p_rejected">-</div>
+                            <div style="font-size: 10px; color: #cbd5e1; text-transform: uppercase;">Rejected</div>
+                        </div>
+                   </div>
+
                 </div>
                 <div style="display: flex; gap: 20px; align-items: flex-start;">
                     <div style="width: 110px; height: 110px; border-radius: 50%; border: 6px solid #000; overflow: hidden; background: #1a1a2e; flex-shrink: 0; z-index: 10; margin-top: -10px; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
@@ -206,6 +224,19 @@ const getFooter = (user, level) => `
         if(profileModal) {
           profileModal.classList.add('open');
           profileOverlay.classList.remove('hidden');
+
+          // Fetch stats if available
+          const usernameInput = document.getElementById('profileUsername');
+          if (usernameInput && usernameInput.value) {
+            fetch('/api/profile/' + usernameInput.value)
+              .then(res => res.json())
+              .then(data => {
+                if(document.getElementById('p_completed')) document.getElementById('p_completed').innerText = data.taskCount || 0;
+                if(document.getElementById('p_pending')) document.getElementById('p_pending').innerText = data.pendingCount || 0;
+                if(document.getElementById('p_rejected')) document.getElementById('p_rejected').innerText = data.rejectedCount || 0;
+              })
+              .catch(err => console.error(err));
+          }
         }
       }
       function closeProfile() {
@@ -763,6 +794,7 @@ router.get('/earn', requireLogin, async (req, res) => {
     }
 
     const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+    const myPendingCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'PENDING' } })
     const level = calculateLevel(taskCount)
 
     const links = await prisma.promotedLink.findMany({
@@ -772,11 +804,14 @@ router.get('/earn', requireLogin, async (req, res) => {
     })
 
     // Filter out links user has already submitted (any status) AND their own links
-    const availableLinks = links.filter(l => 
+    const allAvailable = links.filter(l => 
       l.userId !== req.session.userId && 
       l.submissions.length === 0 && 
       l.completedVisits < l.targetVisits
-    ).slice(0, 1) // Show only 1 task at a time
+    )
+    
+    const availableCount = allAvailable.length
+    const availableLinks = allAvailable.slice(0, 1) // Show only 1 task at a time
 
     const settings = await getSettings()
     
@@ -805,6 +840,22 @@ router.get('/earn', requireLogin, async (req, res) => {
             <div style="color:var(--text-muted)">Complete tasks one by one to earn coins</div>
           </div>
         </div>
+
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
+           <div class="glass-panel" style="padding: 15px; text-align: center;">
+             <div style="font-size: 20px; font-weight: bold; color: #60a5fa;">${availableCount}</div>
+             <div style="font-size: 12px; color: var(--text-muted);">Available</div>
+           </div>
+           <div class="glass-panel" style="padding: 15px; text-align: center;">
+             <div style="font-size: 20px; font-weight: bold; color: #4ade80;">${taskCount}</div>
+             <div style="font-size: 12px; color: var(--text-muted);">Total Done</div>
+           </div>
+           <div class="glass-panel" style="padding: 15px; text-align: center;">
+             <div style="font-size: 20px; font-weight: bold; color: #fb923c;">${myPendingCount}</div>
+             <div style="font-size: 12px; color: var(--text-muted);">Pending</div>
+           </div>
+        </div>
+
         ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
         ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
         ${availableLinks.length ? availableLinks.map(renderTask).join('') : '<div class="empty-state">No tasks available right now. Please check back later!</div>'}

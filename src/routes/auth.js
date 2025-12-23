@@ -435,34 +435,7 @@ router.get('/dashboard', async (req, res) => {
   `
   
   // Public Profile API
-  router.get('/api/profile/:username', async (req, res) => {
-    try {
-      const user = await prisma.user.findUnique({
-        where: { username: req.params.username },
-        select: {
-          firstName: true,
-          lastName: true,
-          username: true,
-          email: true,
-          country: true,
-          bio: true,
-          website: true,
-          social: true,
-          createdAt: true,
-          currentAvatar: true,
-          role: true
-        }
-      })
-      if (!user) return res.status(404).json({ error: 'User not found' })
 
-      const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
-      const level = calculateLevel(taskCount)
-
-      res.json({ ...user, level, taskCount })
-    } catch (e) {
-      res.status(500).json({ error: e.message })
-    }
-  })
 
   // API Endpoint (moved up)
 
@@ -999,6 +972,37 @@ router.get('/auth/logout', async (req, res) => {
   req.session.destroy(() => {
     res.redirect('/login')
   })
+})
+
+router.get('/api/profile/:username', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { username: req.params.username },
+      select: {
+        firstName: true,
+        lastName: true,
+        username: true,
+        email: true,
+        country: true,
+        bio: true,
+        website: true,
+        social: true,
+        createdAt: true,
+        currentAvatar: true,
+        role: true
+      }
+    })
+    if (!user) return res.status(404).json({ error: 'User not found' })
+
+    const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
+    const pendingCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'PENDING' } })
+    const rejectedCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'REJECTED' } })
+    const level = calculateLevel(taskCount)
+
+    res.json({ ...user, level, taskCount, pendingCount, rejectedCount })
+  } catch (e) {
+    res.status(500).json({ error: e.message })
+  }
 })
 
 module.exports = router
