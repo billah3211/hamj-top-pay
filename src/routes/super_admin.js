@@ -1628,7 +1628,7 @@ router.get('/topup-wallets', requireSuperAdmin, async (req, res) => {
     <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
       <td style="padding:16px;">
          <div style="display:flex;align-items:center;gap:10px">
-           ${wallet.icon ? `<img src="${wallet.icon}" style="width:50px;height:50px;border-radius:12px;object-fit:cover;background:rgba(255,255,255,0.1)">` : '<div style="width:50px;height:50px;border-radius:12px;background:rgba(255,255,255,0.1);display:grid;place-items:center;color:var(--text-muted);font-size:10px">No Icon</div>'}
+           ${wallet.icon ? `<img src="${wallet.icon}" style="width:50px;height:50px;border-radius:50%;object-fit:cover;background:rgba(255,255,255,0.1)">` : '<div style="width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,0.1);display:grid;place-items:center;color:var(--text-muted);font-size:10px">No Icon</div>'}
            <span style="color:white;font-weight:500">${wallet.name}</span>
          </div>
       </td>

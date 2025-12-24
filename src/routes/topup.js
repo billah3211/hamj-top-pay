@@ -322,7 +322,7 @@ router.get('/:pkgId/wallets', requireAuth, async (req, res) => {
         ${wallets.map(wallet => `
           <a href="/topup/${pkg.id}/pay/${wallet.id}" class="wallet-item">
             <div style="display: flex; align-items: center; gap: 16px;">
-               <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.1); border-radius: 12px; display: grid; place-items: center; overflow: hidden;">
+               <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid rgba(255,255,255,0.1); display: grid; place-items: center; overflow: hidden;">
                  ${wallet.icon ? 
                    `<img src="${wallet.icon}" style="width: 100%; height: 100%; object-fit: cover;">` : 
                    `<img src="https://api.iconify.design/lucide:wallet.svg?color=white" width="24">`
