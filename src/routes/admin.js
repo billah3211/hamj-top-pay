@@ -282,23 +282,50 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
 
 // Users List
 router.get('/users', requireAdmin, async (req, res) => {
-  const where = req.session.role !== 'SUPER_ADMIN' ? { role: { not: 'SUPER_ADMIN' } } : {}
+  const q = req.query.q || ''
+  const where = {
+    ...(req.session.role !== 'SUPER_ADMIN' ? { role: { not: 'SUPER_ADMIN' } } : {}),
+    ...(q ? {
+        OR: [
+            { username: { contains: q, mode: 'insensitive' } },
+            { email: { contains: q, mode: 'insensitive' } },
+            { phone: { contains: q, mode: 'insensitive' } }
+        ]
+    } : {})
+  }
+
   const users = await prisma.user.findMany({
     where,
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
+    take: 100,
+    include: {
+        _count: {
+            select: { 
+                linkSubmissions: { where: { status: 'APPROVED' } }
+            }
+        }
+    }
   })
 
   res.send(`
     ${getHead('Users')}
     ${getSidebar('users', req.session.role)}
     <div class="main-content">
-      <div class="section-title">All Users</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div class="section-title" style="margin:0;">Users (Top 100)</div>
+        <form action="/admin/users" method="GET" style="display:flex; gap:10px;">
+            <input type="text" name="q" value="${q}" placeholder="Search username, email..." style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; padding:8px 12px; border-radius:5px;">
+            <button style="background:#3b82f6; color:white; border:none; padding:8px 15px; border-radius:5px; cursor:pointer;">Search</button>
+        </form>
+      </div>
+      
       <div class="glass-panel" style="padding:0; overflow:hidden;">
         <div style="overflow-x:auto;">
-            <table style="width:100%; border-collapse:collapse; min-width:800px;">
+            <table style="width:100%; border-collapse:collapse; min-width:1000px;">
               <thead>
                 <tr style="background:rgba(255,255,255,0.05); text-align:left;">
                   <th style="padding:15px; color:#94a3b8; font-weight:500;">User</th>
+                  <th style="padding:15px; color:#94a3b8; font-weight:500;">Stats</th>
                   <th style="padding:15px; color:#94a3b8; font-weight:500;">Balance</th>
                   <th style="padding:15px; color:#94a3b8; font-weight:500;">Role</th>
                   <th style="padding:15px; color:#94a3b8; font-weight:500;">Status</th>
@@ -306,7 +333,10 @@ router.get('/users', requireAdmin, async (req, res) => {
                 </tr>
               </thead>
               <tbody>
-                ${users.map(user => `
+                ${users.map(user => {
+                  const work = user._count.linkSubmissions
+                  const level = calculateLevel(work)
+                  return `
                   <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
                     <td style="padding:15px;">
                       <div style="font-weight:bold; color:white;">${user.firstName} ${user.lastName}</div>
@@ -314,9 +344,16 @@ router.get('/users', requireAdmin, async (req, res) => {
                       <div style="font-size:12px; color:#94a3b8;">${user.email}</div>
                     </td>
                     <td style="padding:15px;">
-                      <div style="color:#f472b6;">💎 ${user.diamond}</div>
+                       <div style="font-size:12px; color:white;">Level: <span style="color:#facc15;">${level}</span></div>
+                       <div style="font-size:12px; color:white;">Work: <span style="color:#a855f7;">${work}</span></div>
+                       <div style="font-size:12px; color:white;">Score: <span style="color:#f59e0b;">${user.guildScore}</span></div>
+                    </td>
+                    <td style="padding:15px;">
+                      <div style="color:#22c55e; font-weight:bold;">$ ${Number(user.dk).toFixed(3)}</div>
+                      <div style="color:#f472b6; font-size:12px;">💎 ${user.diamond}</div>
                       <div style="color:#fbbf24; font-size:12px;">🪙 ${user.coin}</div>
                       <div style="color:white; font-size:12px;">৳ ${user.tk}</div>
+                      <div style="color:#38bdf8; font-size:12px;">T ${user.lora}</div>
                     </td>
                     <td style="padding:15px;">
                       <span style="padding:2px 8px; border-radius:4px; font-size:11px; background:${user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' ? '#ec4899' : '#3b82f6'}; color:white;">${user.role}</span>
@@ -325,19 +362,26 @@ router.get('/users', requireAdmin, async (req, res) => {
                        <span style="color:${user.isBlocked ? '#ef4444' : '#22c55e'};">${user.isBlocked ? 'Blocked' : 'Active'}</span>
                     </td>
                     <td style="padding:15px;">
-                      <div style="display:flex; gap:5px;">
+                      <div style="display:flex; gap:5px; flex-wrap:wrap;">
                         <a href="/admin/user/${user.id}" style="padding:6px 12px; border-radius:5px; text-decoration:none; background:rgba(59,130,246,0.2); color:#60a5fa; border:1px solid rgba(59,130,246,0.3); font-size:13px;">View</a>
-                        <form action="/admin/user-action" method="POST" onsubmit="return confirm('Are you sure?');">
+                        <form action="/admin/user-action" method="POST" onsubmit="return confirm('Are you sure?');" style="display:inline;">
                             <input type="hidden" name="userId" value="${user.id}">
                             <input type="hidden" name="action" value="${user.isBlocked ? 'unblock' : 'block'}">
                             <button style="padding:6px 12px; border-radius:5px; border:none; cursor:pointer; background:${user.isBlocked ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}; color:${user.isBlocked ? '#86efac' : '#fca5a5'}; border:1px solid ${user.isBlocked ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'};">
                                 ${user.isBlocked ? 'Unblock' : 'Block'}
                             </button>
                         </form>
+                        ${req.session.role === 'SUPER_ADMIN' || req.session.role === 'ADMIN' ? `
+                        <form action="/admin/user-delete" method="POST" onsubmit="return confirm('Are you sure you want to delete this user?');" style="display:inline;">
+                             <input type="hidden" name="userId" value="${user.id}">
+                             <button style="padding:6px 12px; border-radius:5px; border:none; cursor:pointer; background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.3);">Del</button>
+                        </form>
+                        ` : ''}
                       </div>
                     </td>
                   </tr>
-                `).join('')}
+                  `
+                }).join('')}
               </tbody>
             </table>
         </div>
@@ -430,7 +474,7 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
                             ${user.isBlocked ? 'Unblock User' : 'Block User'}
                         </button>
                     </form>
-                    ${req.session.role === 'SUPER_ADMIN' ? `
+                    ${req.session.role === 'SUPER_ADMIN' || req.session.role === 'ADMIN' ? `
                     <form action="/admin/user-delete" method="POST" onsubmit="return confirm('WARNING: This will permanently delete the user and ALL related data. This cannot be undone. Are you sure?');" style="flex:1;">
                         <input type="hidden" name="userId" value="${user.id}">
                         <button style="width:100%; padding:10px; border-radius:8px; border:none; cursor:pointer; background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.3);">
@@ -461,6 +505,10 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
                         <div style="color:#94a3b8; font-size:12px;">HaMJ T</div>
                         <div style="color:#38bdf8; font-size:20px; font-weight:bold;">T ${user.lora}</div>
                     </div>
+                    <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:10px; grid-column: span 2;">
+                        <div style="color:#94a3b8; font-size:12px;">Dollar</div>
+                        <div style="color:#22c55e; font-size:20px; font-weight:bold;">$ ${Number(user.dk).toFixed(3)}</div>
+                    </div>
                 </div>
 
                 ${req.session.role === 'SUPER_ADMIN' ? `
@@ -474,13 +522,14 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
                                 <option value="coin">Coins 🪙</option>
                                 <option value="tk">BDT ৳</option>
                                 <option value="lora">HaMJ T</option>
+                                <option value="dk">Dollar $</option>
                             </select>
                             <select name="operation" style="flex:1; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; padding:8px; border-radius:5px;">
                                 <option value="add">Add (+)</option>
                                 <option value="subtract">Subtract (-)</option>
                             </select>
                         </div>
-                        <input type="number" name="amount" placeholder="Amount" required min="1" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; padding:10px; border-radius:5px;">
+                        <input type="number" name="amount" placeholder="Amount" required step="any" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; padding:10px; border-radius:5px;">
                         <button style="background:#f472b6; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;">Update Balance</button>
                     </form>
                 </div>
@@ -574,7 +623,14 @@ router.post('/user-balance', requireAdmin, async (req, res) => {
     if (req.session.role !== 'SUPER_ADMIN') return res.redirect('/admin/users')
 
     const { userId, type, operation, amount } = req.body
-    const val = parseInt(amount)
+    let val = 0
+    
+    if (type === 'tk' || type === 'dk') {
+        val = parseFloat(amount)
+    } else {
+        val = parseInt(amount)
+    }
+
     const id = parseInt(userId)
 
     if (isNaN(val) || val <= 0) return res.redirect(`/admin/user/${id}`)
@@ -591,7 +647,7 @@ router.post('/user-balance', requireAdmin, async (req, res) => {
         prisma.notification.create({
             data: {
                 userId: id,
-                message: `Admin ${operation === 'add' ? 'added' : 'deducted'} ${val} ${type} ${operation === 'add' ? 'to' : 'from'} your balance.`,
+                message: `Admin ${operation === 'add' ? 'added' : 'deducted'} ${val} ${type === 'dk' ? 'Dollar' : type} ${operation === 'add' ? 'to' : 'from'} your balance.`,
                 type: operation === 'add' ? 'credit' : 'debit'
             }
         })
@@ -601,7 +657,7 @@ router.post('/user-balance', requireAdmin, async (req, res) => {
 })
 
 router.post('/user-delete', requireAdmin, async (req, res) => {
-    if (req.session.role !== 'SUPER_ADMIN') return res.redirect('/admin/users')
+    if (req.session.role !== 'SUPER_ADMIN' && req.session.role !== 'ADMIN') return res.redirect('/admin/users')
     
     const { userId } = req.body
     const id = parseInt(userId)
