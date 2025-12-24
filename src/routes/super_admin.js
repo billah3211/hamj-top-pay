@@ -1948,9 +1948,14 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
   const settings = await getSystemSettings()
   const guilds = await prisma.guild.findMany({
     take: 100,
-    orderBy: { totalEarnings: 'desc' },
+    orderBy: [
+      { level: 'desc' },
+      { totalEarnings: 'desc' }
+    ],
     include: { leader: true }
   })
+  
+  const banners = await prisma.leaderboardBanner.findMany({ orderBy: { createdAt: 'desc' } })
 
   res.send(`
     ${getHead('Leaderboard Bonuses')}
@@ -1962,12 +1967,60 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
         </div>
         <div>
           <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">Leaderboard Bonuses</div>
-          <div style="color:var(--text-muted); font-size: 16px;">Distribute bonuses to top performing guilds</div>
+          <div style="color:var(--text-muted); font-size: 16px;">Manage banners and distribute level-based bonuses</div>
         </div>
       </div>
 
       ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
       ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
+      
+      <!-- Banners Management -->
+      <div class="glass-panel" style="padding: 24px; margin-bottom: 32px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+          <h3 style="margin:0; font-size: 20px;">Leaderboard Banners</h3>
+          <button onclick="document.getElementById('addBannerForm').style.display='block'" class="btn-premium" style="padding: 8px 16px; font-size: 14px;">+ Add Banner</button>
+        </div>
+        
+        <!-- Add Banner Form -->
+        <div id="addBannerForm" style="display:none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
+          <form action="/super-admin/leaderboard-banners/add" method="POST" enctype="multipart/form-data">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+              <div>
+                <label class="form-label">Banner Image</label>
+                <input type="file" name="image" required accept="image/*" class="form-input" style="padding: 8px;">
+              </div>
+              <div>
+                 <label class="form-label">Description (Optional)</label>
+                 <input type="text" name="description" placeholder="e.g. 1st Place Reward" class="form-input">
+              </div>
+            </div>
+            <div style="margin-top: 15px; text-align: right;">
+              <button type="button" onclick="document.getElementById('addBannerForm').style.display='none'" class="btn-premium" style="background: transparent; border: 1px solid rgba(255,255,255,0.2);">Cancel</button>
+              <button type="submit" class="btn-premium">Upload Banner</button>
+            </div>
+          </form>
+        </div>
+        
+        <!-- Banners List -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px;">
+          ${banners.map(banner => `
+            <div style="background: rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+              <img src="${banner.imageUrl}" style="width: 100%; height: 100px; object-fit: cover;">
+              <div style="padding: 12px;">
+                <div style="font-size: 14px; font-weight: bold; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${banner.description || 'No Description'}</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+                  <span style="font-size: 11px; color: var(--text-muted);">${new Date(banner.createdAt).toLocaleDateString()}</span>
+                  <form action="/super-admin/leaderboard-banners/delete" method="POST" onsubmit="return confirm('Delete this banner?')" style="margin:0;">
+                    <input type="hidden" name="id" value="${banner.id}">
+                    <button class="btn-premium" style="padding: 4px 8px; font-size: 11px; background: rgba(239,68,68,0.2); color: #fca5a5; border-color: rgba(239,68,68,0.3);">Delete</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+          ${banners.length === 0 ? '<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 20px;">No banners uploaded yet. Upload banners to show prizes on the leaderboard.</div>' : ''}
+        </div>
+      </div>
 
       <form action="/super-admin/distribute-bonuses" method="POST" id="bonusForm">
         
@@ -1988,19 +2041,23 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
 
             <div style="flex: 2; min-width: 300px; display: flex; gap: 10px; align-items: flex-end;">
                <div style="flex:1">
-                 <label class="form-label">Quick Set: Top</label>
-                 <input type="number" id="quickRank" placeholder="10" class="form-input" min="1" max="100">
+                 <label class="form-label">Filter by Level</label>
+                 <input type="number" id="filterLevel" placeholder="1" class="form-input" min="0">
+               </div>
+               <div style="flex:1">
+                 <label class="form-label">Top N Users</label>
+                 <input type="number" id="quickRank" placeholder="5" class="form-input" min="1" max="100">
                </div>
                <div style="flex:1">
                  <label class="form-label">Amount</label>
-                 <input type="number" id="quickAmount" placeholder="5" class="form-input">
+                 <input type="number" id="quickAmount" placeholder="10" class="form-input">
                </div>
-               <button type="button" class="btn-premium" onclick="applyQuickSet()">Apply</button>
+               <button type="button" class="btn-premium" onclick="applyLevelBonus()">Apply</button>
             </div>
 
           </div>
           <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
-            Use "Quick Set" to fill bonus amounts for the top N guilds automatically. You can also edit individual amounts below.
+            Use "Filter by Level" to target specific level holders. Example: Set Level=1, Top N=5, Amount=10 to give $10 to the first 5 guilds at Level 1.
           </div>
         </div>
 
@@ -2011,6 +2068,7 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
               <tr style="background: rgba(255,255,255,0.02); text-align: left;">
                 <th style="padding: 16px; color: var(--text-muted);">Rank</th>
                 <th style="padding: 16px; color: var(--text-muted);">Guild</th>
+                <th style="padding: 16px; color: var(--text-muted);">Level</th>
                 <th style="padding: 16px; color: var(--text-muted);">Leader</th>
                 <th style="padding: 16px; color: var(--text-muted);">Earnings</th>
                 <th style="padding: 16px; color: var(--text-muted);">Bonus Amount</th>
@@ -2026,7 +2084,10 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
                   </td>
                   <td style="padding: 16px;">
                     <div style="font-weight: 600; color: white;">${guild.name}</div>
-                    <div style="font-size: 12px; color: var(--text-muted);">Lvl ${guild.level} • ${guild.members ? guild.members.length : 0} Members</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">${guild.members ? guild.members.length : 0} Members</div>
+                  </td>
+                  <td style="padding: 16px;">
+                     <span class="level-badge" style="background: rgba(236, 72, 153, 0.2); color: #ec4899; padding: 4px 10px; border-radius: 20px; font-weight: bold; border: 1px solid rgba(236, 72, 153, 0.3);">Level ${guild.level}</span>
                   </td>
                   <td style="padding: 16px;">
                     <div style="display: flex; align-items: center; gap: 8px;">
@@ -2038,7 +2099,7 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
                     $${guild.totalEarnings.toFixed(2)}
                   </td>
                   <td style="padding: 16px;">
-                    <input type="number" step="0.01" name="bonus_${guild.id}" class="form-input bonus-input" data-rank="${index + 1}" placeholder="0" style="width: 120px;">
+                    <input type="number" step="0.01" name="bonus_${guild.id}" class="form-input bonus-input" data-level="${guild.level}" data-rank="${index + 1}" placeholder="0" style="width: 120px;">
                   </td>
                 </tr>
               `).join('')}
@@ -2057,23 +2118,81 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
     </div>
     
     <script>
-      function applyQuickSet() {
-        const rank = parseInt(document.getElementById('quickRank').value);
+      function applyLevelBonus() {
+        const targetLevel = parseInt(document.getElementById('filterLevel').value);
+        const topN = parseInt(document.getElementById('quickRank').value);
         const amount = document.getElementById('quickAmount').value;
         
-        if (!rank || !amount) return;
+        if (isNaN(targetLevel) || !topN || !amount) {
+           alert('Please fill in Level, Top N users count, and Amount');
+           return;
+        }
         
+        // Reset all first
         const inputs = document.querySelectorAll('.bonus-input');
+        inputs.forEach(input => input.value = '');
+
+        let count = 0;
         inputs.forEach(input => {
-          const inputRank = parseInt(input.getAttribute('data-rank'));
-          if (inputRank <= rank) {
-            input.value = amount;
+          const level = parseInt(input.getAttribute('data-level'));
+          
+          if (level === targetLevel) {
+            if (count < topN) {
+               input.value = amount;
+               count++;
+            }
           }
         });
+        
+        if (count === 0) {
+          alert('No guilds found matching Level ' + targetLevel);
+        } else {
+          alert('Applied bonus to ' + count + ' guilds at Level ' + targetLevel);
+        }
       }
     </script>
     ${getScripts()}
   `)
+})
+
+router.post('/leaderboard-banners/add', requireSuperAdmin, upload.single('image'), async (req, res) => {
+  try {
+    const { description } = req.body
+    const imageUrl = req.file ? req.file.path : null
+    
+    if (!imageUrl) throw new Error('Image is required')
+    
+    await prisma.leaderboardBanner.create({
+      data: {
+        imageUrl,
+        description
+      }
+    })
+    res.redirect('/super-admin/leaderboard-bonuses?success=Banner+added')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/leaderboard-bonuses?error=' + encodeURIComponent(e.message))
+  }
+})
+
+router.post('/leaderboard-banners/delete', requireSuperAdmin, async (req, res) => {
+  try {
+    const { id } = req.body
+    const banner = await prisma.leaderboardBanner.findUnique({ where: { id: parseInt(id) } })
+    
+    if (banner) {
+       // Optional: Delete file from disk if local storage
+       if (banner.imageUrl && banner.imageUrl.startsWith('/uploads/')) {
+          const filePath = path.join(__dirname, '../../public', banner.imageUrl)
+          if (fs.existsSync(filePath)) fs.unlinkSync(filePath)
+       }
+       await prisma.leaderboardBanner.delete({ where: { id: parseInt(id) } })
+    }
+    res.redirect('/super-admin/leaderboard-bonuses?success=Banner+deleted')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/leaderboard-bonuses?error=' + encodeURIComponent(e.message))
+  }
 })
 
 router.post('/distribute-bonuses', requireSuperAdmin, async (req, res) => {

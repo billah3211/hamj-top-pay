@@ -93,6 +93,48 @@ const getHead = (title) => `
       font-family: var(--font-head);
       letter-spacing: 1px;
     }
+
+    /* Banner Slider */
+    .banner-container {
+      width: 100%;
+      max-width: 1000px;
+      margin: 20px auto 40px;
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+      aspect-ratio: 21/9;
+      background: #1e293b;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    @media (max-width: 600px) {
+      .banner-container { aspect-ratio: 16/9; margin: 10px auto 30px; }
+    }
+    .banner-slide {
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      opacity: 0;
+      transition: opacity 0.8s ease-in-out;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .banner-slide.active { opacity: 1; z-index: 1; }
+    .banner-slide img { width: 100%; height: 100%; object-fit: cover; }
+    .banner-caption {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 40px 20px 20px;
+      background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+      color: white; font-weight: 600; font-size: 16px;
+      text-align: center;
+    }
+    .banner-dots {
+      position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 8px; z-index: 10;
+    }
+    .banner-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.3);
+      cursor: pointer; transition: all 0.3s;
+    }
+    .banner-dot.active { background: #fff; width: 24px; border-radius: 4px; }
   </style>
 </head>
 <body>
@@ -106,17 +148,48 @@ const getFooter = () => `
       const menuBtn = document.getElementById('mobileMenuBtn');
       const sidebar = document.getElementById('sidebar');
       if(menuBtn) menuBtn.addEventListener('click', () => sidebar.classList.toggle('open'));
+
+      // Banner Slider
+      const slides = document.querySelectorAll('.banner-slide');
+      const dots = document.querySelectorAll('.banner-dot');
+      let currentSlide = 0;
+      
+      function showSlide(n) {
+        if (slides.length === 0) return;
+        slides.forEach(s => s.classList.remove('active'));
+        dots.forEach(d => d.classList.remove('active'));
+        
+        currentSlide = n;
+        if (currentSlide >= slides.length) currentSlide = 0;
+        if (currentSlide < 0) currentSlide = slides.length - 1;
+        
+        slides[currentSlide].classList.add('active');
+        dots[currentSlide].classList.add('active');
+      }
+      
+      function nextSlide() {
+        showSlide(currentSlide + 1);
+      }
+      
+      if (slides.length > 0) {
+        setInterval(nextSlide, 5000);
+      }
     </script>
   </body>
   </html>
 `
 
 router.get('/', async (req, res) => {
-  const guilds = await prisma.guild.findMany({
-    take: 100,
-    orderBy: { totalEarnings: 'desc' },
-    include: { leader: true }
-  })
+  const [guilds, banners] = await Promise.all([
+    prisma.guild.findMany({
+      take: 100,
+      orderBy: { totalEarnings: 'desc' },
+      include: { leader: true }
+    }),
+    prisma.leaderboardBanner.findMany({
+      orderBy: { createdAt: 'desc' }
+    })
+  ])
 
   let unreadCount = 0
   let currentUserId = null
@@ -130,6 +203,23 @@ router.get('/', async (req, res) => {
   }
 
   const settings = await getSystemSettings()
+  
+  const bannerHtml = banners.length > 0 ? `
+    <div class="banner-container">
+      ${banners.map((b, i) => `
+        <div class="banner-slide ${i === 0 ? 'active' : ''}">
+          <img src="${b.imageUrl}" alt="Banner">
+          ${b.description ? `<div class="banner-caption">${b.description}</div>` : ''}
+        </div>
+      `).join('')}
+      
+      <div class="banner-dots">
+        ${banners.map((_, i) => `
+          <div class="banner-dot ${i === 0 ? 'active' : ''}" onclick="showSlide(${i})"></div>
+        `).join('')}
+      </div>
+    </div>
+  ` : ''
 
   res.send(`
     ${getHead('Guild Leaderboard')}
@@ -137,6 +227,7 @@ router.get('/', async (req, res) => {
     
     <div class="main-content">
       <div class="leaderboard-container">
+        ${bannerHtml}
         <div class="leaderboard-title">
           <i class="fas fa-crown"></i> Top 100 Guilds
         </div>
@@ -164,6 +255,7 @@ router.get('/', async (req, res) => {
                        ${rank <= 3 ? '<i class="fas fa-check-circle" style="color:#34d399; margin-left:5px;"></i>' : ''}
                      </div>
                      <div class="guild-leader">Leader: ${g.leader.firstName} ${g.leader.lastName}</div>
+                     <div style="font-size:12px; color:#facc15; margin-top:2px;">Level ${g.level}</div>
                    </div>
                 </div>
                 <div class="score-badge">
