@@ -29,7 +29,7 @@ async function requireLogin(req, res, next) {
 
 // Helper: Get System Settings
 async function getSettings() {
-  const keys = ['visit_timer', 'screenshot_count', 'promote_packages', 'promote_reward', 'promote_auto_approve_minutes']
+  const keys = ['visit_timer', 'screenshot_count', 'promote_packages', 'promote_reward', 'promote_auto_approve_seconds']
   const settings = await prisma.systemSetting.findMany({ where: { key: { in: keys } } })
   
   const getVal = (k, def) => {
@@ -51,13 +51,13 @@ async function getSettings() {
     screenshotCount: parseInt(getVal('screenshot_count', '2')),
     packages: JSON.parse(getVal('promote_packages', pkgDefault)),
     rewards: JSON.parse(getVal('promote_reward', rewardDefault)),
-    autoApproveMinutes: parseInt(getVal('promote_auto_approve_minutes', '2880'))
+    autoApproveSeconds: parseInt(getVal('promote_auto_approve_seconds', '172800')) // Default 48h
   }
 }
 
 async function checkAutoApprovals() {
   const settings = await getSettings()
-  const cutoff = new Date(Date.now() - settings.autoApproveMinutes * 60000)
+  const cutoff = new Date(Date.now() - settings.autoApproveSeconds * 1000)
   
   // Auto Approve Pending
   const expired = await prisma.linkSubmission.findMany({

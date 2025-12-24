@@ -1172,10 +1172,12 @@ router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
   const timer = await prisma.systemSetting.findUnique({ where: { key: 'visit_timer' } })
   const screenshotCount = await prisma.systemSetting.findUnique({ where: { key: 'screenshot_count' } })
   const autoApprove = await prisma.systemSetting.findUnique({ where: { key: 'promote_auto_approve_seconds' } })
+  const rewardSetting = await prisma.systemSetting.findUnique({ where: { key: 'promote_reward' } })
 
   const timerVal = timer ? timer.value : '50'
   const screenshotVal = screenshotCount ? screenshotCount.value : '2'
   const autoApproveSeconds = autoApprove ? parseInt(autoApprove.value) : 0
+  const rewards = rewardSetting ? JSON.parse(rewardSetting.value) : { coin: 0, diamond: 0, tk: 0 }
   
   // Convert back to best unit
   let autoApproveVal = autoApproveSeconds
@@ -1199,7 +1201,7 @@ router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
       <div class="section-header" style="margin-bottom: 32px;">
         <div>
           <div class="section-title" style="font-size: 24px;">Promote Settings</div>
-          <div style="color:var(--text-muted)">Configure visit timer and screenshot requirements</div>
+          <div style="color:var(--text-muted)">Configure visit timer, rewards, and requirements</div>
         </div>
       </div>
 
@@ -1238,6 +1240,29 @@ router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
           </div>
 
           <form action="/super-admin/promote-settings" method="POST">
+            
+            <div class="form-group" style="margin-bottom: 24px;">
+               <label class="form-label" style="display: block; margin-bottom: 12px; font-weight: 500;">
+                 <img src="https://api.iconify.design/lucide:gift.svg?color=%2394a3b8" width="16" style="vertical-align: middle; margin-right: 6px;">
+                 User Rewards (Per Task)
+               </label>
+               <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                 <div>
+                   <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Coin</label>
+                   <input type="number" name="reward_coin" value="${rewards.coin || 0}" class="form-input" style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
+                 </div>
+                 <div>
+                   <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Diamond</label>
+                   <input type="number" name="reward_diamond" value="${rewards.diamond || 0}" class="form-input" style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
+                 </div>
+                 <div>
+                   <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Taka (TK)</label>
+                   <input type="number" step="0.01" name="reward_tk" value="${rewards.tk || 0}" class="form-input" style="width: 100%; padding: 10px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 8px; color: white;">
+                 </div>
+               </div>
+               <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px; padding-left: 4px;">Amount users earn when their task is approved.</div>
+            </div>
+
             <div class="form-group" style="margin-bottom: 24px;">
               <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 500;">
                 <img src="https://api.iconify.design/lucide:timer.svg?color=%2394a3b8" width="16" style="vertical-align: middle; margin-right: 6px;">
@@ -1311,7 +1336,7 @@ router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
 })
 
 router.post('/promote-settings', requireSuperAdmin, async (req, res) => {
-  const { timer, screenshots, auto_approve_val, auto_approve_unit } = req.body
+  const { timer, screenshots, auto_approve_val, auto_approve_unit, reward_coin, reward_diamond, reward_tk } = req.body
   
   await prisma.systemSetting.upsert({
     where: { key: 'visit_timer' },
@@ -1323,6 +1348,19 @@ router.post('/promote-settings', requireSuperAdmin, async (req, res) => {
     where: { key: 'screenshot_count' },
     update: { value: screenshots.toString() },
     create: { key: 'screenshot_count', value: screenshots.toString() }
+  })
+
+  // Save Rewards
+  const rewards = {
+    coin: parseInt(reward_coin || 0),
+    diamond: parseInt(reward_diamond || 0),
+    tk: parseFloat(reward_tk || 0)
+  }
+
+  await prisma.systemSetting.upsert({
+    where: { key: 'promote_reward' },
+    update: { value: JSON.stringify(rewards) },
+    create: { key: 'promote_reward', value: JSON.stringify(rewards) }
   })
 
   // Calculate Seconds
