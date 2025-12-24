@@ -118,19 +118,16 @@ router.get('/', requireLogin, async (req, res) => {
       ${user.guild ? `
         <!-- MY GUILD DASHBOARD -->
         <div class="glass-panel" style="margin-bottom: 30px; border-color: var(--primary);">
-           <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom: 20px;">
-              <div>
-                 <div class="guild-badge ${user.guild.type === 'YOUTUBER' ? 'badge-youtuber' : 'badge-user'}" style="display:inline-block; margin-bottom:8px">
-                    ${user.guild.type} GUILD
-                 </div>
-                 <h2 style="font-size:24px; font-weight:800; color:white; margin:0">${user.guild.name}</h2>
-                 <div style="color:var(--text-muted)">Leader: ${user.guild.leader.username}</div>
-              </div>
-              <div style="text-align:right">
-                 <div style="font-size:24px; font-weight:800; color:var(--primary)">${user.guild.totalEarnings.toFixed(2)} TK</div>
-                 <div style="font-size:12px; color:var(--text-muted)">Total Earnings</div>
-              </div>
-           </div>
+               <div style="margin-left: 110px; min-height: 50px; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:flex-end; gap:15px;">
+                  <div style="flex: 1; min-width: 200px;">
+                     <h2 style="font-size:28px; font-weight:800; color:white; margin:0; line-height:1.2; word-break: break-word;">${user.guild.name}</h2>
+                     <div style="color:var(--text-muted); font-size:14px;">Leader: <span style="color:white">${user.guild.leader.username}</span></div>
+                  </div>
+                  <div style="text-align:right; flex-shrink: 0;">
+                     <div style="font-size:24px; font-weight:800; color:var(--primary)">${user.guild.totalEarnings.toFixed(2)} TK</div>
+                     <div style="font-size:12px; color:var(--text-muted)">Total Earnings</div>
+                  </div>
+               </div>
 
            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom: 20px;">
               <div class="stat-card">
