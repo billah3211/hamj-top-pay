@@ -893,9 +893,13 @@ router.get('/manage', requireLogin, async (req, res) => {
   const avatars = myItems.filter(i => i.item.type === 'avatar')
   const banners = myItems.filter(i => i.item.type === 'banner')
   
-  const [settings, unreadCount] = await Promise.all([
+  const [settings, unreadCount, pendingRequests] = await Promise.all([
     getSystemSettings(),
-    prisma.notification.count({ where: { userId: user.id, isRead: false } })
+    prisma.notification.count({ where: { userId: user.id, isRead: false } }),
+    prisma.guildRequest.findMany({
+      where: { guildId: user.guild.id, status: 'PENDING' },
+      include: { user: true }
+    })
   ])
 
   res.send(`
@@ -1070,6 +1074,41 @@ router.get('/manage', requireLogin, async (req, res) => {
        <div class="manage-container">
           <a href="/guild" class="back-link"><i class="fas fa-arrow-left"></i> Back to Guild Dashboard</a>
           
+          <!-- MEMBER REQUESTS -->
+          <div class="section-card">
+             <div class="section-title"><i class="fas fa-user-plus" style="color:#facc15"></i> Member Requests (${pendingRequests.length})</div>
+             
+             ${pendingRequests.length === 0 ? `
+                <div style="text-align:center; padding:20px; color:var(--text-muted);">No pending requests</div>
+             ` : `
+                <div style="display:flex; flex-direction:column; gap:12px;">
+                   ${pendingRequests.map(req => `
+                      <div style="display:flex; justify-content:space-between; align-items:center; background:#020617; padding:12px 16px; border-radius:8px; border:1px solid var(--border-color);">
+                         <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="width:40px; height:40px; border-radius:50%; background:#334155; display:flex; align-items:center; justify-content:center; font-weight:bold; color:white;">
+                               ${req.user.username[0]}
+                            </div>
+                            <div>
+                               <div style="font-weight:700; color:var(--text-main);">${req.user.username}</div>
+                               <div style="font-size:12px; color:var(--text-muted);">Requested: ${new Date(req.createdAt).toLocaleDateString()}</div>
+                            </div>
+                         </div>
+                         <div style="display:flex; gap:8px;">
+                            <form action="/guild/request/approve" method="POST" style="margin:0;">
+                               <input type="hidden" name="requestId" value="${req.id}">
+                               <button type="submit" style="background:#10b981; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;"><i class="fas fa-check"></i></button>
+                            </form>
+                            <form action="/guild/request/reject" method="POST" style="margin:0;">
+                               <input type="hidden" name="requestId" value="${req.id}">
+                               <button type="submit" style="background:#ef4444; color:white; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;"><i class="fas fa-times"></i></button>
+                            </form>
+                         </div>
+                      </div>
+                   `).join('')}
+                </div>
+             `}
+          </div>
+
           <div class="section-card">
              <div class="section-title"><i class="fas fa-paint-brush" style="color:#ec4899"></i> Appearance</div>
              <form action="/guild/update-design" method="POST">
@@ -1255,6 +1294,15 @@ router.post('/join', requireLogin, async (req, res) => {
       }
     })
 
+    // Notify Leader
+    await prisma.notification.create({
+      data: {
+        userId: guild.leaderId,
+        message: `${user.username} wants to join your guild "${guild.name}"`,
+        type: 'info'
+      }
+    })
+
     res.redirect('/guild?success=Request+sent+successfully')
   } catch (error) {
     console.error('Join Error:', error)
@@ -1274,6 +1322,74 @@ router.post('/leave', requireLogin, async (req, res) => {
   })
 
   res.redirect('/guild?success=Left+guild+successfully')
+})
+
+router.post('/request/approve', requireLogin, async (req, res) => {
+  const { requestId } = req.body
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId }, include: { guild: true } })
+  
+  if (!user.guild || user.guild.leaderId !== user.id) return res.redirect('/guild')
+
+  const request = await prisma.guildRequest.findUnique({ where: { id: parseInt(requestId) }, include: { guild: true } })
+  
+  if (!request || request.guildId !== user.guild.id || request.status !== 'PENDING') {
+    return res.redirect('/guild/manage?error=Invalid+request')
+  }
+
+  // Check member limit
+  const memberCount = await prisma.user.count({ where: { guildId: user.guild.id } })
+  if (memberCount >= (user.guild.memberLimit || 50)) {
+    return res.redirect('/guild/manage?error=Guild+is+full')
+  }
+
+  await prisma.$transaction([
+    prisma.guildRequest.update({
+      where: { id: request.id },
+      data: { status: 'APPROVED' }
+    }),
+    prisma.user.update({
+      where: { id: request.userId },
+      data: { guildId: user.guild.id }
+    }),
+    prisma.notification.create({
+      data: {
+        userId: request.userId,
+        message: `Your request to join ${user.guild.name} has been approved!`,
+        type: 'success'
+      }
+    })
+  ])
+
+  res.redirect('/guild/manage?success=Member+approved')
+})
+
+router.post('/request/reject', requireLogin, async (req, res) => {
+  const { requestId } = req.body
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId }, include: { guild: true } })
+  
+  if (!user.guild || user.guild.leaderId !== user.id) return res.redirect('/guild')
+
+  const request = await prisma.guildRequest.findUnique({ where: { id: parseInt(requestId) } })
+  
+  if (!request || request.guildId !== user.guild.id || request.status !== 'PENDING') {
+    return res.redirect('/guild/manage?error=Invalid+request')
+  }
+
+  await prisma.$transaction([
+    prisma.guildRequest.update({
+      where: { id: request.id },
+      data: { status: 'REJECTED' }
+    }),
+    prisma.notification.create({
+      data: {
+        userId: request.userId,
+        message: `Your request to join ${user.guild.name} has been rejected.`,
+        type: 'error'
+      }
+    })
+  ])
+
+  res.redirect('/guild/manage?success=Request+rejected')
 })
 
 module.exports = router
