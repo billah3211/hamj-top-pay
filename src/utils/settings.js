@@ -5,14 +5,14 @@ const { prisma } = require('../db/prisma')
  * @returns {Promise<Object>}
  */
 async function getSystemSettings() {
-  const settings = await prisma.systemSetting.findMany({
-    where: { key: { in: ['site_name', 'site_logo', 'show_logo'] } }
-  })
+  const settings = await prisma.systemSetting.findMany()
   
   const config = {
     site_name: 'HaMJ toP PaY',
     site_logo: null,
-    show_logo: 'false'
+    show_logo: 'false',
+    currency: 'BDT', // Default currency
+    // Add other defaults as needed
   }
   
   settings.forEach(s => {
