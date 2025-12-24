@@ -119,6 +119,13 @@ router.get('/', requireLogin, async (req, res) => {
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const settings = await getSystemSettings()
 
+  // Get Requirements & Benefits Text
+  const defaultYoutuberReq = '• চ্যানেলে কমপক্ষে 2,000+ Subscribers থাকতে হবে\n• যেকোনো ১টি ভিডিওতে 1,000+ Views থাকতে হবে\n• Hamj Top Pay নিয়ে অন্তত ১টি ভিডিও তৈরি করতে হবে\n• প্রতি মাসে কমপক্ষে ২টি ভিডিও আপলোড করা বাধ্যতামূলক'
+  const defaultYoutuberBen = '• আপনার নিজস্ব Guild তৈরি করার সুযোগ পাবেন\n• আপনার Guild থেকে যদি কোনো ইউজার Top-Up করে, তাহলে প্রতি Top-Up এ আপনি ১০% কমিশন পাবেন\n• আপনি আপনার Guild-এ ১,০০০ জন ইউজার সম্পূর্ণ ফ্রিতে জয়েন করাতে পারবেন\n• যত বেশি ইউজার আপনার Guild-এ Active থাকবে, তত বেশি ইনকাম করার সুযোগ পাবেন'
+  
+  const reqText = settings.guild_requirements_youtuber || defaultYoutuberReq
+  const benText = settings.guild_benefits_youtuber || defaultYoutuberBen
+
   // Calculate Guild Level Info
   let guildLevelInfo = null
   if (user.guild) {
