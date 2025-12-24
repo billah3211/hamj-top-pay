@@ -1013,6 +1013,14 @@ router.post('/guild-settings', requireAdmin, async (req, res) => {
       update: { value: commission_rate.toString() },
       create: { key: 'guild_commission_rate', value: commission_rate.toString() }
     })
+
+    // Update all existing guilds with the new commission rate
+    const newRate = parseFloat(commission_rate)
+    if (!isNaN(newRate)) {
+      await prisma.guild.updateMany({
+        data: { commissionRate: newRate }
+      })
+    }
   }
 
   res.redirect('/admin/guild-settings')
