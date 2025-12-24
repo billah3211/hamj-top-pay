@@ -1384,6 +1384,11 @@ router.get('/settings', requireSuperAdmin, async (req, res) => {
           </div>
           
           <div class="form-group">
+            <label class="form-label">GitHub/Social Link</label>
+            <input type="url" name="github_link" value="${settings.github_link || ''}" class="form-input" placeholder="https://github.com/...">
+          </div>
+          
+          <div class="form-group">
             <label class="form-label">Site Logo (Replaces Name)</label>
             ${settings.site_logo ? `<div style="margin-bottom:10px;"><img src="${settings.site_logo}" style="height:60px;border-radius:8px;"></div>` : ''}
             <input type="file" name="site_logo" class="form-input" accept="image/*">
@@ -1523,7 +1528,7 @@ router.post('/settings/update-api', requireSuperAdmin, async (req, res) => {
 
 router.post('/settings/update-branding', requireSuperAdmin, upload.single('site_logo'), async (req, res) => {
   try {
-    const { site_name, show_logo } = req.body
+    const { site_name, show_logo, github_link } = req.body
     const site_logo = req.file ? req.file.path : null
     
     // Update Site Name
@@ -1532,6 +1537,15 @@ router.post('/settings/update-branding', requireSuperAdmin, upload.single('site_
       update: { value: site_name },
       create: { key: 'site_name', value: site_name }
     })
+
+    // Update GitHub Link
+    if (github_link !== undefined) {
+      await prisma.systemSetting.upsert({
+        where: { key: 'github_link' },
+        update: { value: github_link },
+        create: { key: 'github_link', value: github_link }
+      })
+    }
 
     // Update Show Logo
     await prisma.systemSetting.upsert({

@@ -11,6 +11,7 @@ async function getSystemSettings() {
     site_name: 'HaMJ toP PaY',
     site_logo: null,
     show_logo: 'false',
+    github_link: '',
     currency: 'BDT', // Default currency
     // Add other defaults as needed
   }

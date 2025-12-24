@@ -28,6 +28,7 @@ const getUserSidebar = (active, unreadCount = 0, userId = null, role = 'USER', c
         </a>
       </li>
       <li class="nav-item"><a href="/settings" class="${active === 'settings' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
+      ${config.github_link ? `<li class="nav-item"><a href="${config.github_link}" target="_blank"><img src="https://api.iconify.design/lucide:github.svg?color=%2394a3b8" class="nav-icon"> GitHub</a></li>` : ''}
       <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
     </ul>
   </nav>
