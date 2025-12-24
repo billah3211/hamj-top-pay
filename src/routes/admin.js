@@ -129,6 +129,9 @@ router.get('/api/stats', requireAdmin, async (req, res) => {
     const totalCoins = await prisma.user.aggregate({ where: balanceFilter, _sum: { coin: true } }).then(r => r._sum.coin || 0)
     const totalTk = await prisma.user.aggregate({ where: balanceFilter, _sum: { tk: true } }).then(r => r._sum.tk || 0)
     const totalLora = await prisma.user.aggregate({ where: balanceFilter, _sum: { lora: true } }).then(r => r._sum.lora || 0)
+    const totalDk = await prisma.user.aggregate({ where: balanceFilter, _sum: { dk: true } }).then(r => r._sum.dk || 0)
+    const totalScore = await prisma.user.aggregate({ where: balanceFilter, _sum: { guildScore: true } }).then(r => r._sum.guildScore || 0)
+    const totalWork = await prisma.linkSubmission.count({ where: { status: 'APPROVED' } })
 
     const pendingTopUps = await prisma.topUpRequest.count({ where: { status: 'PENDING' } })
     const pendingGuilds = await prisma.guild.count({ where: { status: 'PENDING' } })
@@ -136,7 +139,7 @@ router.get('/api/stats', requireAdmin, async (req, res) => {
 
     res.json({
       totalUsers, activeUsers, inactiveUsers,
-      totalDiamonds, totalCoins, totalTk, totalLora,
+      totalDiamonds, totalCoins, totalTk, totalLora, totalDk, totalScore, totalWork,
       pendingTopUps, pendingGuilds, pendingLinks
     })
   } catch (e) {
@@ -159,6 +162,9 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
   const totalCoins = await prisma.user.aggregate({ where: balanceFilter, _sum: { coin: true } }).then(r => r._sum.coin || 0)
   const totalTk = await prisma.user.aggregate({ where: balanceFilter, _sum: { tk: true } }).then(r => r._sum.tk || 0)
   const totalLora = await prisma.user.aggregate({ where: balanceFilter, _sum: { lora: true } }).then(r => r._sum.lora || 0)
+  const totalDk = await prisma.user.aggregate({ where: balanceFilter, _sum: { dk: true } }).then(r => r._sum.dk || 0)
+  const totalScore = await prisma.user.aggregate({ where: balanceFilter, _sum: { guildScore: true } }).then(r => r._sum.guildScore || 0)
+  const totalWork = await prisma.linkSubmission.count({ where: { status: 'APPROVED' } })
 
   // Pending Requests
   const pendingTopUps = await prisma.topUpRequest.count({ where: { status: 'PENDING' } })
@@ -204,6 +210,18 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
              <h3 style="color:#38bdf8">Total HaMJ T</h3>
              <div class="value" id="stat-totalLora">T ${totalLora}</div>
           </div>
+          <div class="stat-card" style="background:rgba(0,0,0,0.2);">
+             <h3 style="color:#22c55e">Total Dollar</h3>
+             <div class="value" id="stat-totalDk">$ ${Number(totalDk).toFixed(3)}</div>
+          </div>
+          <div class="stat-card" style="background:rgba(0,0,0,0.2);">
+             <h3 style="color:#a855f7">Total Work</h3>
+             <div class="value" id="stat-totalWork">${totalWork}</div>
+          </div>
+          <div class="stat-card" style="background:rgba(0,0,0,0.2);">
+             <h3 style="color:#f59e0b">Total Score</h3>
+             <div class="value" id="stat-totalScore">⚡ ${totalScore}</div>
+          </div>
        </div>
 
        <div class="section-title">Pending Actions</div>
@@ -242,6 +260,9 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
           document.getElementById('stat-totalCoins').innerText = '🪙 ' + data.totalCoins;
           document.getElementById('stat-totalTk').innerText = '৳ ' + data.totalTk;
           document.getElementById('stat-totalLora').innerText = 'T ' + data.totalLora;
+          document.getElementById('stat-totalDk').innerText = '$ ' + Number(data.totalDk).toFixed(3);
+          document.getElementById('stat-totalWork').innerText = data.totalWork;
+          document.getElementById('stat-totalScore').innerText = '⚡ ' + data.totalScore;
           
           document.getElementById('stat-pendingTopUps').innerText = data.pendingTopUps;
           document.getElementById('stat-pendingGuilds').innerText = data.pendingGuilds;
