@@ -761,7 +761,10 @@ router.get('/', requireLogin, async (req, res) => {
                    <div style="font-weight:700; font-size:18px; color:var(--text-main);">${g.name}</div>
                    <div class="guild-stats-row">
                       <span class="guild-stats-item"><i class="fas fa-users"></i> ${g.members.length} / ${g.memberLimit || 50}</span>
-                      <span class="guild-stats-item" style="color:#fbbf24"><i class="fas fa-coins"></i> ৳${g.totalEarnings.toFixed(0)}</span>
+                      ${user.id === g.leaderId ? `
+                        <span class="guild-stats-item" style="color:#fbbf24"><i class="fas fa-coins"></i> ৳${g.totalEarnings.toFixed(0)}</span>
+                        <span class="guild-stats-item" style="color:#10b981"><i class="fas fa-dollar-sign"></i> $${(g.totalEarnings / 120).toFixed(2)}</span>
+                      ` : ''}
                       <span class="guild-stats-item" style="color:#818cf8"><i class="fas fa-crown"></i> ${g.leader.username}</span>
                    </div>
                 </div>
