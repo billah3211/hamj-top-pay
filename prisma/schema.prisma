@@ -18,10 +18,10 @@ model User {
   phone     String   @unique
   passwordHash String
   diamond   Int      @default(0)
-  dk        Int      @default(0)
+  dk        Float    @default(0.0)
   coin      Int      @default(0)
   lora      Int      @default(0)
-  tk        Int      @default(0)
+  tk        Float    @default(0.0)
   isLoggedIn Boolean @default(false)
   isBlocked Boolean  @default(false)
   role      String   @default("USER") // "USER", "ADMIN", "SUPER_ADMIN"
