@@ -277,6 +277,54 @@ router.get('/', requireLogin, async (req, res) => {
          document.getElementById('tab-user').style.color = type === 'user' ? 'black' : 'white';
       }
     </script>
+    <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+    <script>
+      function showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.style.padding = '12px 24px';
+        toast.style.marginBottom = '10px';
+        toast.style.borderRadius = '8px';
+        toast.style.color = 'white';
+        toast.style.fontWeight = '500';
+        toast.style.boxShadow = '0 4px 6px rgba(0,0,0,0.1)';
+        toast.style.animation = 'slideIn 0.3s ease-out';
+        toast.style.zIndex = '10000';
+        
+        if (type === 'success') {
+          toast.style.background = '#10b981'; // Green
+          toast.style.border = '1px solid #059669';
+        } else if (type === 'error') {
+          toast.style.background = '#ef4444'; // Red
+          toast.style.border = '1px solid #b91c1c';
+        } else {
+          toast.style.background = '#3b82f6'; // Blue
+        }
+        
+        toast.textContent = message;
+        container.appendChild(toast);
+        
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateX(100%)';
+          toast.style.transition = 'all 0.3s ease-out';
+          setTimeout(() => toast.remove(), 300);
+        }, 3000);
+      }
+
+      // Check URL params
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get('error');
+      const success = urlParams.get('success');
+
+      if (error) showToast(error, 'error');
+      if (success) showToast(success, 'success');
+      
+      // Clean URL
+      if (error || success) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    </script>
     ${getFooter()}
   `)
 })
