@@ -82,6 +82,7 @@ function getSidebar(active, config = {}) {
         <li class="nav-item"><a href="/super-admin/balance" class="${active === 'balance' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=${active === 'balance' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Balance</a></li>
         <li class="nav-item"><a href="/super-admin/admins" class="${active === 'admins' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shield-check.svg?color=${active === 'admins' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Admins</a></li>
         <li class="nav-item"><a href="/super-admin/guilds" class="${active === 'guilds' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=${active === 'guilds' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Guilds</a></li>
+        <li class="nav-item"><a href="/super-admin/leaderboard-bonuses" class="${active === 'leaderboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:crown.svg?color=${active === 'leaderboard' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Leaderboard Bonuses</a></li>
         <li class="nav-item"><a href="/super-admin/store" class="${active === 'store' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=${active === 'store' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Store</a></li>
         <li class="nav-item"><a href="/super-admin/topup-packages" class="${active === 'packages' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:package.svg?color=${active === 'packages' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Packages</a></li>
         <li class="nav-item"><a href="/super-admin/topup-wallets" class="${active === 'wallets' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=${active === 'wallets' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Wallets</a></li>
@@ -1939,6 +1940,207 @@ router.post('/topup-wallets/delete', requireSuperAdmin, async (req, res) => {
   } catch (e) {
     console.error('Delete Wallet Error:', e)
     res.redirect('/super-admin/topup-wallets?error=Cannot+delete+wallet+in+use')
+  }
+})
+
+// Leaderboard Bonuses Management
+router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
+  const guilds = await prisma.guild.findMany({
+    take: 100,
+    orderBy: { totalEarnings: 'desc' },
+    include: { leader: true }
+  })
+
+  res.send(`
+    ${getHead('Leaderboard Bonuses')}
+    ${getSidebar('leaderboard', settings)}
+    <div class="main-content">
+      <div class="section-header" style="background: linear-gradient(to right, rgba(236, 72, 153, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(236, 72, 153, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
+        <div style="background: rgba(236, 72, 153, 0.2); padding: 12px; border-radius: 12px;">
+           <img src="https://api.iconify.design/lucide:crown.svg?color=%23ec4899" width="32" height="32">
+        </div>
+        <div>
+          <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">Leaderboard Bonuses</div>
+          <div style="color:var(--text-muted); font-size: 16px;">Distribute bonuses to top performing guilds</div>
+        </div>
+      </div>
+
+      ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
+      ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
+
+      <form action="/super-admin/distribute-bonuses" method="POST" id="bonusForm">
+        
+        <!-- Controls -->
+        <div class="glass-panel" style="padding: 24px; margin-bottom: 24px;">
+          <h3 style="margin-bottom: 16px; color: white;">Distribution Settings</h3>
+          <div style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
+            
+            <div style="flex: 1; min-width: 200px;">
+              <label class="form-label">Currency</label>
+              <select name="currency" class="form-input">
+                <option value="dk">Dollar (DK)</option>
+                <option value="tk">Taka (TK)</option>
+                <option value="coin">Coin</option>
+                <option value="diamond">Diamond</option>
+              </select>
+            </div>
+
+            <div style="flex: 2; min-width: 300px; display: flex; gap: 10px; align-items: flex-end;">
+               <div style="flex:1">
+                 <label class="form-label">Quick Set: Top</label>
+                 <input type="number" id="quickRank" placeholder="10" class="form-input" min="1" max="100">
+               </div>
+               <div style="flex:1">
+                 <label class="form-label">Amount</label>
+                 <input type="number" id="quickAmount" placeholder="5" class="form-input">
+               </div>
+               <button type="button" class="btn-premium" onclick="applyQuickSet()">Apply</button>
+            </div>
+
+          </div>
+          <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
+            Use "Quick Set" to fill bonus amounts for the top N guilds automatically. You can also edit individual amounts below.
+          </div>
+        </div>
+
+        <!-- Guilds Table -->
+        <div class="glass-panel" style="overflow: hidden;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: rgba(255,255,255,0.02); text-align: left;">
+                <th style="padding: 16px; color: var(--text-muted);">Rank</th>
+                <th style="padding: 16px; color: var(--text-muted);">Guild</th>
+                <th style="padding: 16px; color: var(--text-muted);">Leader</th>
+                <th style="padding: 16px; color: var(--text-muted);">Earnings</th>
+                <th style="padding: 16px; color: var(--text-muted);">Bonus Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${guilds.map((guild, index) => `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                  <td style="padding: 16px;">
+                    <div style="width: 32px; height: 32px; background: ${index < 3 ? 'linear-gradient(135deg, #facc15, #eab308)' : 'rgba(255,255,255,0.1)'}; color: ${index < 3 ? 'black' : 'white'}; border-radius: 50%; display: grid; place-items: center; font-weight: bold;">
+                      ${index + 1}
+                    </div>
+                  </td>
+                  <td style="padding: 16px;">
+                    <div style="font-weight: 600; color: white;">${guild.name}</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">Lvl ${guild.level} • ${guild.members ? guild.members.length : 0} Members</div>
+                  </td>
+                  <td style="padding: 16px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      <img src="${guild.leader.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" style="width: 24px; height: 24px; border-radius: 50%;">
+                      <span>${guild.leader.username}</span>
+                    </div>
+                  </td>
+                  <td style="padding: 16px; color: #10b981;">
+                    $${guild.totalEarnings.toFixed(2)}
+                  </td>
+                  <td style="padding: 16px;">
+                    <input type="number" step="0.01" name="bonus_${guild.id}" class="form-input bonus-input" data-rank="${index + 1}" placeholder="0" style="width: 120px;">
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="position: sticky; bottom: 20px; margin-top: 24px; text-align: right;">
+          <button type="submit" class="btn-premium" style="background: linear-gradient(135deg, #10b981, #059669); padding: 16px 32px; font-size: 18px; box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);">
+            <img src="https://api.iconify.design/lucide:send.svg?color=white" width="20" style="vertical-align: middle; margin-right: 8px;">
+            Distribute Bonuses
+          </button>
+        </div>
+
+      </form>
+    </div>
+    
+    <script>
+      function applyQuickSet() {
+        const rank = parseInt(document.getElementById('quickRank').value);
+        const amount = document.getElementById('quickAmount').value;
+        
+        if (!rank || !amount) return;
+        
+        const inputs = document.querySelectorAll('.bonus-input');
+        inputs.forEach(input => {
+          const inputRank = parseInt(input.getAttribute('data-rank'));
+          if (inputRank <= rank) {
+            input.value = amount;
+          }
+        });
+      }
+    </script>
+    ${getScripts()}
+  `)
+})
+
+router.post('/distribute-bonuses', requireSuperAdmin, async (req, res) => {
+  try {
+    const body = req.body
+    const currency = body.currency || 'dk'
+    
+    const updates = []
+    
+    // Parse bonuses from body keys "bonus_{guildId}"
+    for (const key in body) {
+      if (key.startsWith('bonus_')) {
+        const guildId = parseInt(key.replace('bonus_', ''))
+        const amount = parseFloat(body[key])
+        
+        if (amount > 0) {
+          updates.push({ guildId, amount })
+        }
+      }
+    }
+    
+    if (updates.length === 0) {
+      return res.redirect('/super-admin/leaderboard-bonuses?error=No+bonuses+set')
+    }
+    
+    let count = 0
+    
+    for (const update of updates) {
+      const guild = await prisma.guild.findUnique({
+        where: { id: update.guildId },
+        include: { leader: true }
+      })
+      
+      if (guild && guild.leader) {
+        // Update Leader Wallet
+        const updateData = {}
+        if (currency === 'dk') updateData.dk = { increment: update.amount }
+        else if (currency === 'tk') updateData.tk = { increment: update.amount }
+        else if (currency === 'coin') updateData.coin = { increment: parseInt(update.amount) }
+        else if (currency === 'diamond') updateData.diamond = { increment: parseInt(update.amount) }
+        
+        await prisma.user.update({
+          where: { id: guild.leader.id },
+          data: updateData
+        })
+        
+        // Send Notification
+        const currencyName = currency === 'dk' ? 'Dollar' : currency === 'tk' ? 'Taka' : currency.charAt(0).toUpperCase() + currency.slice(1)
+        const symbol = currency === 'dk' ? '$' : currency === 'tk' ? '৳' : ''
+        
+        await prisma.notification.create({
+          data: {
+            userId: guild.leader.id,
+            type: 'credit',
+            message: `Congratulations! Your guild "${guild.name}" has received a leaderboard bonus of ${symbol}${update.amount} ${currencyName} from the Admin.`
+          }
+        })
+        
+        count++
+      }
+    }
+    
+    res.redirect(`/super-admin/leaderboard-bonuses?success=Successfully distributed bonuses to ${count} guilds`)
+    
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/leaderboard-bonuses?error=' + encodeURIComponent(e.message))
   }
 })
 

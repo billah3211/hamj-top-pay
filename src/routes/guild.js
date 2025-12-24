@@ -1494,4 +1494,124 @@ router.post('/transfer-earnings', requireLogin, async (req, res) => {
   }
 })
 
+// ----------------------------------------------------------------------
+// PUBLIC GUILD VIEW
+// ----------------------------------------------------------------------
+router.get('/view/:id', requireLogin, async (req, res) => {
+  const guildId = parseInt(req.params.id)
+  const guild = await prisma.guild.findUnique({
+    where: { id: guildId },
+    include: { 
+      leader: true, 
+      members: { orderBy: { guildScore: 'desc' } } 
+    }
+  })
+
+  if (!guild) return res.redirect('/guild?error=Guild+not+found')
+
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+  const settings = await getSystemSettings()
+  
+  // Calculate Guild Level Info
+  const guildLevelInfo = getGuildLevelInfo(guild.score || 0)
+
+  const customStyles = `
+    <style>
+      :root {
+        --primary: #d946ef;
+        --secondary: #06b6d4;
+        --accent: #facc15;
+        --bg-body: #020617;
+        --bg-card: #0f172a;
+        --text-main: #f8fafc;
+        --text-muted: #94a3b8;
+        --border-color: rgba(217, 70, 239, 0.3);
+        --radius-lg: 12px;
+        --font-head: 'Rajdhani', sans-serif;
+        --font-body: 'Inter', sans-serif;
+      }
+      body { font-family: var(--font-body); background: var(--bg-body); color: var(--text-main); }
+      .g-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); overflow: hidden; position: relative; }
+      .hero-section { position: relative; margin-bottom: 40px; border-radius: 24px; overflow: hidden; background: var(--bg-card); border: 1px solid var(--border-color); }
+      .hero-banner-wrapper { height: 220px; width: 100%; position: relative; background: linear-gradient(135deg, #d946ef, #8b5cf6); }
+      .hero-body { padding: 0 40px 40px; position: relative; display: flex; align-items: flex-end; gap: 32px; margin-top: -80px; }
+      .hero-avatar { width: 160px; height: 160px; border-radius: 24px; border: 4px solid var(--bg-card); background: var(--bg-card); overflow: hidden; position: relative; z-index: 2; }
+      .hero-info { flex: 1; padding-bottom: 10px; z-index: 2; }
+      .hero-title { font-size: 48px; font-weight: 700; margin: 0 0 16px 0; color: white; }
+      .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 48px; }
+      .stat-box { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px; display: flex; flex-direction: column; gap: 8px; }
+      .stat-value { font-size: 36px; font-weight: 700; color: white; }
+      .members-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+      .member-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px 16px; text-align: center; }
+      .member-avatar { width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 16px auto; overflow: hidden; border: 2px solid var(--border-color); }
+    </style>
+  `
+
+  const html = `
+    ${getHead(guild.name)}
+    ${getUserSidebar('guild', unreadCount, user.id, user.role, settings)}
+    ${customStyles}
+    
+    <div class="main-content" style="padding: 24px; max-width: 1280px; margin: 0 auto;">
+       <!-- Hero -->
+       <div class="hero-section">
+          <div class="hero-banner-wrapper">
+             ${guild.currentBanner ? `<img src="${guild.currentBanner}" style="width:100%;height:100%;object-fit:cover;">` : ''}
+          </div>
+          <div class="hero-body">
+             <div class="hero-avatar">
+                ${guild.currentAvatar ? `<img src="${guild.currentAvatar}" style="width:100%;height:100%;object-fit:cover;">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:60px;color:var(--primary);">${guild.name[0]}</div>`}
+             </div>
+             <div class="hero-info">
+                <div style="color:var(--primary); font-weight:700; margin-bottom:10px; text-transform:uppercase;">Level ${guildLevelInfo.level} Guild</div>
+                <div class="hero-title">${guild.name}</div>
+                <div style="color:#94a3b8;">Leader: ${guild.leader.firstName} ${guild.leader.lastName}</div>
+             </div>
+             <div>
+                ${user.guildId === guild.id ? '<button class="btn" style="background:#22c55e; color:white; padding:10px 20px; border:none; border-radius:6px;">Member</button>' : ''}
+             </div>
+          </div>
+       </div>
+
+       <!-- Stats -->
+       <div class="stats-grid">
+          <div class="stat-box">
+             <div style="color:var(--secondary); font-size:12px; font-weight:700; text-transform:uppercase;">Total Earnings</div>
+             <div class="stat-value">$ ${guild.totalEarnings.toFixed(2)}</div>
+          </div>
+          <div class="stat-box">
+             <div style="color:var(--secondary); font-size:12px; font-weight:700; text-transform:uppercase;">Members</div>
+             <div class="stat-value">${guild.members.length} <span style="font-size:14px; color:#94a3b8;">/ ${guild.memberLimit || 50}</span></div>
+          </div>
+          <div class="stat-box">
+             <div style="color:var(--secondary); font-size:12px; font-weight:700; text-transform:uppercase;">Score</div>
+             <div class="stat-value">${guild.score || 0}</div>
+          </div>
+       </div>
+
+       <!-- Members -->
+       <div class="section-header" style="margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+          <div class="section-title" style="font-size:24px; font-weight:700; color:white;">Guild Members</div>
+       </div>
+       
+       <div class="members-grid">
+          ${guild.members.map(m => `
+            <div class="member-card">
+               <div class="member-avatar">
+                  ${m.currentAvatar ? `<img src="${m.currentAvatar}" style="width:100%;height:100%;object-fit:cover;">` : `<div style="width:100%;height:100%;background:#334155;"></div>`}
+               </div>
+               <div style="font-weight:700; color:white; margin-bottom:5px;">${m.firstName} ${m.lastName}</div>
+               <div style="font-size:12px; color:#94a3b8;">@${m.username}</div>
+               ${m.id === guild.leaderId ? '<div style="margin-top:10px; display:inline-block; padding:2px 8px; background:rgba(217,70,239,0.1); color:#d946ef; font-size:10px; border-radius:4px; font-weight:700;">LEADER</div>' : ''}
+            </div>
+          `).join('')}
+       </div>
+    </div>
+    ${getFooter()}
+  `
+  
+  res.send(html)
+})
+
 module.exports = router
