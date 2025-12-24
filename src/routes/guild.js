@@ -647,6 +647,15 @@ router.get('/', requireLogin, async (req, res) => {
               <div class="stat-sub">Est. Value (~${settings.dollar_rate || 120}৳)</div>
               <i class="fas fa-dollar-sign stat-icon-lg" style="color:#10b981"></i>
            </div>
+           
+           <!-- Transfer Button -->
+           <div class="stat-box" style="cursor: pointer; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); transition: all 0.2s;" onclick="if(confirm('Transfer all guild earnings to your dashboard wallet? This will convert BDT to Dollars.')) document.getElementById('transferForm').submit()">
+              <div class="stat-label" style="color: #10b981">Transfer to Wallet</div>
+              <div class="stat-value" style="font-size: 20px;">Claim Earnings</div>
+              <div class="stat-sub">Convert to Dashboard Dollars</div>
+              <i class="fas fa-exchange-alt stat-icon-lg" style="color:#10b981"></i>
+              <form id="transferForm" action="/guild/transfer-earnings" method="POST" style="display:none;"></form>
+           </div>
          ` : ''}
 
          <div class="stat-box">
@@ -1403,6 +1412,54 @@ router.post('/request/reject', requireLogin, async (req, res) => {
   ])
 
   res.redirect('/guild/manage?success=Request+rejected')
+})
+
+router.post('/transfer-earnings', requireLogin, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.session.userId },
+      include: { ownedGuild: true }
+    })
+
+    if (!user.ownedGuild) {
+      return res.redirect('/guild?error=You+are+not+a+guild+leader')
+    }
+
+    const earnings = user.ownedGuild.totalEarnings
+    if (earnings <= 0) {
+      return res.redirect('/guild?error=No+earnings+to+transfer')
+    }
+
+    const settings = await getSystemSettings()
+    const dollarRate = parseFloat(settings.dollar_rate || 120)
+    
+    // Calculate dollars
+    const dollars = earnings / dollarRate
+
+    // Transaction: Reset earnings, Add dollars, Notify
+    await prisma.$transaction([
+      prisma.guild.update({
+        where: { id: user.ownedGuild.id },
+        data: { totalEarnings: 0 }
+      }),
+      prisma.user.update({
+        where: { id: user.id },
+        data: { dk: { increment: dollars } }
+      }),
+      prisma.notification.create({
+        data: {
+          userId: user.id,
+          message: `Transferred ৳${earnings.toFixed(2)} from Guild Earnings to Wallet ($${dollars.toFixed(2)})`,
+          type: 'success'
+        }
+      })
+    ])
+
+    res.redirect('/guild?success=Earnings+transferred+successfully')
+  } catch (error) {
+    console.error('Transfer Error:', error)
+    res.redirect('/guild?error=Transfer+failed')
+  }
 })
 
 module.exports = router
