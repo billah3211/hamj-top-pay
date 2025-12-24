@@ -61,10 +61,20 @@ const getLevelProgress = (count) => {
   return { current: count, next, start, percent };
 }
 
-function getSidebar(active) {
+// Helper: Get System Settings - Imported from utils/settings.js
+
+function getSidebar(active, config = {}) {
+  const siteName = config.site_name || 'Super Admin'
+  const logoUrl = config.site_logo
+  const showLogo = config.show_logo === 'true'
+
+  const brandHtml = showLogo && logoUrl 
+    ? `<img src="${logoUrl}" style="height:40px;width:auto;max-width:180px;object-fit:contain">`
+    : `<span style="color:#ec4899">S</span> ${siteName}`
+
   return `
     <nav class="sidebar-premium" id="sidebar" style="border-right: 1px solid rgba(236, 72, 153, 0.3);">
-      <div class="brand-logo"><span style="color:#ec4899">S</span> Super Admin</div>
+      <div class="brand-logo" style="display:flex;align-items:center;gap:10px">${brandHtml}</div>
       <ul class="nav-links">
         <li class="nav-item"><a href="/super-admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=${active === 'dashboard' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Dashboard</a></li>
         <li class="nav-item"><a href="/super-admin/users" class="${active === 'users' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=${active === 'users' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Users</a></li>
@@ -150,13 +160,14 @@ function getCard(title, value, type = 'default') {
 
 // Dashboard
 router.get('/dashboard', requireSuperAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
   const totalUsers = await prisma.user.count({ where: { role: 'USER' } })
   const totalAdmins = await prisma.user.count({ where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } } })
   const totalItems = await prisma.storeItem.count()
   
   res.send(`
     ${getHead('Super Admin Dashboard')}
-    ${getSidebar('dashboard')}
+    ${getSidebar('dashboard', settings)}
     <div class="main-content">
       <div class="section-header" style="background: linear-gradient(to right, rgba(236, 72, 153, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(236, 72, 153, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
         <div style="background: rgba(236, 72, 153, 0.2); padding: 12px; border-radius: 12px;">
@@ -181,6 +192,7 @@ router.get('/dashboard', requireSuperAdmin, async (req, res) => {
 // --- Users & Balance Management ---
 
 router.get(['/users', '/balance'], requireSuperAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
   const { q } = req.query
   const isBalancePage = req.path.includes('balance')
   const activeTab = isBalancePage ? 'balance' : 'users'
@@ -222,7 +234,7 @@ router.get(['/users', '/balance'], requireSuperAdmin, async (req, res) => {
 
   res.send(`
     ${getHead(isBalancePage ? 'Manage Balance' : 'Manage Users')}
-    ${getSidebar(activeTab)}
+    ${getSidebar(activeTab, settings)}
     <div class="main-content">
       <div class="section-header" style="background: linear-gradient(to right, rgba(236, 72, 153, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(236, 72, 153, 0.1); margin-bottom: 32px;">
         <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">${isBalancePage ? 'Balance Management' : 'User Management'}</div>
@@ -335,6 +347,7 @@ router.post('/user/delete', requireSuperAdmin, async (req, res) => {
 
 // Manage Admins
 router.get('/admins', requireSuperAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
   const admins = await prisma.user.findMany({ 
     where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] } },
     orderBy: { createdAt: 'desc' }
@@ -367,7 +380,7 @@ router.get('/admins', requireSuperAdmin, async (req, res) => {
 
   res.send(`
     ${getHead('Manage Admins')}
-    ${getSidebar('admins')}
+    ${getSidebar('admins', settings)}
     <div class="main-content">
       <div class="section-header" style="background: linear-gradient(to right, rgba(59, 130, 246, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(59, 130, 246, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
         <div style="background: rgba(59, 130, 246, 0.2); padding: 12px; border-radius: 12px;">
@@ -498,6 +511,7 @@ router.post('/grant-access', requireSuperAdmin, async (req, res) => {
 
 // Manage Guilds
 router.get('/guilds', requireSuperAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
   const search = req.query.search || ''
   const where = {}
   
@@ -556,7 +570,7 @@ router.get('/guilds', requireSuperAdmin, async (req, res) => {
 
   res.send(`
     ${getHead('Manage Guilds')}
-    ${getSidebar('guilds')}
+    ${getSidebar('guilds', settings)}
     <div class="main-content">
       <div class="section-header" style="background: linear-gradient(to right, rgba(236, 72, 153, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(236, 72, 153, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
         <div style="background: rgba(236, 72, 153, 0.2); padding: 12px; border-radius: 12px;">
@@ -646,6 +660,7 @@ router.post('/guilds/action', requireSuperAdmin, async (req, res) => {
 
 // SMS Inbox Route
 router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
   const logs = await prisma.sMSLog.findMany({
     take: 100,
     orderBy: { createdAt: 'desc' }
@@ -653,7 +668,7 @@ router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
 
   res.send(`
     ${getHead('Live SMS Inbox')}
-    ${getSidebar('sms')}
+    ${getSidebar('sms', settings)}
     <div class="main-content">
       <div class="section-header" style="background: linear-gradient(to right, rgba(236, 72, 153, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(236, 72, 153, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
         <div style="background: rgba(236, 72, 153, 0.2); padding: 12px; border-radius: 12px;">
@@ -983,6 +998,7 @@ router.get('/sms-inbox', requireSuperAdmin, async (req, res) => {
 
 // Store Management Routes
 router.get('/store', requireSuperAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
   const items = await prisma.storeItem.findMany({ orderBy: { createdAt: 'desc' } })
   
   const renderItemRow = (item) => `
@@ -1151,6 +1167,7 @@ router.post('/store/delete', requireSuperAdmin, async (req, res) => {
 
 // Promote Settings Route
 router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
   const timer = await prisma.systemSetting.findUnique({ where: { key: 'visit_timer' } })
   const screenshotCount = await prisma.systemSetting.findUnique({ where: { key: 'screenshot_count' } })
   const autoApprove = await prisma.systemSetting.findUnique({ where: { key: 'promote_auto_approve_seconds' } })
@@ -1176,7 +1193,7 @@ router.get('/promote-settings', requireSuperAdmin, async (req, res) => {
 
   res.send(`
     ${getHead('Promote Settings')}
-    ${getSidebar('promote')}
+    ${getSidebar('promote', settings)}
     <div class="main-content">
       <div class="section-header" style="margin-bottom: 32px;">
         <div>
@@ -1324,30 +1341,66 @@ router.post('/promote-settings', requireSuperAdmin, async (req, res) => {
   res.redirect('/super-admin/promote-settings?success=Settings+updated')
 })
 
-// System Settings Route (Dynamic AppConfig)
+// System Settings Route (Dynamic AppConfig & Branding)
 router.get('/settings', requireSuperAdmin, async (req, res) => {
+  // Fetch API Keys
   const configs = await prisma.appConfig.findMany()
   const configMap = {}
   configs.forEach(c => configMap[c.key] = c.value)
-
-  // Fallback to env if not in DB (for display purposes, or empty)
   const smsKey = configMap['SMS_API_KEY'] || ''
   const geminiKey = configMap['GEMINI_API_KEY'] || ''
 
+  // Fetch Branding Settings
+  const settings = await getSystemSettings()
+
   res.send(`
     ${getHead('System Settings')}
-    ${getSidebar('settings')}
+    ${getSidebar('settings', settings)}
     <div class="main-content">
       <div class="section-header" style="margin-bottom: 32px;">
         <div>
           <div class="section-title" style="font-size: 24px;">System Settings</div>
-          <div style="color:var(--text-muted)">Manage API Keys and dynamic configurations</div>
+          <div style="color:var(--text-muted)">Manage site branding, API Keys and configurations</div>
         </div>
       </div>
 
       ${req.query.success ? `<div class="alert success" style="margin-bottom: 24px;">${req.query.success}</div>` : ''}
       ${req.query.error ? `<div class="alert error" style="margin-bottom: 24px;">${req.query.error}</div>` : ''}
 
+      <!-- Branding Settings -->
+      <div class="glass-panel" style="padding: 32px; border-top: 4px solid #6366f1; margin-bottom: 32px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+          <div style="background: rgba(99, 102, 241, 0.2); padding: 10px; border-radius: 10px;">
+             <img src="https://api.iconify.design/lucide:palette.svg?color=%236366f1" width="24" height="24">
+          </div>
+          <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Site Branding</h3>
+        </div>
+
+        <form action="/super-admin/settings/update-branding" method="POST" enctype="multipart/form-data">
+          <div class="form-group">
+            <label class="form-label">Site Name</label>
+            <input type="text" name="site_name" value="${settings.site_name}" class="form-input">
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label">Site Logo (Replaces Name)</label>
+            ${settings.site_logo ? `<div style="margin-bottom:10px;"><img src="${settings.site_logo}" style="height:60px;border-radius:8px;"></div>` : ''}
+            <input type="file" name="site_logo" class="form-input" accept="image/*">
+          </div>
+
+          <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+             <input type="checkbox" id="show_logo" name="show_logo" value="true" ${settings.show_logo === 'true' ? 'checked' : ''}>
+             <label for="show_logo" style="color:white;cursor:pointer;">Show Logo instead of Name</label>
+          </div>
+
+          <button type="submit" class="btn-premium full-width" style="background: linear-gradient(135deg, #6366f1, #4f46e5);">
+            <img src="https://api.iconify.design/lucide:save.svg?color=white" width="18" style="vertical-align: middle; margin-right: 8px;">
+            Save Branding
+          </button>
+        </form>
+      </div>
+
+      <!-- API Configuration -->
       <div class="glass-panel" style="padding: 32px; border-top: 4px solid #ec4899;">
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
           <div style="background: rgba(236, 72, 153, 0.2); padding: 10px; border-radius: 10px;">
@@ -1356,7 +1409,7 @@ router.get('/settings', requireSuperAdmin, async (req, res) => {
           <h3 style="font-size: 18px; font-weight: 600; margin: 0;">API Configuration</h3>
         </div>
 
-        <form action="/super-admin/settings/update" method="POST">
+        <form action="/super-admin/settings/update-api" method="POST">
           
           <!-- SMS API Key -->
           <div class="form-group" style="margin-bottom: 24px;">
@@ -1382,7 +1435,7 @@ router.get('/settings', requireSuperAdmin, async (req, res) => {
 
           <button type="submit" class="btn-premium full-width" style="padding: 14px; font-size: 16px; background: linear-gradient(135deg, #ec4899, #8b5cf6);">
             <img src="https://api.iconify.design/lucide:save.svg?color=white" width="18" style="vertical-align: middle; margin-right: 8px;">
-            Save Configurations
+            Save API Keys
           </button>
         </form>
       </div>
@@ -1440,7 +1493,7 @@ router.get('/settings', requireSuperAdmin, async (req, res) => {
   `)
 })
 
-router.post('/settings/update', requireSuperAdmin, async (req, res) => {
+router.post('/settings/update-api', requireSuperAdmin, async (req, res) => {
   try {
     const { SMS_API_KEY, GEMINI_API_KEY } = req.body
 
@@ -1467,10 +1520,46 @@ router.post('/settings/update', requireSuperAdmin, async (req, res) => {
   }
 })
 
+router.post('/settings/update-branding', requireSuperAdmin, upload.single('site_logo'), async (req, res) => {
+  try {
+    const { site_name, show_logo } = req.body
+    const site_logo = req.file ? req.file.path : null
+    
+    // Update Site Name
+    await prisma.systemSetting.upsert({
+      where: { key: 'site_name' },
+      update: { value: site_name },
+      create: { key: 'site_name', value: site_name }
+    })
+
+    // Update Show Logo
+    await prisma.systemSetting.upsert({
+      where: { key: 'show_logo' },
+      update: { value: show_logo === 'true' ? 'true' : 'false' },
+      create: { key: 'show_logo', value: show_logo === 'true' ? 'true' : 'false' }
+    })
+
+    // Update Logo if uploaded
+    if (site_logo) {
+      await prisma.systemSetting.upsert({
+        where: { key: 'site_logo' },
+        update: { value: site_logo },
+        create: { key: 'site_logo', value: site_logo }
+      })
+    }
+
+    res.redirect('/super-admin/settings?success=Branding+updated+successfully')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/settings?error=' + encodeURIComponent(e.message))
+  }
+})
+
 // ==========================================
 // TOP UP PACKAGE MANAGEMENT
 // ==========================================
 router.get('/topup-packages', requireSuperAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
   const packages = await prisma.topUpPackage.findMany({ orderBy: { price: 'asc' } })
 
   const renderRow = (pkg) => `
@@ -1495,7 +1584,7 @@ router.get('/topup-packages', requireSuperAdmin, async (req, res) => {
 
   res.send(`
     ${getHead('Manage Top Up Packages')}
-    ${getSidebar('packages')}
+    ${getSidebar('packages', settings)}
     <div class="main-content">
       <div class="section-header" style="background: linear-gradient(to right, rgba(236, 72, 153, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(236, 72, 153, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
         <div style="background: rgba(236, 72, 153, 0.2); padding: 12px; border-radius: 12px;">
@@ -1622,6 +1711,7 @@ router.post('/topup-packages/delete', requireSuperAdmin, async (req, res) => {
 // WALLET MANAGEMENT
 // ==========================================
 router.get('/topup-wallets', requireSuperAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
   const wallets = await prisma.topUpWallet.findMany({ orderBy: { id: 'desc' } })
 
   const renderRow = (wallet) => `
@@ -1645,7 +1735,7 @@ router.get('/topup-wallets', requireSuperAdmin, async (req, res) => {
 
   res.send(`
     ${getHead('Manage Top Up Wallets')}
-    ${getSidebar('wallets')}
+    ${getSidebar('wallets', settings)}
     <div class="main-content">
       <div class="section-header" style="background: linear-gradient(to right, rgba(16, 185, 129, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(16, 185, 129, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
         <div style="background: rgba(16, 185, 129, 0.2); padding: 12px; border-radius: 12px;">

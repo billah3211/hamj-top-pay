@@ -6,6 +6,7 @@ const { prisma } = require('../db/prisma')
 const path = require('path')
 const countries = require('../data/countries')
 const { getUserSidebar } = require('../utils/sidebar')
+const { getSystemSettings } = require('../utils/settings')
 const router = express.Router()
 
 // Helper: Calculate User Level
@@ -614,8 +615,8 @@ router.get('/dashboard', async (req, res) => {
   const adminBtn = (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') 
     ? `<a href="/admin/login" class="btn-premium full-width" style="margin-top:10px;background:linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)">Admin Panel</a>` 
     : ''
-
-  const sidebar = getUserSidebar('dashboard', unreadCount, user.id, user.role)
+  
+  const sidebar = getUserSidebar('dashboard', unreadCount, user.id, user.role, settings)
 
   const profileModal = `
     <div id="profileModal" class="modal-premium" style="align-items: center; justify-content: center; padding: 20px;">
@@ -830,7 +831,7 @@ router.get('/notifications', async (req, res) => {
     data: { isRead: true }
   })
 
-  const sidebar = getUserSidebar('notifications', 0)
+  const sidebar = getUserSidebar('notifications', 0, user.id, user.role, settings)
 
   const list = notifs.map(n => `
     <div style="background:rgba(255,255,255,0.05);padding:16px;border-radius:12px;margin-bottom:12px;border-left:4px solid ${n.type === 'credit' ? '#22c55e' : (n.type === 'debit' ? '#ef4444' : '#6366f1')}">
@@ -955,8 +956,9 @@ router.get('/settings', async (req, res) => {
   const level = calculateLevel(taskCount)
   const levelProgress = getLevelProgress(taskCount)
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+  const settings = await getSystemSettings()
 
-  const sidebar = getUserSidebar('settings', unreadCount)
+  const sidebar = getUserSidebar('settings', unreadCount, user.id, user.role, settings)
 
   const profileModal = `
     <div id="profileModal" class="modal-premium" style="align-items: center; justify-content: center; padding: 20px;">

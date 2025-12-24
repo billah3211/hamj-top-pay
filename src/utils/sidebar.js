@@ -1,6 +1,15 @@
-const getUserSidebar = (active, unreadCount = 0, userId = null, role = 'USER') => `
+const getUserSidebar = (active, unreadCount = 0, userId = null, role = 'USER', config = {}) => {
+  const siteName = config.site_name || 'HaMJ toP PaY'
+  const logoUrl = config.site_logo
+  const showLogo = config.show_logo === 'true'
+
+  const brandHtml = showLogo && logoUrl 
+    ? `<img src="${logoUrl}" style="height:40px;width:auto;max-width:180px;object-fit:contain">`
+    : `<span>H</span> ${siteName}`
+
+  return `
   <nav class="sidebar-premium" id="sidebar">
-    <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
+    <div class="brand-logo">${brandHtml}</div>
     <ul class="nav-links">
       <li class="nav-item"><a href="/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
       <li class="nav-item"><a href="/topup" class="${active === 'topup' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up</a></li>
@@ -32,5 +41,6 @@ const getUserSidebar = (active, unreadCount = 0, userId = null, role = 'USER') =
     <script src="/js/chat.js" defer></script>
   ` : ''}
 `
+}
 
 module.exports = { getUserSidebar }

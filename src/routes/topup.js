@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const { prisma } = require('../db/prisma')
 const { getUserSidebar } = require('../utils/sidebar')
+const { getSystemSettings } = require('../utils/settings')
 
 // Middleware to check authentication
 const requireAuth = (req, res, next) => {
@@ -115,7 +116,7 @@ const getProfileModal = (user) => {
 }
 
 // Helper to render layout
-const renderLayout = (title, content, user, unreadCount = 0) => {
+const renderLayout = (title, content, user, unreadCount = 0, settings = {}) => {
   const active = title === 'Top Up' ? 'topup' : title === 'History' ? 'history' : ''
   return `
 <!doctype html>
@@ -163,7 +164,7 @@ const renderLayout = (title, content, user, unreadCount = 0) => {
 <body>
   <button class="menu-trigger" id="mobileMenuBtn">☰</button>
   <div class="app-layout">
-    ${getUserSidebar(active, unreadCount)}
+    ${getUserSidebar(active, unreadCount, user.id, user.role, settings)}
     <div class="main-content">
       <div class="container content">
          ${content}
@@ -222,6 +223,7 @@ router.get('/', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
     const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+    const settings = await getSystemSettings()
     
     // Level Progress
     const approvedCount = await prisma.linkSubmission.count({
@@ -277,7 +279,7 @@ router.get('/', requireAuth, async (req, res) => {
         ${packages.length === 0 ? '<div class="alert">No packages available at the moment.</div>' : ''}
       </div>
     `
-    res.send(renderLayout('Top Up', content, user, unreadCount))
+    res.send(renderLayout('Top Up', content, user, unreadCount, settings))
   } catch (error) {
     console.error(error)
     res.status(500).send('Server Error')
@@ -289,6 +291,7 @@ router.get('/:pkgId/wallets', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
     const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+    const settings = await getSystemSettings()
     
     // Level Progress
     const approvedCount = await prisma.linkSubmission.count({
@@ -339,7 +342,7 @@ router.get('/:pkgId/wallets', requireAuth, async (req, res) => {
         ${wallets.length === 0 ? '<div class="alert">No payment methods available.</div>' : ''}
       </div>
     `
-    res.send(renderLayout('Top Up', content, user, unreadCount))
+    res.send(renderLayout('Top Up', content, user, unreadCount, settings))
   } catch (error) {
     console.error(error)
     res.status(500).send('Server Error')
@@ -351,6 +354,7 @@ router.get('/:pkgId/pay/:walletId', requireAuth, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
     const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+    const settings = await getSystemSettings()
     
     // Level Progress
     const approvedCount = await prisma.linkSubmission.count({
@@ -419,7 +423,7 @@ router.get('/:pkgId/pay/:walletId', requireAuth, async (req, res) => {
 
       </div>
     `
-    res.send(renderLayout('Top Up', content, user, unreadCount))
+    res.send(renderLayout('Top Up', content, user, unreadCount, settings))
   } catch (error) {
     console.error(error)
     res.status(500).send('Server Error')
@@ -463,7 +467,7 @@ router.post('/submit', requireAuth, async (req, res) => {
        return res.send(renderLayout('Error', `
          <div class="alert error">Transaction ID '${trxId}' already used! Please check again.</div>
          <a href="/topup/${pkgId}/pay/${walletId}" class="btn-premium">Try Again</a>
-       `, user))
+       `, user, 0, settings))
     }
 
     const topUpRequest = await prisma.topUpRequest.create({

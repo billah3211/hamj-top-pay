@@ -2,6 +2,7 @@ const express = require('express')
 const { prisma } = require('../db/prisma')
 const { getUserSidebar } = require('../utils/sidebar')
 const { formatDate } = require('../utils/date')
+const { getSystemSettings } = require('../utils/settings')
 const router = express.Router()
 
 // Middleware to ensure login
@@ -11,23 +12,6 @@ const requireLogin = (req, res, next) => {
 }
 
 // Layout Helpers
-const getSidebar = (active) => `
-  <nav class="sidebar-premium" id="sidebar">
-    <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
-    <ul class="nav-links">
-      <li class="nav-item"><a href="/dashboard"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
-      <li class="nav-item"><a href="/promote"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Link</a></li>
-      <li class="nav-item"><a href="/store"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=%2394a3b8" class="nav-icon"> Store</a></li>
-      <li class="nav-item"><a href="/store/my"><img src="https://api.iconify.design/lucide:briefcase.svg?color=%2394a3b8" class="nav-icon"> My Store</a></li>
-      <li class="nav-item"><a href="/topup"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up</a></li>
-      <li class="nav-item"><a href="/guild" class="active"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Guild</a></li>
-      <li class="nav-item"><a href="/notifications"><img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications</a></li>
-      <li class="nav-item"><a href="/settings"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
-      <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
-    </ul>
-  </nav>
-`
-
 const getHead = (title) => `
   <!doctype html>
   <html>
@@ -99,455 +83,205 @@ router.get('/', requireLogin, async (req, res) => {
     .map(line => `<li style="border-color:rgba(59,130,246,0.1)">${line.replace(/^[•\-\*]\s*/, '')}</li>`)
     .join('') + `</ul>`
 
-  // 1. User is in a Guild (or Leader of one)
-  if (user.guild) {
-    const guild = user.guild
-    
-    // Check Status
-    if (guild.status === 'PENDING') {
-      return res.send(`
-        ${getHead('Guild Pending')}
-        ${getSidebar('guild')}
-        <div class="main-content">
-          <div class="container" style="padding:20px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center; height:80vh;">
-            <div style="font-size:48px; margin-bottom:20px">⏳</div>
-            <h2 style="margin-bottom:10px">Application Pending</h2>
-            <p style="color:var(--text-muted); margin-bottom:20px">Your YouTuber Guild application is currently under review by the admin. Please wait 24-48 hours.</p>
-            <div class="glass-panel" style="padding:16px; width:100%">
-              <div>Guild Name: <b>${guild.name}</b></div>
-              <div>Submitted: ${new Date(guild.createdAt).toLocaleDateString()}</div>
-            </div>
-          </div>
-        </div>
-        ${getFooter()}
-      `)
-    }
+  // Get Top Guilds
+  const topGuilds = await prisma.guild.findMany({
+    take: 5,
+    orderBy: { totalEarnings: 'desc' },
+    include: { leader: true, members: true }
+  })
 
-    // Active Guild Dashboard
-    const isLeader = guild.leaderId === user.id
-    const memberCount = guild.members.length
-    
-    return res.send(`
-      ${getHead('My Guild')}
-      ${getSidebar('guild')}
-      <div class="main-content">
-        
-        <!-- Custom Guild Header -->
-        <div style="background: #2b1d12; border-radius: 20px; overflow: hidden; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5); margin-bottom: 0;">
-            <!-- Top Dark Section -->
-            <div style="padding: 30px; position: relative;">
-                <div style="display: flex; flex-wrap: wrap; gap: 30px; align-items: center;">
-                    
-                    <!-- Profile Circle -->
-                    <div style="flex-shrink: 0; width: 180px; height: 180px; border-radius: 50%; border: 6px solid #d4a768; overflow: hidden; background: #000; position: relative; z-index: 2;">
-                        <img src="${guild.leader.currentAvatar || 'https://api.iconify.design/lucide:users.svg?color=white'}" style="width: 100%; height: 100%; object-fit: cover;">
-                    </div>
+  // Get My Guild Requests
+  const myRequests = await prisma.guildRequest.findMany({
+    where: { userId: user.id, status: 'PENDING' },
+    include: { guild: true }
+  })
 
-                    <!-- Right Side Controls -->
-                    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 20px; align-items: flex-end;">
-                        
-                        <!-- Search Bar -->
-                        <div style="width: 100%; max-width: 400px; position: relative;">
-                            <input type="text" id="memberSearchInput" placeholder="Search..." style="width: 100%; padding: 12px 20px; border-radius: 30px; border: none; outline: none; font-size: 16px; padding-right: 50px;">
-                            <i class="fas fa-search" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); color: #d4a768; font-size: 20px;"></i>
-                        </div>
-
-                        <!-- Guild Name Pill -->
-                        <div style="background: linear-gradient(90deg, #ecfccb, #f472b6); padding: 12px 30px; border-radius: 50px; display: flex; align-items: center; gap: 10px; color: #000; font-weight: bold; font-size: 18px; width: 100%; max-width: 500px; justify-content: flex-start;">
-                            <span style="color: #166534; font-weight: 800; font-size: 20px;">GUILD :</span>
-                            <span>${guild.name}</span>
-                        </div>
-
-                        <!-- Members Count Pill -->
-                        <div style="background: linear-gradient(90deg, #fef08a, #f9a8d4); padding: 12px 30px; border-radius: 50px; display: flex; align-items: center; gap: 10px; color: #000; font-weight: bold; font-size: 18px; width: 100%; max-width: 500px; justify-content: flex-start;">
-                            <span style="color: #000; font-weight: 800;">Members</span>
-                            <span>${memberCount}</span>
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-
-            <!-- Decorative Line -->
-            <div style="height: 4px; background: linear-gradient(90deg, #a855f7, #06b6d4); width: 100%;"></div>
-        </div>
-
-        <!-- Members List Section (Gradient Background) -->
-        <div style="background: linear-gradient(180deg, #fef9c3, #fbcfe8); min-height: 300px; padding: 30px; border-radius: 0 0 20px 20px; margin-top: -10px; position: relative; z-index: 1;">
-            
-            <h3 style="text-align: center; color: #000; margin-bottom: 30px; font-weight: 800;">Member List</h3>
-
-            <div id="memberList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px;">
-                ${guild.members.map(m => `
-                    <div class="member-card" onclick="openUserProfile('${m.username}')" data-username="${m.username.toLowerCase()}" style="cursor: pointer; background: rgba(255,255,255,0.6); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
-                        <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; background: #e2e8f0; border: 1px solid #cbd5e1;">
-                            <img src="${m.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=gray'}" style="width: 100%; height: 100%; object-fit: cover;">
-                        </div>
-                        <div>
-                            <div style="font-weight: bold; color: #333;">${m.firstName} ${m.lastName} ${m.id === guild.leaderId ? '👑' : ''}</div>
-                            <div style="font-size: 12px; color: #666;">@${m.username}</div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-
-            <!-- Leave Guild Button (Bottom) -->
-             <div style="margin-top: 40px; text-align: center;">
-                ${!isLeader ? `
-                  <form action="/guild/leave" method="POST" onsubmit="return confirm('Are you sure you want to leave this guild?')">
-                    <button style="background: #ef4444; color: white; border: none; padding: 10px 24px; border-radius: 8px; cursor: pointer; font-weight: bold;">Leave Guild</button>
-                  </form>
-                ` : `<div style="color: #666; font-size: 12px;">Guild Leader cannot leave directly.</div>`}
-             </div>
-
-        </div>
-
-      </div>
-
-      <!-- User Profile Modal -->
-      <div id="userProfileModal" class="guild-modal" style="display:none; align-items: center; justify-content: center; padding: 20px;">
-        <div class="modal-content" style="background: transparent; border: none; box-shadow: none; width: 100%; max-width: 600px; padding: 0;">
-          <div style="position: relative;">
-              <button class="modal-close" onclick="document.getElementById('userProfileModal').style.display='none'" style="position: absolute; top: -15px; right: -15px; background: rgba(0,0,0,0.5); color: white; border: 2px solid rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; z-index: 100; font-size: 20px; display: flex; align-items: center; justify-content: center;">×</button>
-              <div style="background: linear-gradient(135deg, #065f46 0%, #10b981 100%); padding: 30px 20px 20px; border-radius: 24px; position: relative; overflow: visible; box-shadow: 0 20px 50px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);">
-                  <div style="background: #000; padding: 20px; border-radius: 16px; margin-bottom: 20px; margin-left: 60px; position: relative; border: 1px solid rgba(255,255,255,0.1);">
-                     <div id="upName" style="font-size: 24px; font-weight: 800; color: white; letter-spacing: 0.5px;">Loading...</div>
-                     <div id="upUsername" style="color: #4ade80; font-weight: 600; font-size: 14px; margin-bottom: 8px;">@...</div>
-                     <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                           <div id="upLevel" style="display:none; background:linear-gradient(90deg, #facc15, #fbbf24); color:black; font-weight:bold; font-size:12px; padding:2px 10px; border-radius: 20px;">Level ...</div>
-                           <div id="upLevelText" style="font-size: 11px; color: #94a3b8; display: none;">... / ... Tasks</div>
-                        </div>
-                        <div id="upProgressContainer" style="width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; display: none;">
-                           <div id="upProgressBar" style="width: 0%; height: 100%; background: #facc15;"></div>
-                        </div>
-                     </div>
-                     <div style="display: grid; grid-template-columns: 1fr; gap: 4px; font-size: 13px; color: #cbd5e1;">
-                         <div id="upEmail">📧 ...</div>
-                         <div id="upJoined">📅 Joined: ...</div>
-                     </div>
-                  </div>
-                  <div style="display: flex; gap: 20px; align-items: flex-start;">
-                      <div style="width: 110px; height: 110px; border-radius: 50%; border: 6px solid #000; overflow: hidden; background: #1a1a2e; flex-shrink: 0; z-index: 10; margin-top: -10px; box-shadow: 0 10px 20px rgba(0,0,0,0.3);">
-                          <img id="upAvatar" src="" style="width: 100%; height: 100%; object-fit: cover;">
-                      </div>
-                      <div style="background: #000; padding: 20px; border-radius: 16px; flex-grow: 1; border: 1px solid rgba(255,255,255,0.1);">
-                          <div style="display: flex; flex-direction: column; gap: 8px;">
-                              <div style="font-size: 13px; color: #e2e8f0;">
-                                  <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Country</span><br>
-                                  <span id="upCountry">...</span>
-                              </div>
-                              <div style="font-size: 13px; color: #e2e8f0;">
-                                  <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Bio</span><br>
-                                  <span id="upBio">...</span>
-                              </div>
-                              <div style="font-size: 13px; color: #e2e8f0;">
-                                  <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Website</span><br>
-                                  <span id="upWebsite">...</span>
-                              </div>
-                              <div style="font-size: 13px; color: #e2e8f0;">
-                                  <span style="color: #4ade80; font-weight: bold; text-transform: uppercase; font-size: 11px; letter-spacing: 1px;">Social</span><br>
-                                  <span id="upSocial">...</span>
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-          </div>
-        </div>
-      </div>
-
-      <script src="/js/guild-profile.js"></script>
-      ${getFooter()}
-    `)
-  }
-
-  // 2. No Guild - Show Search & Create
-  const query = req.query.q || ''
-  let guilds = []
-  
-  if (query) {
-    guilds = await prisma.guild.findMany({
-      where: { 
-        username: { contains: query, mode: 'insensitive' },
-        status: 'APPROVED'
-      },
-      include: { members: true },
-      take: 10
-    })
-  } else {
-    // Default list (e.g., random or most members)
-    guilds = await prisma.guild.findMany({
-      where: { status: 'APPROVED' },
-      include: { members: true },
-      orderBy: { members: { _count: 'desc' } },
-      take: 10
-    })
-  }
+  const settings = await getSystemSettings()
 
   res.send(`
     ${getHead('Guilds')}
-    ${getUserSidebar('guild', unreadCount)}
+    ${getUserSidebar('guild', unreadCount, user.id, user.role, settings)}
     <div class="main-content">
+      
       <div class="section-header">
-        <div>
-          <div class="section-title">Guilds</div>
-          <div style="color:var(--text-muted)">Join a community or start your own</div>
-        </div>
-        <button onclick="document.getElementById('createModal').style.display='flex'" class="btn-premium" style="font-size:12px; padding:8px 16px">+ Create</button>
+         <div>
+            <div class="section-title">Guilds</div>
+            <div style="color:var(--text-muted);font-size:14px">Join forces, earn more together</div>
+         </div>
+         ${!user.guild ? `
+           <div style="display:flex; gap:10px">
+             <button onclick="openModal('createGuildModal')" class="btn-premium">Create Guild</button>
+           </div>
+         ` : ''}
       </div>
 
-      <!-- Search -->
-      <form action="/guild" method="GET" style="margin-bottom:24px">
-        <div style="position:relative">
-          <input type="text" name="q" value="${query}" placeholder="Search by Guild Username..." class="form-input" style="width:100%; padding-left:40px">
-          <i class="fas fa-search" style="position:absolute; left:14px; top:14px; color:var(--text-muted)"></i>
-        </div>
-      </form>
-
-      <!-- List -->
-      <div class="guild-list">
-        ${guilds.length ? guilds.map(g => `
-          <div class="guild-card">
-            <div>
-              <div style="font-weight:bold; font-size:16px">${g.name}</div>
-              <div style="font-size:12px; color:var(--text-muted); margin-bottom:4px">@${g.username}</div>
-              <div style="display:flex; gap:8px; align-items:center">
-                <span class="guild-badge ${g.type === 'YOUTUBER' ? 'badge-youtuber' : 'badge-user'}">${g.type}</span>
-                <span style="font-size:12px; color:var(--text-muted)">👥 ${g.members.length} / ${g.memberLimit}</span>
+      ${user.guild ? `
+        <!-- MY GUILD DASHBOARD -->
+        <div class="glass-panel" style="margin-bottom: 30px; border-color: var(--primary);">
+           <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom: 20px;">
+              <div>
+                 <div class="guild-badge ${user.guild.type === 'YOUTUBER' ? 'badge-youtuber' : 'badge-user'}" style="display:inline-block; margin-bottom:8px">
+                    ${user.guild.type} GUILD
+                 </div>
+                 <h2 style="font-size:24px; font-weight:800; color:white; margin:0">${user.guild.name}</h2>
+                 <div style="color:var(--text-muted)">Leader: ${user.guild.leader.username}</div>
               </div>
-            </div>
-            ${g.members.length < g.memberLimit ? `
-              <form action="/guild/join/${g.id}" method="POST">
-                <button class="btn-premium" style="padding:6px 16px; font-size:12px">Join</button>
-              </form>
-            ` : `<button disabled class="btn-premium" style="opacity:0.5; padding:6px 16px; font-size:12px">Full</button>`}
+              <div style="text-align:right">
+                 <div style="font-size:24px; font-weight:800; color:var(--primary)">${user.guild.totalEarnings.toFixed(2)} TK</div>
+                 <div style="font-size:12px; color:var(--text-muted)">Total Earnings</div>
+              </div>
+           </div>
+
+           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:15px; margin-bottom: 20px;">
+              <div class="stat-card">
+                 <div class="stat-value">${user.guild.members.length} / ${user.guild.maxMembers}</div>
+                 <div class="stat-label">Members</div>
+              </div>
+              <div class="stat-card">
+                 <div class="stat-value">${user.guild.commissionRate}%</div>
+                 <div class="stat-label">Commission</div>
+              </div>
+           </div>
+
+           <h3 style="margin-bottom:15px; font-size:16px; color:white;">Members</h3>
+           <div style="display:grid; gap:10px;">
+              ${user.guild.members.map(m => `
+                <div class="guild-card">
+                   <div style="display:flex; align-items:center; gap:12px;">
+                      <div style="width:32px; height:32px; background:#334155; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold;">
+                         ${m.username[0].toUpperCase()}
+                      </div>
+                      <div>
+                         <div style="font-weight:600; color:white">${m.username}</div>
+                         <div style="font-size:12px; color:var(--text-muted)">Joined ${new Date(m.createdAt).toLocaleDateString()}</div>
+                      </div>
+                   </div>
+                   ${m.id === user.guild.leaderId ? '<span class="guild-badge badge-youtuber">LEADER</span>' : ''}
+                </div>
+              `).join('')}
+           </div>
+
+           ${user.id === user.guild.leaderId ? `
+             <div style="margin-top:20px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.1); display:flex; gap:10px;">
+                <a href="/guild/manage" class="btn-premium" style="flex:1; text-align:center">Manage Guild</a>
+             </div>
+           ` : `
+             <div style="margin-top:20px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.1);">
+                <form action="/guild/leave" method="POST" onsubmit="return confirm('Are you sure you want to leave this guild?')">
+                   <button type="submit" class="btn-premium" style="width:100%; background:rgba(239,68,68,0.2); color:#fca5a5; border-color:rgba(239,68,68,0.3)">Leave Guild</button>
+                </form>
+             </div>
+           `}
+        </div>
+      ` : ''}
+
+      <!-- TOP GUILDS -->
+      <h3 style="margin-bottom:15px; font-size:18px; color:white;">Top Guilds</h3>
+      <div style="display:grid; gap:15px;">
+        ${topGuilds.map(g => `
+          <div class="guild-card">
+             <div style="display:flex; align-items:center; gap:15px;">
+                <div style="width:48px; height:48px; background:#1e293b; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px; font-weight:bold; border:1px solid rgba(255,255,255,0.1);">
+                   ${g.name[0]}
+                </div>
+                <div>
+                   <div style="font-weight:bold; color:white; font-size:16px;">${g.name}</div>
+                   <div style="font-size:12px; color:var(--text-muted); display:flex; gap:10px; margin-top:4px;">
+                      <span class="guild-badge ${g.type === 'YOUTUBER' ? 'badge-youtuber' : 'badge-user'}">${g.type}</span>
+                      <span><i class="fas fa-users"></i> ${g.members.length}/${g.maxMembers}</span>
+                      <span><i class="fas fa-coins"></i> ${g.totalEarnings.toFixed(0)} TK</span>
+                   </div>
+                </div>
+             </div>
+             ${!user.guild ? `
+               <form action="/guild/join" method="POST">
+                 <input type="hidden" name="guildId" value="${g.id}">
+                 <button type="submit" class="btn-premium" style="padding:6px 16px; font-size:12px;">Join</button>
+               </form>
+             ` : ''}
           </div>
-        `).join('') : `
-          <div style="text-align:center; padding:40px; color:var(--text-muted)">
-            <div style="font-size:32px; margin-bottom:10px">🔍</div>
-            No guilds found. Try searching or create one!
-          </div>
-        `}
+        `).join('')}
       </div>
+
     </div>
 
-    <!-- Create Modal -->
-    <div id="createModal" class="guild-modal" onclick="if(event.target===this)this.style.display='none'">
-      <div class="modal-content">
-        <h3 style="margin-bottom:20px; text-align:center">Create New Guild</h3>
-        
-        <div style="display:flex; gap:12px; margin-bottom:24px">
-          <button onclick="showForm('user')" class="btn-premium active-tab" id="btn-user" style="flex:1; background:rgba(59,130,246,0.2)">User Guild</button>
-          <button onclick="showForm('youtuber')" class="btn-premium" id="btn-youtuber" style="flex:1; background:rgba(255,255,255,0.05)">YouTuber Guild</button>
-        </div>
-
-        <!-- User Form -->
-        <form id="form-user" action="/guild/create" method="POST">
-          <input type="hidden" name="type" value="USER">
-          <div class="alert info" style="font-size:12px; margin-bottom:16px">
-            ${userRequirementsHtml}
-          </div>
-          <div class="form-group" style="margin-bottom:16px">
-            <label class="form-label">Guild Name</label>
-            <input type="text" name="name" required class="form-input" style="width:100%">
-          </div>
-          <div class="form-group" style="margin-bottom:20px">
-            <label class="form-label">Guild Username (Unique)</label>
-            <input type="text" name="username" required class="form-input" style="width:100%">
-          </div>
-          <button class="btn-premium full-width">Create User Guild</button>
-        </form>
-
-        <!-- YouTuber Form -->
-        <form id="form-youtuber" action="/guild/create" method="POST" style="display:none">
-          <input type="hidden" name="type" value="YOUTUBER">
-          <div class="alert info" style="font-size:12px; margin-bottom:16px; border-color:#fca5a5; background:rgba(239,68,68,0.1)">
-            <b>Requirements:</b><br>
-            ${requirementsText}
-          </div>
-          
-          <div class="form-group" style="margin-bottom:12px">
-            <label class="form-label">Guild Name</label>
-            <input type="text" name="name" required class="form-input" style="width:100%">
-          </div>
-          <div class="form-group" style="margin-bottom:12px">
-            <label class="form-label">Guild Username</label>
-            <input type="text" name="username" required class="form-input" style="width:100%">
-          </div>
-          <div class="form-group" style="margin-bottom:12px">
-            <label class="form-label">YouTube Channel Link</label>
-            <input type="url" name="channelLink" required class="form-input" style="width:100%">
-          </div>
-          <div class="form-group" style="margin-bottom:12px">
-            <label class="form-label">Hamj Top Pay Video Link</label>
-            <input type="url" name="videoLink" required class="form-input" style="width:100%">
-          </div>
-          <div class="form-group" style="margin-bottom:12px">
-            <label class="form-label">Contact Email</label>
-            <input type="email" name="email" required class="form-input" style="width:100%">
-          </div>
-          <div class="form-group" style="margin-bottom:12px">
-            <label class="form-label">Contact Phone</label>
-            <input type="tel" name="phone" required class="form-input" style="width:100%">
-          </div>
-          <div class="form-group" style="margin-bottom:20px">
-            <label class="form-label">Channel Verification Contact (Email/Phone)</label>
-            <input type="text" name="verificationContact" required class="form-input" style="width:100%" placeholder="Email/Number visible on channel">
+    <!-- CREATE GUILD MODAL -->
+    <div id="createGuildModal" class="guild-modal">
+       <div class="modal-content">
+          <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+             <h3 style="margin:0; color:white;">Create Guild</h3>
+             <button onclick="closeModal('createGuildModal')" style="background:none; border:none; color:white; font-size:24px; cursor:pointer;">&times;</button>
           </div>
 
-          <button class="btn-premium full-width" style="background:#ef4444">Submit Application</button>
-        </form>
+          <!-- TABS -->
+          <div style="display:flex; background:#0f172a; padding:4px; border-radius:8px; margin-bottom:20px;">
+             <button onclick="switchTab('youtuber')" id="tab-youtuber" style="flex:1; padding:10px; background:var(--primary); color:black; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">YouTuber Guild</button>
+             <button onclick="switchTab('user')" id="tab-user" style="flex:1; padding:10px; background:transparent; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">User Guild</button>
+          </div>
 
-      </div>
+          <!-- YOUTUBER FORM -->
+          <div id="form-youtuber">
+             <div style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); padding:15px; border-radius:8px; margin-bottom:20px;">
+                <div style="color:#fca5a5; font-weight:bold; margin-bottom:10px; font-size:14px;">Requirements</div>
+                ${requirementsText}
+             </div>
+             <form action="/guild/create" method="POST">
+                <input type="hidden" name="type" value="YOUTUBER">
+                <div style="margin-bottom:15px;">
+                   <label style="display:block; color:var(--text-muted); margin-bottom:6px; font-size:12px;">Guild Name</label>
+                   <input type="text" name="name" required style="width:100%; background:#0f172a; border:1px solid #334155; padding:10px; border-radius:8px; color:white;">
+                </div>
+                <div style="margin-bottom:15px;">
+                   <label style="display:block; color:var(--text-muted); margin-bottom:6px; font-size:12px;">YouTube Channel Link</label>
+                   <input type="url" name="proof" required style="width:100%; background:#0f172a; border:1px solid #334155; padding:10px; border-radius:8px; color:white;">
+                </div>
+                <button type="submit" class="btn-premium" style="width:100%">Submit for Approval</button>
+             </form>
+          </div>
+
+          <!-- USER FORM -->
+          <div id="form-user" style="display:none;">
+             <div style="background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.2); padding:15px; border-radius:8px; margin-bottom:20px;">
+                <div style="color:#93c5fd; font-weight:bold; margin-bottom:10px; font-size:14px;">Features</div>
+                ${userRequirementsHtml}
+             </div>
+             <form action="/guild/create" method="POST">
+                <input type="hidden" name="type" value="USER">
+                <div style="margin-bottom:15px;">
+                   <label style="display:block; color:var(--text-muted); margin-bottom:6px; font-size:12px;">Guild Name</label>
+                   <input type="text" name="name" required style="width:100%; background:#0f172a; border:1px solid #334155; padding:10px; border-radius:8px; color:white;">
+                </div>
+                <div style="margin-bottom:20px;">
+                   <label style="display:block; color:var(--text-muted); margin-bottom:6px; font-size:12px;">Cost</label>
+                   <div style="font-size:18px; font-weight:bold; color:white;">500 Diamonds</div>
+                </div>
+                <button type="submit" class="btn-premium" style="width:100%">Create Guild (500 Diamonds)</button>
+             </form>
+          </div>
+
+       </div>
     </div>
 
     <script>
-      function showForm(type) {
-        document.getElementById('form-user').style.display = type === 'user' ? 'block' : 'none';
-        document.getElementById('form-youtuber').style.display = type === 'youtuber' ? 'block' : 'none';
-        
-        document.getElementById('btn-user').style.background = type === 'user' ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)';
-        document.getElementById('btn-youtuber').style.background = type === 'youtuber' ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.05)';
+      function openModal(id) {
+        document.getElementById(id).style.display = 'flex';
+      }
+      function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+      }
+      function switchTab(type) {
+         document.querySelectorAll('[id^="form-"]').forEach(el => el.style.display = 'none');
+         document.getElementById('form-' + type).style.display = 'block';
+         
+         document.getElementById('tab-youtuber').style.background = type === 'youtuber' ? 'var(--primary)' : 'transparent';
+         document.getElementById('tab-youtuber').style.color = type === 'youtuber' ? 'black' : 'white';
+         
+         document.getElementById('tab-user').style.background = type === 'user' ? 'var(--primary)' : 'transparent';
+         document.getElementById('tab-user').style.color = type === 'user' ? 'black' : 'white';
       }
     </script>
     ${getFooter()}
   `)
-})
-
-router.post('/create', requireLogin, async (req, res) => {
-  try {
-    const { 
-      type, name, username, 
-      channelLink, videoLink, email, phone, verificationContact 
-    } = req.body
-    
-    const userId = req.session.userId
-
-    // Check if user already has a guild (joined or owned)
-    const existingUser = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { guild: true, ownedGuild: true }
-    })
-
-    if (existingUser.guildId || existingUser.ownedGuild) {
-      return res.send(`<script>alert('You are already in a guild!');window.location.href='/guild'</script>`)
-    }
-
-    // Check unique username
-    const existingGuild = await prisma.guild.findUnique({ where: { username } })
-    if (existingGuild) {
-      return res.send(`<script>alert('Guild username already taken!');window.location.href='/guild'</script>`)
-    }
-
-    // Create Logic
-    if (type === 'USER') {
-      const guild = await prisma.guild.create({
-        data: {
-          name,
-          username,
-          type: 'USER',
-          leaderId: userId,
-          status: 'APPROVED',
-          memberLimit: 50,
-          commissionRate: 1.0,
-          members: {
-            connect: { id: userId }
-          }
-        }
-      })
-      // Update User to be in this guild
-      await prisma.user.update({
-        where: { id: userId },
-        data: { guildId: guild.id }
-      })
-    } else if (type === 'YOUTUBER') {
-      const guild = await prisma.guild.create({
-        data: {
-          name,
-          username,
-          type: 'YOUTUBER',
-          leaderId: userId,
-          status: 'PENDING',
-          memberLimit: 1000,
-          commissionRate: 5.0,
-          youtubeChannelLink: channelLink,
-          videoLink,
-          contactEmail: email,
-          contactPhone: phone,
-          verificationContact,
-          members: {
-            connect: { id: userId }
-          }
-        }
-      })
-      // Update User
-      await prisma.user.update({
-        where: { id: userId },
-        data: { guildId: guild.id }
-      })
-    }
-
-    res.redirect('/guild')
-
-  } catch (e) {
-    console.error(e)
-    res.send(`<script>alert('Error creating guild: ${e.message}');window.location.href='/guild'</script>`)
-  }
-})
-
-router.post('/join/:id', requireLogin, async (req, res) => {
-  try {
-    const guildId = parseInt(req.params.id)
-    const userId = req.session.userId
-
-    const user = await prisma.user.findUnique({ where: { id: userId } })
-    if (user.guildId) return res.send(`<script>alert('You are already in a guild!');window.location.href='/guild'</script>`)
-
-    const guild = await prisma.guild.findUnique({ 
-      where: { id: guildId },
-      include: { members: true }
-    })
-
-    if (!guild || guild.status !== 'APPROVED') return res.redirect('/guild')
-    
-    if (guild.members.length >= guild.memberLimit) {
-      return res.send(`<script>alert('Guild is full!');window.location.href='/guild'</script>`)
-    }
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { guildId: guild.id }
-    })
-
-    res.redirect('/guild')
-  } catch (e) {
-    console.error(e)
-    res.redirect('/guild')
-  }
-})
-
-router.post('/leave', requireLogin, async (req, res) => {
-  try {
-    const userId = req.session.userId
-    const user = await prisma.user.findUnique({ where: { id: userId }, include: { guild: true } })
-
-    if (!user.guildId) return res.redirect('/guild')
-    
-    if (user.guild.leaderId === userId) {
-      return res.send(`<script>alert('Leaders cannot leave. You must disband the guild (Contact Admin).');window.location.href='/guild'</script>`)
-    }
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { guildId: null }
-    })
-
-    res.redirect('/guild')
-  } catch (e) {
-    console.error(e)
-    res.redirect('/guild')
-  }
 })
 
 module.exports = router

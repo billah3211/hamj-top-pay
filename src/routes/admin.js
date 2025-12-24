@@ -1,5 +1,6 @@
 const express = require('express')
 const { prisma } = require('../db/prisma')
+const { getSystemSettings } = require('../utils/settings')
 const router = express.Router()
 
 // Middleware
@@ -65,9 +66,18 @@ const getHead = (title) => `
   <div class="app-layout">
 `
 
-const getSidebar = (active, role) => `
+const getSidebar = (active, role, config = {}) => {
+  const siteName = config.site_name || 'Admin Panel'
+  const logoUrl = config.site_logo
+  const showLogo = config.show_logo === 'true'
+
+  const brandHtml = showLogo && logoUrl 
+    ? `<img src="${logoUrl}" style="height:40px;width:auto;max-width:180px;object-fit:contain">`
+    : `<span>A</span> ${siteName}`
+
+  return `
 <nav class="sidebar-premium" id="sidebar">
-  <div class="brand-logo"><span>A</span> Admin Panel</div>
+  <div class="brand-logo">${brandHtml}</div>
   <ul class="nav-links">
     <li class="nav-item"><a href="/admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
     <li class="nav-item"><a href="/admin/users" class="${active === 'users' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Users</a></li>
@@ -84,6 +94,7 @@ const getSidebar = (active, role) => `
   </ul>
 </nav>
 `
+}
 
 const getScripts = () => `
   </div>
@@ -336,9 +347,11 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
     const level = calculateLevel(taskCount)
     const levelProgress = getLevelProgress(taskCount)
 
+    const settings = await getSystemSettings()
+
     res.send(`
       ${getHead(`User: ${user.username}`)}
-      ${getSidebar('users', req.session.role)}
+      ${getSidebar('users', req.session.role, settings)}
       <div class="main-content">
          <div style="display:flex; align-items:center; gap:15px; margin-bottom:20px;">
             <a href="/admin/users" style="color:#94a3b8; text-decoration:none;">&larr; Back</a>
@@ -621,9 +634,11 @@ router.get('/topup-requests', requireAdmin, async (req, res) => {
     orderBy: { createdAt: 'desc' }
   })
   
+  const settings = await getSystemSettings()
+
   res.send(`
     ${getHead('TopUp Requests')}
-    ${getSidebar('topup-requests', req.session.role)}
+    ${getSidebar('topup-requests', req.session.role, settings)}
     <div class="main-content">
       <div class="section-title">TopUp Requests</div>
       <div style="display:flex; flex-direction:column; gap:15px;">
@@ -689,9 +704,11 @@ router.get('/promote-requests', requireAdmin, async (req, res) => {
     orderBy: { submittedAt: 'desc' }
   })
   
+  const settings = await getSystemSettings()
+
   res.send(`
     ${getHead('Promote Requests')}
-    ${getSidebar('promote-requests', req.session.role)}
+    ${getSidebar('promote-requests', req.session.role, settings)}
     <div class="main-content">
        <div class="section-title">Link Task Submissions</div>
        <div style="display:flex; flex-direction:column; gap:15px;">
@@ -875,9 +892,11 @@ router.get('/link-search', requireAdmin, async (req, res) => {
       }
   }
 
+  const settings = await getSystemSettings()
+
   res.send(`
     ${getHead('Search Link')}
-    ${getSidebar('link-search', req.session.role)}
+    ${getSidebar('link-search', req.session.role, settings)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -1034,10 +1053,11 @@ router.get('/logout', (req, res) => {
 })
 
 // Live Support
-router.get('/support', requireAdmin, (req, res) => {
+router.get('/support', requireAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
   res.send(`
     ${getHead('Live Support')}
-    ${getSidebar('support', req.session.role)}
+    ${getSidebar('support', req.session.role, settings)}
     <div class="main-content" style="height: 100vh; display: flex; flex-direction: column;">
       <div class="section-title">Live Support Chat</div>
       

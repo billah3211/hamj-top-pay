@@ -1,6 +1,7 @@
 const express = require('express')
 const { prisma } = require('../db/prisma')
 const { getUserSidebar } = require('../utils/sidebar')
+const { getSystemSettings } = require('../utils/settings')
 const router = express.Router()
 
 // Middleware to ensure user is logged in
@@ -106,24 +107,7 @@ const getProfileModal = (user, level, levelProgress) => `
     <div id="profileOverlay" class="modal-overlay hidden"></div>
 `
 
-const getSidebar = (active) => `
-    <nav class="sidebar-premium" id="sidebar">
-      <div class="brand-logo"><span>H</span> HaMJ toP PaY</div>
-      <ul class="nav-links">
-        <li class="nav-item"><a href="/dashboard"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=%2394a3b8" class="nav-icon"> Dashboard</a></li>
-        <li class="nav-item"><a href="/store" class="${active==='store'?'active':''}"><img src="https://api.iconify.design/lucide:shopping-bag.svg?color=%2394a3b8" class="nav-icon"> Store</a></li>
-        <li class="nav-item"><a href="/store/my" class="${active==='mystore'?'active':''}"><img src="https://api.iconify.design/lucide:briefcase.svg?color=%2394a3b8" class="nav-icon"> My Store</a></li>
-        <li class="nav-item"><a href="/leaderboard"><img src="https://api.iconify.design/lucide:trophy.svg?color=%2394a3b8" class="nav-icon"> Leaderboard</a></li>
-        <li class="nav-item"><a href="/topup"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up</a></li>
-        <li class="nav-item"><a href="/guild" class="${active==='guild'?'active':''}"><img src="https://api.iconify.design/lucide:users.svg?color=%2394a3b8" class="nav-icon"> Guild</a></li>
-        <li class="nav-item"><a href="/promote"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Link</a></li>
-        <li class="nav-item"><a href="/notifications"><img src="https://api.iconify.design/lucide:bell.svg?color=%2394a3b8" class="nav-icon"> Notifications</a></li>
-        <li class="nav-item"><a href="/settings"><img src="https://api.iconify.design/lucide:settings.svg?color=%2394a3b8" class="nav-icon"> Settings</a></li>
-        <li class="nav-item"><a href="#" id="menuProfile"><img src="https://api.iconify.design/lucide:user.svg?color=%2394a3b8" class="nav-icon"> Profile</a></li>
-        <li class="nav-item" style="margin-top:auto"><a href="/auth/logout"><img src="https://api.iconify.design/lucide:log-out.svg?color=%2394a3b8" class="nav-icon"> Logout</a></li>
-      </ul>
-    </nav>
-  `
+
 
 const getHead = (title) => `
   <!doctype html>
@@ -179,6 +163,8 @@ router.get('/', requireLogin, async (req, res) => {
     where: { id: req.session.userId },
     include: { items: true }
   })
+  const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+  const settings = await getSystemSettings()
   
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
@@ -219,7 +205,7 @@ router.get('/', requireLogin, async (req, res) => {
   res.send(`
     ${getHead('Store')}
     <div class="app-layout">
-      ${getSidebar('store')}
+      ${getUserSidebar('store', unreadCount, user.id, user.role, settings)}
       <div class="main-content">
         <div class="section-header">
           <div>
@@ -324,6 +310,7 @@ router.get('/my', requireLogin, async (req, res) => {
     }
   })
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+  const settings = await getSystemSettings()
   
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const level = calculateLevel(taskCount)
@@ -356,7 +343,7 @@ router.get('/my', requireLogin, async (req, res) => {
   res.send(`
     ${getHead('My Store')}
     <div class="app-layout">
-      ${getUserSidebar('mystore', unreadCount)}
+      ${getUserSidebar('mystore', unreadCount, user.id, user.role, settings)}
       <div class="main-content">
         <div class="section-header">
           <div>

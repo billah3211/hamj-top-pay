@@ -1,6 +1,7 @@
 const express = require('express')
 const { prisma } = require('../db/prisma')
 const { getUserSidebar } = require('../utils/sidebar')
+const { getSystemSettings } = require('../utils/settings')
 const router = express.Router()
 
 // Helper: Calculate User Level
@@ -56,7 +57,8 @@ router.get('/', async (req, res) => {
   const level = calculateLevel(taskCount)
   const progress = getLevelProgress(taskCount)
 
-  const sidebar = getUserSidebar('profile', unreadCount, user.id, user.role)
+  const settings = await getSystemSettings()
+  const sidebar = getUserSidebar('profile', unreadCount, user.id, user.role, settings)
 
   res.send(`
     <!doctype html>
@@ -98,270 +100,121 @@ router.get('/', async (req, res) => {
                    </div>
                    
                    <div style="flex: 1; padding-bottom: 10px;">
-                     <div style="font-size: 28px; font-weight: 800; color: white;">${user.firstName} ${user.lastName}</div>
-                     <div style="color: #94a3b8; margin-bottom: 5px;">@${user.username}</div>
-                     <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 5px;">
-                      <div style="display: flex; align-items: center; gap: 10px;">
-                        <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level ${level}</div>
-                        <div style="font-size: 11px; color: #94a3b8;">${progress.current} / ${progress.next} Tasks</div>
-                      </div>
-                      <div style="width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;" title="${progress.percent.toFixed(1)}% to Level ${level + 1}">
-                        <div style="width: ${progress.percent}%; height: 100%; background: #facc15;"></div>
-                      </div>
-                      <div style="color: #64748b; font-size: 12px;">Joined ${new Date(user.createdAt).toLocaleDateString()}</div>
-                    </div>
-                   </div>
-                 </div>
-               </div>
-            </div>
-
-            <!-- Admin Access -->
-            ${(user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') ? `
-            <div class="glass-panel" style="padding: 25px; border: 1px solid rgba(239, 68, 68, 0.3);">
-              <h3 style="margin-bottom: 20px; font-size: 18px; color: #ef4444; display: flex; align-items: center; gap: 10px;">
-                <img src="https://api.iconify.design/lucide:shield-alert.svg?color=%23ef4444" width="20"> Admin Access
-              </h3>
-              <p style="color: #94a3b8; margin-bottom: 20px;">You have administrative privileges on this platform.</p>
-              <a href="/admin/dashboard" class="btn-premium" style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.5); justify-content: center;">Enter Admin Panel</a>
-            </div>
-            ` : ''}
-
-            <!-- Stats & Info Grid -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-              
-              <!-- Contact Info -->
-              <div class="glass-panel" style="padding: 25px;">
-                <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
-                  <img src="https://api.iconify.design/lucide:contact.svg?color=%2310b981" width="20"> Contact Info
-                </h3>
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                  <div>
-                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Email Address</div>
-                    <div style="color: white;">${user.email}</div>
-                  </div>
-                  <div>
-                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Phone Number</div>
-                    <div style="color: white;">${user.phone}</div>
-                  </div>
-                  <div>
-                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Country</div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="color: white;">${user.country}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- About & Social -->
-              <div class="glass-panel" style="padding: 25px;">
-                <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
-                  <img src="https://api.iconify.design/lucide:info.svg?color=%233b82f6" width="20"> About & Social
-                </h3>
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                  <div>
-                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Bio</div>
-                    <div style="color: white; line-height: 1.5;">${user.bio || '<span style="opacity:0.5; font-style:italic;">No bio added yet.</span>'}</div>
-                  </div>
-                  <div>
-                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Website</div>
-                    <div>${user.website ? `<a href="${user.website}" target="_blank" style="color: #60a5fa; text-decoration: none;">${user.website}</a>` : '<span style="opacity:0.5; font-style:italic;">No website added.</span>'}</div>
-                  </div>
-                  <div>
-                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Social Links</div>
-                    <div>${user.social || '<span style="opacity:0.5; font-style:italic;">No social links added.</span>'}</div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            <!-- Task Stats -->
-            <div class="glass-panel" style="padding: 25px;">
-               <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
-                  <img src="https://api.iconify.design/lucide:activity.svg?color=%23f472b6" width="20"> Activity Stats
-               </h3>
-               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 15px; text-align: center;">
-                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
-                   <div style="font-size: 24px; font-weight: bold; color: #4ade80;">${taskCount}</div>
-                   <div style="font-size: 12px; color: #94a3b8;">Completed</div>
-                 </div>
-                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
-                   <div style="font-size: 24px; font-weight: bold; color: #fb923c;">${pendingCount}</div>
-                   <div style="font-size: 12px; color: #94a3b8;">Pending</div>
-                 </div>
-                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
-                   <div style="font-size: 24px; font-weight: bold; color: #f87171;">${rejectedCount}</div>
-                   <div style="font-size: 12px; color: #94a3b8;">Rejected</div>
-                 </div>
-                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
-                   <div style="font-size: 24px; font-weight: bold; color: #fbbf24;">${user.coin}</div>
-                   <div style="font-size: 12px; color: #94a3b8;">Coins</div>
-                 </div>
-               </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-
-      <script>(function(){var dt=document.querySelectorAll('.device-toggle-settings .tab');function applySkin(m){document.body.classList.remove('skin-desktop','skin-mobile');document.body.classList.add('skin-'+m);if(dt.length){dt.forEach(function(b){b.classList.toggle('active',b.getAttribute('data-device')===m)})}try{localStorage.setItem('siteSkin',m)}catch(e){}}if(dt.length){dt.forEach(function(b){b.addEventListener('click',function(){applySkin(b.getAttribute('data-device'))})})}var init='desktop';try{init=localStorage.getItem('siteSkin')||'desktop';if(init!=='desktop'&&init!=='mobile'){init='mobile'}}catch(e){}applySkin(init);})();</script>
-      <script>
-        document.getElementById('mobileMenuBtn').addEventListener('click', function() {
-          document.getElementById('sidebar').classList.toggle('active');
-        });
-      </script>
-    </body>
-    </html>
-  `)
-})
-
-router.get('/:username', async (req, res) => {
-  if (!req.session.userId) return res.redirect('/login')
-  
-  const currentUser = await prisma.user.findUnique({ where: { id: req.session.userId } })
-  if (!currentUser) return res.redirect('/login')
-    
-  const user = await prisma.user.findUnique({ where: { username: req.params.username } })
-  if (!user) return res.status(404).send('User not found')
-
-  // If viewing self, redirect to /profile
-  if (user.id === currentUser.id) return res.redirect('/profile')
-
-  const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
-  const pendingCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'PENDING' } })
-  const rejectedCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'REJECTED' } })
-  
-  const unreadCount = await prisma.notification.count({ where: { userId: currentUser.id, isRead: false } })
-  const level = calculateLevel(taskCount)
-  const progress = getLevelProgress(taskCount)
-
-  const sidebar = getUserSidebar('profile', unreadCount, currentUser.id, currentUser.role)
-
-  res.send(`
-    <!doctype html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width,initial-scale=1">
-      <title>${user.firstName} ${user.lastName} - HaMJ toP PaY</title>
-      <link rel="stylesheet" href="/style.css">
-    </head>
-    <body>
-      <button class="menu-trigger" id="mobileMenuBtn">☰</button>
-      <div class="app-layout">
-        ${sidebar}
-        
-        <div class="main-content">
-          <div class="section-header">
-            <div>
-              <div class="section-title">User Profile</div>
-              <div style="color:var(--text-muted);font-size:14px">Viewing ${user.username}'s profile</div>
-            </div>
-            <div class="actions">
-              <a href="javascript:history.back()" class="btn-premium" style="background: rgba(255,255,255,0.1);">Back</a>
-            </div>
-          </div>
-
-          <div style="display: flex; flex-direction: column; gap: 30px; max-width: 800px; margin: 0 auto;">
-            
-            <!-- Profile Header Card -->
-            <div class="glass-panel" style="padding: 0; overflow: hidden; position: relative;">
-               <div style="height: 150px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);"></div>
-               
-               <div style="padding: 0 30px 30px; margin-top: -50px; position: relative;">
-                 <div style="display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap;">
-                   <div style="width: 120px; height: 120px; border-radius: 50%; border: 4px solid #0f172a; overflow: hidden; background: #1e293b; flex-shrink: 0;">
-                     <img src="${user.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" style="width: 100%; height: 100%; object-fit: cover;">
+                     <h2 style="font-size: 28px; font-weight: 800; color: white; margin-bottom: 5px;">${user.firstName} ${user.lastName}</h2>
+                     <div style="color: #94a3b8; font-size: 16px;">@${user.username}</div>
                    </div>
                    
-                   <div style="flex: 1; padding-bottom: 10px;">
-                     <div style="font-size: 28px; font-weight: 800; color: white;">${user.firstName} ${user.lastName}</div>
-                     <div style="color: #94a3b8; margin-bottom: 5px;">@${user.username}</div>
-                     <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 5px;">
-                      <div style="display: flex; align-items: center; gap: 10px;">
-                        <div style="background: linear-gradient(90deg, #facc15, #fbbf24); color: black; font-weight: bold; font-size: 12px; padding: 2px 10px; border-radius: 20px;">Level ${level}</div>
-                        <div style="font-size: 11px; color: #94a3b8;">${progress.current} / ${progress.next} Tasks</div>
+                   <div style="display: flex; gap: 10px; padding-bottom: 10px;">
+                      <div style="background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">Level</div>
+                        <div style="font-size: 18px; color: #facc15; font-weight: 800;">${level}</div>
                       </div>
-                      <div style="width: 100%; max-width: 250px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;" title="${progress.percent.toFixed(1)}% to Level ${level + 1}">
-                        <div style="width: ${progress.percent}%; height: 100%; background: #facc15;"></div>
+                      <div style="background: rgba(255,255,255,0.1); padding: 8px 16px; border-radius: 12px; text-align: center;">
+                        <div style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">Tasks</div>
+                        <div style="font-size: 18px; color: white; font-weight: 800;">${taskCount}</div>
                       </div>
-                      <div style="color: #64748b; font-size: 12px;">Joined ${new Date(user.createdAt).toLocaleDateString()}</div>
-                    </div>
                    </div>
                  </div>
                </div>
             </div>
 
-            <!-- Stats & Info Grid -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
-              
-              <!-- Contact Info (Limited for privacy if needed, but showing basic info) -->
-              <div class="glass-panel" style="padding: 25px;">
-                <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
-                  <img src="https://api.iconify.design/lucide:contact.svg?color=%2310b981" width="20"> Info
-                </h3>
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                  <div>
-                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Country</div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <span style="color: white;">${user.country}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- About & Social -->
-              <div class="glass-panel" style="padding: 25px;">
-                <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
-                  <img src="https://api.iconify.design/lucide:info.svg?color=%233b82f6" width="20"> About & Social
-                </h3>
-                <div style="display: flex; flex-direction: column; gap: 15px;">
-                  <div>
-                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Bio</div>
-                    <div style="color: white; line-height: 1.5;">${user.bio || '<span style="opacity:0.5; font-style:italic;">No bio added yet.</span>'}</div>
-                  </div>
-                  <div>
-                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Website</div>
-                    <div>${user.website ? `<a href="${user.website}" target="_blank" style="color: #60a5fa; text-decoration: none;">${user.website}</a>` : '<span style="opacity:0.5; font-style:italic;">No website added.</span>'}</div>
-                  </div>
-                  <div>
-                    <div style="font-size: 12px; color: #94a3b8; margin-bottom: 2px;">Social Links</div>
-                    <div>${user.social || '<span style="opacity:0.5; font-style:italic;">No social links added.</span>'}</div>
-                  </div>
-                </div>
-              </div>
-
+            <!-- Stats Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px;">
+               <div class="glass-panel" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.2);">
+                 <div style="font-size: 14px; color: #6ee7b7; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Approved Tasks</div>
+                 <div style="font-size: 32px; font-weight: 800; color: white; margin-top: 10px;">${taskCount}</div>
+               </div>
+               <div class="glass-panel" style="background: rgba(245, 158, 11, 0.1); border-color: rgba(245, 158, 11, 0.2);">
+                 <div style="font-size: 14px; color: #fcd34d; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Pending Approval</div>
+                 <div style="font-size: 32px; font-weight: 800; color: white; margin-top: 10px;">${pendingCount}</div>
+               </div>
+               <div class="glass-panel" style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.2);">
+                 <div style="font-size: 14px; color: #fca5a5; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Rejected</div>
+                 <div style="font-size: 32px; font-weight: 800; color: white; margin-top: 10px;">${rejectedCount}</div>
+               </div>
             </div>
 
-            <!-- Task Stats (Visible to others) -->
-            <div class="glass-panel" style="padding: 25px;">
-               <h3 style="margin-bottom: 20px; font-size: 18px; color: white; display: flex; align-items: center; gap: 10px;">
-                  <img src="https://api.iconify.design/lucide:activity.svg?color=%23f472b6" width="20"> Activity Stats
-               </h3>
-               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 15px; text-align: center;">
-                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
-                   <div style="font-size: 24px; font-weight: bold; color: #4ade80;">${taskCount}</div>
-                   <div style="font-size: 12px; color: #94a3b8;">Completed</div>
-                 </div>
-                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
-                   <div style="font-size: 24px; font-weight: bold; color: #fb923c;">${pendingCount}</div>
-                   <div style="font-size: 12px; color: #94a3b8;">Pending</div>
-                 </div>
-                 <div style="background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px;">
-                   <div style="font-size: 24px; font-weight: bold; color: #f87171;">${rejectedCount}</div>
-                   <div style="font-size: 12px; color: #94a3b8;">Rejected</div>
-                 </div>
+            <!-- Info Section -->
+            <div class="glass-panel">
+               <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+                  <img src="https://api.iconify.design/lucide:user.svg?color=%2394a3b8" width="24" height="24">
+                  <h3 style="margin: 0; font-size: 18px;">Personal Information</h3>
+               </div>
+               
+               <div style="display: grid; gap: 20px;">
+                  <div style="display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <div style="color: #94a3b8;">Email</div>
+                    <div style="color: white;">${user.email}</div>
+                  </div>
+                  
+                  <div style="display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <div style="color: #94a3b8;">Country</div>
+                    <div style="color: white; display: flex; align-items: center; gap: 8px;">
+                      <img src="https://flagcdn.com/w20/${user.country.toLowerCase()}.png" onerror="this.style.display='none'">
+                      ${user.country}
+                    </div>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <div style="color: #94a3b8;">Joined Date</div>
+                    <div style="color: white;">${new Date(user.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 120px 1fr; align-items: start; gap: 20px;">
+                    <div style="color: #94a3b8; padding-top: 5px;">Bio</div>
+                    <div style="color: white; line-height: 1.6;">${user.bio || '<span style="color: #94a3b8; font-style: italic;">No bio added yet</span>'}</div>
+                  </div>
+               </div>
+            </div>
+
+            <!-- Social Links -->
+            <div class="glass-panel">
+               <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+                  <img src="https://api.iconify.design/lucide:share-2.svg?color=%2394a3b8" width="24" height="24">
+                  <h3 style="margin: 0; font-size: 18px;">Social & Website</h3>
+               </div>
+
+               <div style="display: grid; gap: 20px;">
+                  <div style="display: grid; grid-template-columns: 120px 1fr; align-items: center; gap: 20px; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <div style="color: #94a3b8;">Website</div>
+                    <div>
+                      ${user.website ? `<a href="${user.website}" target="_blank" style="color: #60a5fa; text-decoration: none;">${user.website}</a>` : '<span style="color: #94a3b8; font-style: italic;">Not provided</span>'}
+                    </div>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 120px 1fr; align-items: start; gap: 20px;">
+                    <div style="color: #94a3b8; padding-top: 5px;">Social Links</div>
+                    <div style="color: white; white-space: pre-wrap;">${user.social || '<span style="color: #94a3b8; font-style: italic;">No social links added</span>'}</div>
+                  </div>
                </div>
             </div>
 
           </div>
+          
+          <div style="margin-top: 50px; text-align: center; color: var(--text-muted); font-size: 14px;">
+            &copy; ${new Date().getFullYear()} HaMJ toP PaY. All rights reserved.
+          </div>
         </div>
       </div>
 
-      <script>(function(){var dt=document.querySelectorAll('.device-toggle-settings .tab');function applySkin(m){document.body.classList.remove('skin-desktop','skin-mobile');document.body.classList.add('skin-'+m);if(dt.length){dt.forEach(function(b){b.classList.toggle('active',b.getAttribute('data-device')===m)})}try{localStorage.setItem('siteSkin',m)}catch(e){}}if(dt.length){dt.forEach(function(b){b.addEventListener('click',function(){applySkin(b.getAttribute('data-device'))})})}var init='desktop';try{init=localStorage.getItem('siteSkin')||'desktop';if(init!=='desktop'&&init!=='mobile'){init='mobile'}}catch(e){}applySkin(init);})();</script>
       <script>
-        document.getElementById('mobileMenuBtn').addEventListener('click', function() {
-          document.getElementById('sidebar').classList.toggle('active');
+        const menuBtn = document.getElementById('mobileMenuBtn');
+        const sidebar = document.getElementById('sidebar');
+        
+        if(menuBtn) {
+          menuBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+          });
+        }
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', (e) => {
+          if (window.innerWidth <= 768 && 
+              sidebar.classList.contains('open') && 
+              !sidebar.contains(e.target) && 
+              e.target !== menuBtn) {
+            sidebar.classList.remove('open');
+          }
         });
       </script>
     </body>

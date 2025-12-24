@@ -6,6 +6,7 @@ const fs = require('fs')
 const { prisma } = require('../db/prisma')
 const { storage } = require('../config/cloudinary')
 const { getUserSidebar } = require('../utils/sidebar')
+const { getSystemSettings: getSystemBranding } = require('../utils/settings')
 const router = express.Router()
 
 // Multer Config for Screenshots (Cloudinary)
@@ -294,12 +295,13 @@ router.get('/', requireLogin, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+  const brandingSettings = await getSystemBranding()
   const level = calculateLevel(taskCount)
   const levelProgress = getLevelProgress(taskCount)
 
   res.send(`
     ${getHead('Promote Link')}
-    ${getUserSidebar('promote', unreadCount)}
+    ${getUserSidebar('promote', unreadCount, user.id, user.role, brandingSettings)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -358,6 +360,7 @@ router.get('/create', requireLogin, async (req, res) => {
   
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+  const brandingSettings = await getSystemBranding()
   const level = calculateLevel(taskCount)
   const levelProgress = getLevelProgress(taskCount)
 
@@ -365,7 +368,7 @@ router.get('/create', requireLogin, async (req, res) => {
 
   res.send(`
     ${getHead('Promote Your Link')}
-    ${getUserSidebar('promote', unreadCount, user.id, user.role)}
+    ${getUserSidebar('promote', unreadCount, user.id, user.role, brandingSettings)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -486,6 +489,7 @@ router.get('/history', requireLogin, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+  const brandingSettings = await getSystemBranding()
   const level = calculateLevel(taskCount)
   const levelProgress = getLevelProgress(taskCount)
 
@@ -546,7 +550,7 @@ router.get('/history', requireLogin, async (req, res) => {
 
   res.send(`
     ${getHead('Promote History')}
-    ${getUserSidebar('promote', unreadCount, user.id, user.role)}
+    ${getUserSidebar('promote', unreadCount, user.id, user.role, brandingSettings)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -612,6 +616,7 @@ router.get('/history/:id', requireLogin, async (req, res) => {
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: user.id, status: 'APPROVED' } })
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
+  const brandingSettings = await getSystemBranding()
   const level = calculateLevel(taskCount)
   const levelProgress = getLevelProgress(taskCount)
 
@@ -648,7 +653,7 @@ router.get('/history/:id', requireLogin, async (req, res) => {
 
   res.send(`
     ${getHead('Review Screenshots')}
-    ${getUserSidebar('promote', 0, req.session.userId, req.session.role)}
+    ${getUserSidebar('promote', 0, req.session.userId, req.session.role, brandingSettings)}
     <div class="main-content">
       <div class="section-header">
         <div>
@@ -851,7 +856,7 @@ router.get('/earn', requireLogin, async (req, res) => {
     const availableCount = allAvailable.length
     const availableLinks = allAvailable.slice(0, 1) // Show only 1 task at a time
 
-    const settings = await getSettings()
+    const brandingSettings = await getSystemBranding()
     
     const renderTask = (link) => `
       <div class="glass-panel" style="padding:24px;margin-bottom:12px;text-align:center">
@@ -1026,6 +1031,7 @@ router.get('/tasks', requireLogin, async (req, res) => {
   const settings = await getSettings()
   
   const taskCount = await prisma.linkSubmission.count({ where: { visitorId: userId, status: 'APPROVED' } })
+  const brandingSettings = await getSystemBranding()
   const level = calculateLevel(taskCount)
   const levelProgress = getLevelProgress(taskCount)
 
@@ -1126,7 +1132,7 @@ router.get('/tasks', requireLogin, async (req, res) => {
 
   res.send(`
     ${getHead('My Tasks')}
-    ${getUserSidebar('promote', 0, user.id, user.role)}
+    ${getUserSidebar('promote', 0, user.id, user.role, brandingSettings)}
     <div class="main-content">
       <div class="section-header">
         <div>
