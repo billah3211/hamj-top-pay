@@ -66,7 +66,7 @@ router.get('/', requireLogin, async (req, res) => {
   ])
 
   // Youtuber
-  const defaultReq = '2,000+ Subscribers\n1,000+ Views on 1 video\n1 video about Hamj Top Pay\n2 videos/month required'
+  const defaultReq = '• Must have 2,000+ Subscribers\n• Minimum 1,000+ Views on at least 1 video\n• Must upload 1 dedicated video about Hamj Top Pay\n• Must upload 2 videos/month related to our site\n• Channel must be active and related to Gaming/TopUp\n• Must join our official Discord server\n• No fake subscribers or view botting allowed\n• Must follow community guidelines'
   const rawText = reqSetting ? reqSetting.value : defaultReq
   const requirementsText = `<ul class="notebook-list">` + 
     rawText.split('\n')
@@ -482,24 +482,30 @@ router.post('/create', requireLogin, async (req, res) => {
 })
 
 router.post('/join', requireLogin, async (req, res) => {
+  console.log('Join request received:', req.body)
   const { guildId } = req.body
-  const user = await prisma.user.findUnique({ where: { id: req.session.userId }, include: { guild: true } })
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.session.userId }, include: { guild: true } })
 
-  if (user.guild) return res.redirect('/guild?error=Already+in+a+guild')
+    if (user.guild) return res.redirect('/guild?error=Already+in+a+guild')
 
-  const existing = await prisma.guildRequest.findFirst({
-    where: { userId: user.id, status: 'PENDING' }
-  })
-  if (existing) return res.redirect('/guild?error=Request+pending')
+    const existing = await prisma.guildRequest.findFirst({
+      where: { userId: user.id, status: 'PENDING' }
+    })
+    if (existing) return res.redirect('/guild?error=Request+pending')
 
-  await prisma.guildRequest.create({
-    data: {
-      userId: user.id,
-      guildId: parseInt(guildId)
-    }
-  })
+    await prisma.guildRequest.create({
+      data: {
+        userId: user.id,
+        guildId: parseInt(guildId)
+      }
+    })
 
-  res.redirect('/guild?success=Request+sent')
+    res.redirect('/guild?success=Request+sent')
+  } catch (error) {
+    console.error('Join Error:', error)
+    res.redirect('/guild?error=Join+failed')
+  }
 })
 
 router.post('/leave', requireLogin, async (req, res) => {
