@@ -1596,6 +1596,23 @@ router.post('/settings/update-branding', requireSuperAdmin, upload.single('site_
   }
 })
 
+router.post('/settings/update-currency', requireSuperAdmin, async (req, res) => {
+  try {
+    const { dollar_rate } = req.body
+    
+    await prisma.systemSetting.upsert({
+      where: { key: 'dollar_rate' },
+      update: { value: dollar_rate.toString() },
+      create: { key: 'dollar_rate', value: dollar_rate.toString() }
+    })
+    
+    res.redirect('/super-admin/settings?success=Currency+rate+updated+successfully')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/settings?error=' + encodeURIComponent(e.message))
+  }
+})
+
 // ==========================================
 // TOP UP PACKAGE MANAGEMENT
 // ==========================================
