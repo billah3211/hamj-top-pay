@@ -214,7 +214,7 @@ router.get('/', requireLogin, async (req, res) => {
           </div>
           <div class="balance-pill">
             <span>💎 ${user.diamond}</span>
-            <span style="color:#22c55e">$ ${user.dk}</span>
+            <span style="color:#22c55e">$ ${(user.dk + (user.tk / parseFloat(settings.dollar_rate || 120))).toFixed(3)}</span>
             <span style="color:#6366f1">৳ ${user.tk}</span>
           </div>
         </div>
