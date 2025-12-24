@@ -633,12 +633,22 @@ router.get('/', requireLogin, async (req, res) => {
             <div class="stat-sub">Active Players</div>
             <i class="fas fa-users stat-icon-lg"></i>
          </div>
-         <div class="stat-box">
-            <div class="stat-label">Total Earnings</div>
-            <div class="stat-value">৳${earnings.toFixed(2)}</div>
-            <div class="stat-sub">Lifetime Revenue</div>
-            <i class="fas fa-coins stat-icon-lg"></i>
-         </div>
+         
+         ${user.id === user.guild.leaderId ? `
+           <div class="stat-box">
+              <div class="stat-label">Total Earnings (BDT)</div>
+              <div class="stat-value">৳${earnings.toFixed(2)}</div>
+              <div class="stat-sub">Lifetime Revenue</div>
+              <i class="fas fa-coins stat-icon-lg"></i>
+           </div>
+           <div class="stat-box">
+              <div class="stat-label">Total Earnings (USD)</div>
+              <div class="stat-value">$${(earnings / 120).toFixed(2)}</div>
+              <div class="stat-sub">Est. Value (~120৳)</div>
+              <i class="fas fa-dollar-sign stat-icon-lg" style="color:#10b981"></i>
+           </div>
+         ` : ''}
+
          <div class="stat-box">
             <div class="stat-label">Guild Status</div>
             <div class="stat-value" style="color:#10b981">Active</div>
