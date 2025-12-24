@@ -306,7 +306,8 @@ router.get('/my', requireLogin, async (req, res) => {
     include: { 
       items: {
         include: { item: true }
-      }
+      },
+      ownedGuild: true
     }
   })
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
@@ -322,7 +323,8 @@ router.get('/my', requireLogin, async (req, res) => {
 
   const renderMyItem = (item) => {
     const isEquipped = (item.type === 'avatar' && user.currentAvatar === item.imageUrl) || 
-                       (item.type === 'banner' && user.currentBanner === item.imageUrl)
+                       (item.type === 'banner' && user.currentBanner === item.imageUrl) ||
+                       (item.type === 'guild_profile' && user.ownedGuild && user.ownedGuild.currentAvatar === item.imageUrl)
     return `
     <div class="store-card owned" style="${isEquipped ? 'border: 1px solid #22c55e;' : ''}">
       <div class="store-card-image ${item.type}">
@@ -394,7 +396,10 @@ router.post('/equip/:id', requireLogin, async (req, res) => {
   const itemId = parseInt(req.params.id)
   const user = await prisma.user.findUnique({ 
     where: { id: req.session.userId },
-    include: { items: true }
+    include: { 
+      items: true,
+      ownedGuild: true
+    }
   })
   
   // Verify ownership
@@ -406,9 +411,15 @@ router.post('/equip/:id', requireLogin, async (req, res) => {
   // Update user profile
   if (item.type === 'avatar') {
     await prisma.user.update({ where: { id: user.id }, data: { currentAvatar: item.imageUrl } })
+  } else if (item.type === 'guild_profile') {
+    if (!user.ownedGuild) {
+       return res.redirect('/store/my?error=You+must+be+a+guild+leader+to+equip+this+item')
+    }
+    await prisma.guild.update({ 
+      where: { id: user.ownedGuild.id }, 
+      data: { currentAvatar: item.imageUrl } 
+    })
   }
-  // Guild Profile equip logic could be added here if needed, but for now we removed banner and added guild profile without equip logic for user profile.
-  // if (item.type === 'banner') { ... } removed.
 
   return res.redirect('/store/my?success=Applied+successfully')
 })
