@@ -643,8 +643,8 @@ router.get('/', requireLogin, async (req, res) => {
            </div>
            <div class="stat-box">
               <div class="stat-label">Total Earnings (USD)</div>
-              <div class="stat-value">$${(earnings / 120).toFixed(2)}</div>
-              <div class="stat-sub">Est. Value (~120৳)</div>
+              <div class="stat-value">$${(earnings / parseFloat(settings.dollar_rate || 120)).toFixed(2)}</div>
+              <div class="stat-sub">Est. Value (~${settings.dollar_rate || 120}৳)</div>
               <i class="fas fa-dollar-sign stat-icon-lg" style="color:#10b981"></i>
            </div>
          ` : ''}
