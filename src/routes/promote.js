@@ -694,6 +694,10 @@ router.get('/history/:id', requireLogin, async (req, res) => {
   `)
 })
 
+router.get('/link/:id/back', requireLogin, (req, res) => {
+  res.redirect('/promote/history')
+})
+
 // Approve Logic
 router.post('/submission/:id/approve', requireLogin, async (req, res) => {
   try {
