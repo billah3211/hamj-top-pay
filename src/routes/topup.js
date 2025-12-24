@@ -256,6 +256,11 @@ router.get('/', requireAuth, async (req, res) => {
       <div class="package-grid">
         ${packages.map(pkg => `
           <div class="package-card">
+            ${pkg.image ? `
+              <div style="width:100%; height:120px; border-radius:12px; overflow:hidden; margin-bottom:12px;">
+                 <img src="${pkg.image}" style="width:100%; height:100%; object-fit:cover;">
+              </div>
+            ` : ''}
             <div class="package-header">
               <div class="diamond-amount">
                  <img src="https://api.iconify.design/lucide:gem.svg?color=%2360a5fa" width="24">
@@ -317,8 +322,11 @@ router.get('/:pkgId/wallets', requireAuth, async (req, res) => {
         ${wallets.map(wallet => `
           <a href="/topup/${pkg.id}/pay/${wallet.id}" class="wallet-item">
             <div style="display: flex; align-items: center; gap: 16px;">
-               <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.1); border-radius: 50%; display: grid; place-items: center;">
-                 <img src="https://api.iconify.design/lucide:wallet.svg?color=white" width="20">
+               <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.1); border-radius: 50%; display: grid; place-items: center; overflow: hidden;">
+                 ${wallet.icon ? 
+                   `<img src="${wallet.icon}" style="width: 100%; height: 100%; object-fit: cover;">` : 
+                   `<img src="https://api.iconify.design/lucide:wallet.svg?color=white" width="20">`
+                 }
                </div>
                <div>
                  <div style="font-weight: 600; font-size: 16px;">${wallet.name}</div>
