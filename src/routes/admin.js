@@ -676,12 +676,58 @@ router.get('/topup-requests', requireAdmin, async (req, res) => {
 router.post('/topup-approve', requireAdmin, async (req, res) => {
     const { id } = req.body
     const request = await prisma.topUpRequest.findUnique({ where: { id: parseInt(id) }, include: { package: true } })
+    
     if(request && request.status === 'PENDING') {
-        await prisma.$transaction([
+        // Fetch user to check guild status
+        const user = await prisma.user.findUnique({ where: { id: request.userId }, include: { guild: true } })
+        
+        const ops = [
             prisma.topUpRequest.update({ where: { id: request.id }, data: { status: 'COMPLETED', processedAt: new Date() } }),
             prisma.user.update({ where: { id: request.userId }, data: { diamond: { increment: request.package.diamondAmount } } }),
             prisma.notification.create({ data: { userId: request.userId, message: `TopUp Successful! ${request.package.diamondAmount} diamonds added to your account.`, type: 'credit' } })
-        ])
+        ]
+
+        // Guild Commission Logic
+        if (user && user.guildId) {
+           const guild = await prisma.guild.findUnique({ where: { id: user.guildId } })
+           
+           if (guild) {
+             const commission = (request.package.price * guild.commissionRate) / 100
+             
+             if (commission > 0) {
+               // Update Guild Total Earnings
+               ops.push(
+                 prisma.guild.update({
+                   where: { id: guild.id },
+                   data: { totalEarnings: { increment: commission } }
+                 })
+               )
+               
+               // Add Commission to Leader's TK Balance
+               ops.push(
+                 prisma.user.update({
+                   where: { id: guild.leaderId },
+                   data: { tk: { increment: Math.floor(commission) } }
+                 })
+               )
+
+               // Notify Leader (if leader is not the one topping up)
+               if (guild.leaderId !== user.id) {
+                 ops.push(
+                   prisma.notification.create({
+                     data: {
+                       userId: guild.leaderId,
+                       message: `You earned ৳${Math.floor(commission)} commission from ${user.username}'s topup!`,
+                       type: 'credit'
+                     }
+                   })
+                 )
+               }
+             }
+           }
+        }
+
+        await prisma.$transaction(ops)
     }
     res.redirect('/admin/topup-requests')
 })
