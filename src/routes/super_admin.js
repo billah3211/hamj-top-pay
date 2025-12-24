@@ -1475,7 +1475,12 @@ router.get('/topup-packages', requireSuperAdmin, async (req, res) => {
 
   const renderRow = (pkg) => `
     <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
-      <td style="padding:16px;color:white;font-weight:500">${pkg.name}</td>
+      <td style="padding:16px;">
+         <div style="display:flex;align-items:center;gap:10px">
+           ${pkg.image ? `<img src="${pkg.image}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;background:rgba(255,255,255,0.1)">` : '<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,0.1);display:grid;place-items:center;color:var(--text-muted);font-size:10px">No Img</div>'}
+           <span style="color:white;font-weight:500">${pkg.name}</span>
+         </div>
+      </td>
       <td style="padding:16px;color:#ec4899;font-weight:600">${pkg.diamondAmount} 💎</td>
       <td style="padding:16px;color:white">${pkg.price} TK</td>
       <td style="padding:16px;color:var(--text-muted);font-size:13px">${pkg.countries}</td>
@@ -1535,7 +1540,7 @@ router.get('/topup-packages', requireSuperAdmin, async (req, res) => {
             <span style="background:rgba(236, 72, 153, 0.2); width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: #ec4899;"><img src="https://api.iconify.design/lucide:plus.svg?color=currentColor" width="16"></span>
             Add Package
           </h3>
-          <form action="/super-admin/topup-packages/add" method="POST">
+          <form action="/super-admin/topup-packages/add" method="POST" enctype="multipart/form-data">
             <div class="form-group">
               <label class="form-label">Package Name</label>
               <input type="text" name="name" required placeholder="e.g. Weekly Pass" class="form-input">
@@ -1549,6 +1554,11 @@ router.get('/topup-packages', requireSuperAdmin, async (req, res) => {
             <div class="form-group">
               <label class="form-label">Diamond Amount</label>
               <input type="number" name="diamondAmount" required placeholder="e.g. 100" class="form-input">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Package Image (Optional)</label>
+              <input type="file" name="image" class="form-input" accept="image/*">
             </div>
 
             <div class="form-group">
@@ -1572,9 +1582,10 @@ router.get('/topup-packages', requireSuperAdmin, async (req, res) => {
   `)
 })
 
-router.post('/topup-packages/add', requireSuperAdmin, async (req, res) => {
+router.post('/topup-packages/add', requireSuperAdmin, upload.single('image'), async (req, res) => {
   try {
     const { name, price, diamondAmount, currency } = req.body
+    const image = req.file ? req.file.path : null
     
     // Auto-set countries based on currency
     const countries = currency === 'BDT' ? 'Bangladesh' : 'All'
@@ -1585,7 +1596,8 @@ router.post('/topup-packages/add', requireSuperAdmin, async (req, res) => {
         price: parseInt(price),
         diamondAmount: parseInt(diamondAmount),
         currency: currency || 'BDT',
-        countries: countries
+        countries: countries,
+        image: image
       }
     })
     
@@ -1614,7 +1626,12 @@ router.get('/topup-wallets', requireSuperAdmin, async (req, res) => {
 
   const renderRow = (wallet) => `
     <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
-      <td style="padding:16px;color:white;font-weight:500">${wallet.name}</td>
+      <td style="padding:16px;">
+         <div style="display:flex;align-items:center;gap:10px">
+           ${wallet.icon ? `<img src="${wallet.icon}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;background:rgba(255,255,255,0.1)">` : '<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,0.1);display:grid;place-items:center;color:var(--text-muted);font-size:10px">No Icon</div>'}
+           <span style="color:white;font-weight:500">${wallet.name}</span>
+         </div>
+      </td>
       <td style="padding:16px;color:var(--text-muted)">${wallet.adminNumber}</td>
       <td style="padding:16px;color:var(--text-muted);font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${wallet.instruction}</td>
       <td style="padding:16px;text-align:right">
@@ -1672,7 +1689,7 @@ router.get('/topup-wallets', requireSuperAdmin, async (req, res) => {
             <span style="background:rgba(16, 185, 129, 0.2); width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: #10b981;"><img src="https://api.iconify.design/lucide:plus.svg?color=currentColor" width="16"></span>
             Add Wallet
           </h3>
-          <form action="/super-admin/topup-wallets/add" method="POST">
+          <form action="/super-admin/topup-wallets/add" method="POST" enctype="multipart/form-data">
             <div class="form-group">
               <label class="form-label">Wallet Name</label>
               <input type="text" name="name" required placeholder="e.g. Bkash Personal" class="form-input">
@@ -1681,6 +1698,11 @@ router.get('/topup-wallets', requireSuperAdmin, async (req, res) => {
             <div class="form-group">
               <label class="form-label">Admin Number</label>
               <input type="text" name="adminNumber" required placeholder="e.g. 017xxxxxxxx" class="form-input">
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Wallet Icon (Optional)</label>
+              <input type="file" name="icon" class="form-input" accept="image/*">
             </div>
 
             <div class="form-group">
@@ -1702,15 +1724,17 @@ router.get('/topup-wallets', requireSuperAdmin, async (req, res) => {
   `)
 })
 
-router.post('/topup-wallets/add', requireSuperAdmin, async (req, res) => {
+router.post('/topup-wallets/add', requireSuperAdmin, upload.single('icon'), async (req, res) => {
   try {
     const { name, adminNumber, instruction } = req.body
+    const icon = req.file ? req.file.path : null
     
     await prisma.topUpWallet.create({
       data: {
         name,
         adminNumber,
-        instruction
+        instruction,
+        icon: icon
       }
     })
     

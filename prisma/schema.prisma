@@ -140,6 +140,7 @@ model TopUpPackage {
   diamondAmount Int
   currency     String        @default("BDT")
   countries    String
+  image        String?       // New Image Field
   isActive     Boolean       @default(true)
   createdAt    DateTime      @default(now())
   requests     TopUpRequest[]
@@ -150,6 +151,7 @@ model TopUpWallet {
   name        String
   adminNumber String
   instruction String
+  icon        String?       // New Icon Field
   isActive    Boolean       @default(true)
   createdAt   DateTime      @default(now())
   requests    TopUpRequest[]
