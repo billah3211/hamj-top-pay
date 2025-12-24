@@ -1464,7 +1464,7 @@ router.post('/transfer-earnings', requireLogin, async (req, res) => {
       }),
       prisma.user.update({
         where: { id: user.id },
-        data: { dk: { increment: dollars } }
+        data: { tk: { increment: earnings } }
       }),
       prisma.notification.create({
         data: {
