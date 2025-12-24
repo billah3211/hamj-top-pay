@@ -60,6 +60,7 @@ model Guild {
   leader          User     @relation("GuildLeader", fields: [leaderId], references: [id])
   status          String   @default("APPROVED") // PENDING, APPROVED, REJECTED
   memberLimit     Int      @default(50)
+  totalEarnings   Float    @default(0)
   commissionRate  Float    @default(1.0)
   
   // YouTuber Specific

@@ -188,7 +188,7 @@ router.get('/', requireLogin, async (req, res) => {
                    <div style="font-weight:bold; color:white; font-size:16px;">${g.name}</div>
                    <div style="font-size:12px; color:var(--text-muted); display:flex; gap:10px; margin-top:4px;">
                       <span class="guild-badge ${g.type === 'YOUTUBER' ? 'badge-youtuber' : 'badge-user'}">${g.type}</span>
-                      <span><i class="fas fa-users"></i> ${g.members.length}/${g.maxMembers}</span>
+                      <span><i class="fas fa-users"></i> ${g.members.length}/${g.memberLimit}</span>
                       <span><i class="fas fa-coins"></i> ${g.totalEarnings.toFixed(0)} TK</span>
                    </div>
                 </div>
