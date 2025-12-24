@@ -429,4 +429,91 @@ router.post('/update-info', requireLogin, async (req, res) => {
   res.redirect('/guild/manage')
 })
 
+// ----------------------------------------------------------------------
+// GUILD ACTIONS
+// ----------------------------------------------------------------------
+
+router.post('/create', requireLogin, async (req, res) => {
+  const { name, type, proof } = req.body
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId }, include: { guild: true } })
+
+  if (user.guild) return res.redirect('/guild?error=Already+in+a+guild')
+
+  try {
+    if (type === 'USER') {
+      if (user.diamonds < 500) return res.redirect('/guild?error=Not+enough+diamonds')
+      
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: user.id },
+          data: { diamonds: { decrement: 500 } }
+        }),
+        prisma.guild.create({
+          data: {
+            name,
+            type: 'USER',
+            leaderId: user.id,
+            status: 'APPROVED',
+            memberLimit: 50,
+            commissionRate: 1.0,
+            members: { connect: { id: user.id } }
+          }
+        })
+      ])
+    } else {
+      await prisma.guild.create({
+        data: {
+          name,
+          type: 'YOUTUBER',
+          leaderId: user.id,
+          status: 'PENDING',
+          videoLink: proof,
+          memberLimit: 100,
+          commissionRate: 2.0,
+          members: { connect: { id: user.id } }
+        }
+      })
+    }
+    res.redirect('/guild?success=Guild+created')
+  } catch (err) {
+    console.error(err)
+    res.redirect('/guild?error=Creation+failed')
+  }
+})
+
+router.post('/join', requireLogin, async (req, res) => {
+  const { guildId } = req.body
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId }, include: { guild: true } })
+
+  if (user.guild) return res.redirect('/guild?error=Already+in+a+guild')
+
+  const existing = await prisma.guildRequest.findFirst({
+    where: { userId: user.id, status: 'PENDING' }
+  })
+  if (existing) return res.redirect('/guild?error=Request+pending')
+
+  await prisma.guildRequest.create({
+    data: {
+      userId: user.id,
+      guildId: parseInt(guildId)
+    }
+  })
+
+  res.redirect('/guild?success=Request+sent')
+})
+
+router.post('/leave', requireLogin, async (req, res) => {
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId }, include: { guild: true } })
+  if (!user.guild) return res.redirect('/guild')
+  
+  if (user.guild.leaderId === user.id) return res.redirect('/guild?error=Leader+cannot+leave')
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { guildId: null }
+  })
+
+  res.redirect('/guild')
+})
+
 module.exports = router
