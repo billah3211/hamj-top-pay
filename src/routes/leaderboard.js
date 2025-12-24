@@ -244,24 +244,56 @@ router.get('/', async (req, res) => {
               ? `<img src="${g.currentAvatar}" class="guild-avatar">`
               : `<div class="guild-avatar">${g.name[0]}</div>`
 
-            return `
-              <a href="/guild/view/${g.id}" class="guild-row">
-                <div class="${rankClass}">#${rank}</div>
-                <div class="guild-info">
-                   ${avatar}
-                   <div>
-                     <div class="guild-name">
-                       ${g.name} 
-                       ${rank <= 3 ? '<i class="fas fa-check-circle" style="color:#34d399; margin-left:5px;"></i>' : ''}
-                     </div>
-                     <div class="guild-leader">Leader: ${g.leader.firstName} ${g.leader.lastName}</div>
-                     <div style="font-size:12px; color:#facc15; margin-top:2px;">Level ${g.level}</div>
-                   </div>
-                </div>
-                <div class="score-badge">
+            const isLeader = currentUserId === g.leaderId
+            
+            let rewardDisplay = ''
+            if (g.rewardType === 'GIFT' && g.currentReward) {
+               rewardDisplay = `
+                 <div class="score-badge" style="background: rgba(250, 204, 21, 0.1); color: #facc15; border-color: rgba(250, 204, 21, 0.2);">
+                    <i class="fas fa-gift" style="margin-right:4px;"></i> ${g.currentReward}
+                 </div>
+               `
+               if (isLeader && g.rewardStatus === 'PENDING_ADDRESS') {
+                 rewardDisplay += `
+                   <button onclick="event.preventDefault(); openAddressModal(${g.id})" style="margin-top:5px; font-size:10px; padding:4px 8px; background:#ec4899; color:white; border:none; border-radius:4px; cursor:pointer;">
+                     Add Address
+                   </button>
+                 `
+               }
+            } else if (g.rewardType === 'CASH' && g.currentReward) {
+               rewardDisplay = `
+                 <div class="score-badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2);">
+                    <i class="fas fa-coins" style="margin-right:4px;"></i> ${g.currentReward}
+                 </div>
+               `
+            } else {
+               rewardDisplay = `
+                 <div class="score-badge">
                    $${g.totalEarnings.toFixed(2)}
-                </div>
-              </a>
+                 </div>
+               `
+            }
+
+            return `
+              <div class="guild-row-wrapper" style="position:relative;">
+                <a href="/guild/view/${g.id}" class="guild-row">
+                  <div class="${rankClass}">#${rank}</div>
+                  <div class="guild-info">
+                     ${avatar}
+                     <div>
+                       <div class="guild-name">
+                         ${g.name} 
+                         ${rank <= 3 ? '<i class="fas fa-check-circle" style="color:#34d399; margin-left:5px;"></i>' : ''}
+                       </div>
+                       <div class="guild-leader">Leader: ${g.leader.firstName} ${g.leader.lastName}</div>
+                       <div style="font-size:12px; color:#facc15; margin-top:2px;">Level ${g.level}</div>
+                     </div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                     ${rewardDisplay}
+                  </div>
+                </a>
+              </div>
             `
           }).join('')}
           
@@ -269,8 +301,59 @@ router.get('/', async (req, res) => {
         </div>
       </div>
     </div>
+    
+    <!-- Address Modal -->
+    <div id="addressModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center;">
+      <div style="background:#1e293b; padding:24px; border-radius:16px; width:90%; max-width:400px; border:1px solid rgba(255,255,255,0.1);">
+        <h3 style="margin-top:0; color:white;">Shipping Address</h3>
+        <p style="color:#94a3b8; font-size:14px;">Please provide your full address to receive your gift.</p>
+        <form action="/leaderboard/submit-address" method="POST">
+          <input type="hidden" name="guildId" id="modalGuildId">
+          <textarea name="address" required placeholder="Full Address (Street, City, Country, Phone)" style="width:100%; height:100px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); color:white; border-radius:8px; padding:10px; margin-bottom:15px; font-family:inherit;"></textarea>
+          <div style="display:flex; justify-content:flex-end; gap:10px;">
+             <button type="button" onclick="document.getElementById('addressModal').style.display='none'" style="padding:8px 16px; background:transparent; border:1px solid rgba(255,255,255,0.2); color:white; border-radius:8px; cursor:pointer;">Cancel</button>
+             <button type="submit" style="padding:8px 16px; background:#ec4899; border:none; color:white; border-radius:8px; cursor:pointer;">Submit</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      function openAddressModal(guildId) {
+        document.getElementById('modalGuildId').value = guildId;
+        document.getElementById('addressModal').style.display = 'flex';
+      }
+    </script>
+    
     ${getFooter()}
   `)
+})
+
+router.post('/submit-address', async (req, res) => {
+  if (!req.session.userId) return res.redirect('/login')
+  
+  try {
+    const { guildId, address } = req.body
+    
+    const guild = await prisma.guild.findUnique({ where: { id: parseInt(guildId) } })
+    
+    if (!guild || guild.leaderId !== req.session.userId) {
+       throw new Error('Unauthorized')
+    }
+    
+    await prisma.guild.update({
+      where: { id: parseInt(guildId) },
+      data: {
+        shippingAddress: address,
+        rewardStatus: 'PROCESSING'
+      }
+    })
+    
+    res.redirect('/leaderboard?success=Address+submitted')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/leaderboard?error=' + encodeURIComponent(e.message))
+  }
 })
 
 module.exports = router

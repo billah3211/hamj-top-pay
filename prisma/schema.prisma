@@ -67,6 +67,12 @@ model Guild {
   score           Int      @default(0)
   level           Int      @default(0)
   
+  // Leaderboard Rewards
+  currentReward   String?  // e.g. "iPhone 15" or "$500"
+  rewardType      String?  // "CASH", "GIFT"
+  rewardStatus    String?  // "CLAIMED", "PENDING_ADDRESS", "SENT", "APPLIED"
+  shippingAddress String?  // User's full address for gifts
+
   currentAvatar   String?
   currentBanner   String?
   

@@ -2029,8 +2029,16 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
           <h3 style="margin-bottom: 16px; color: white;">Distribution Settings</h3>
           <div style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
             
-            <div style="flex: 1; min-width: 200px;">
-              <label class="form-label">Currency</label>
+            <div style="flex: 1; min-width: 150px;">
+              <label class="form-label">Reward Type</label>
+              <select id="rewardType" class="form-input" onchange="toggleRewardInputs()">
+                <option value="CASH">Cash Bonus</option>
+                <option value="GIFT">Gift Item</option>
+              </select>
+            </div>
+
+            <div style="flex: 1; min-width: 150px;">
+              <label class="form-label">Currency (if Cash)</label>
               <select name="currency" class="form-input">
                 <option value="dk">Dollar (DK)</option>
                 <option value="tk">Taka (TK)</option>
@@ -2039,7 +2047,7 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
               </select>
             </div>
 
-            <div style="flex: 2; min-width: 300px; display: flex; gap: 10px; align-items: flex-end;">
+            <div style="flex: 3; min-width: 400px; display: flex; gap: 10px; align-items: flex-end;">
                <div style="flex:1">
                  <label class="form-label">Filter by Level</label>
                  <input type="number" id="filterLevel" placeholder="1" class="form-input" min="0">
@@ -2048,16 +2056,20 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
                  <label class="form-label">Top N Users</label>
                  <input type="number" id="quickRank" placeholder="5" class="form-input" min="1" max="100">
                </div>
-               <div style="flex:1">
+               <div style="flex:1" id="amountContainer">
                  <label class="form-label">Amount</label>
                  <input type="number" id="quickAmount" placeholder="10" class="form-input">
+               </div>
+               <div style="flex:1; display:none;" id="giftNameContainer">
+                 <label class="form-label">Gift Name</label>
+                 <input type="text" id="giftName" placeholder="e.g. iPhone 15" class="form-input">
                </div>
                <button type="button" class="btn-premium" onclick="applyLevelBonus()">Apply</button>
             </div>
 
           </div>
           <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
-            Use "Filter by Level" to target specific level holders. Example: Set Level=1, Top N=5, Amount=10 to give $10 to the first 5 guilds at Level 1.
+            Use "Filter by Level" to target specific level holders. Select "Gift Item" to assign a physical reward requiring an address.
           </div>
         </div>
 
@@ -2071,7 +2083,8 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
                 <th style="padding: 16px; color: var(--text-muted);">Level</th>
                 <th style="padding: 16px; color: var(--text-muted);">Leader</th>
                 <th style="padding: 16px; color: var(--text-muted);">Earnings</th>
-                <th style="padding: 16px; color: var(--text-muted);">Bonus Amount</th>
+                <th style="padding: 16px; color: var(--text-muted);">Current Reward</th>
+                <th style="padding: 16px; color: var(--text-muted);">Bonus/Gift</th>
               </tr>
             </thead>
             <tbody>
@@ -2099,7 +2112,18 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
                     $${guild.totalEarnings.toFixed(2)}
                   </td>
                   <td style="padding: 16px;">
-                    <input type="number" step="0.01" name="bonus_${guild.id}" class="form-input bonus-input" data-level="${guild.level}" data-rank="${index + 1}" placeholder="0" style="width: 120px;">
+                    ${guild.currentReward ? `
+                      <div style="font-size:12px;">
+                        <span style="color:${guild.rewardType === 'GIFT' ? '#facc15' : '#10b981'}; font-weight:bold;">${guild.currentReward}</span>
+                        ${guild.rewardStatus === 'PENDING_ADDRESS' ? '<div style="color:#ef4444; font-size:10px;">Waiting for Address</div>' : ''}
+                        ${guild.shippingAddress ? '<div style="color:#3b82f6; font-size:10px; cursor:pointer;" title="'+guild.shippingAddress+'">Address Provided</div>' : ''}
+                      </div>
+                    ` : '<span style="color:#94a3b8;">-</span>'}
+                  </td>
+                  <td style="padding: 16px;">
+                    <input type="hidden" name="guildIds[]" value="${guild.id}">
+                    <input type="text" name="bonuses[]" class="form-input bonus-input" data-level="${guild.level}" placeholder="Amount or Gift Name" style="width: 150px;">
+                    <input type="hidden" name="types[]" class="type-input" value="CASH">
                   </td>
                 </tr>
               `).join('')}
@@ -2107,47 +2131,75 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
           </table>
         </div>
 
-        <div style="position: sticky; bottom: 20px; margin-top: 24px; text-align: right;">
-          <button type="submit" class="btn-premium" style="background: linear-gradient(135deg, #10b981, #059669); padding: 16px 32px; font-size: 18px; box-shadow: 0 10px 25px rgba(16, 185, 129, 0.4);">
+        <div style="margin-top: 32px; text-align: right;">
+          <button type="submit" class="btn-premium" style="padding: 12px 32px; font-size: 16px;">
             <img src="https://api.iconify.design/lucide:send.svg?color=white" width="20" style="vertical-align: middle; margin-right: 8px;">
-            Distribute Bonuses
+            Distribute Rewards
           </button>
         </div>
-
       </form>
     </div>
-    
+
     <script>
+      function toggleRewardInputs() {
+        const type = document.getElementById('rewardType').value;
+        const amountContainer = document.getElementById('amountContainer');
+        const giftNameContainer = document.getElementById('giftNameContainer');
+        
+        if (type === 'GIFT') {
+          amountContainer.style.display = 'none';
+          giftNameContainer.style.display = 'block';
+        } else {
+          amountContainer.style.display = 'block';
+          giftNameContainer.style.display = 'none';
+        }
+      }
+
       function applyLevelBonus() {
         const targetLevel = parseInt(document.getElementById('filterLevel').value);
         const topN = parseInt(document.getElementById('quickRank').value);
-        const amount = document.getElementById('quickAmount').value;
+        const rewardType = document.getElementById('rewardType').value;
         
-        if (isNaN(targetLevel) || !topN || !amount) {
-           alert('Please fill in Level, Top N users count, and Amount');
+        const amount = document.getElementById('quickAmount').value;
+        const giftName = document.getElementById('giftName').value;
+        
+        const valueToApply = rewardType === 'GIFT' ? giftName : amount;
+        
+        if (isNaN(targetLevel) || !topN || !valueToApply) {
+           alert('Please fill in all fields (Level, Top N, Amount/Gift Name)');
            return;
         }
         
-        // Reset all first
         const inputs = document.querySelectorAll('.bonus-input');
+        const typeInputs = document.querySelectorAll('.type-input');
+        
+        // Reset
         inputs.forEach(input => input.value = '');
+        typeInputs.forEach(input => input.value = 'CASH'); // Default reset
 
         let count = 0;
-        inputs.forEach(input => {
-          const level = parseInt(input.getAttribute('data-level'));
-          
-          if (level === targetLevel) {
-            if (count < topN) {
-               input.value = amount;
-               count++;
-            }
-          }
-        });
+        // The guilds are already sorted by Level then Earnings in the HTML order
+        // We just need to find the first N guilds that match the level
+        
+        // However, `inputs` NodeList order matches the table rows order
+        for (let i = 0; i < inputs.length; i++) {
+           const input = inputs[i];
+           const typeInput = typeInputs[i];
+           const level = parseInt(input.getAttribute('data-level'));
+           
+           if (level === targetLevel) {
+              if (count < topN) {
+                 input.value = valueToApply;
+                 typeInput.value = rewardType;
+                 count++;
+              }
+           }
+        }
         
         if (count === 0) {
           alert('No guilds found matching Level ' + targetLevel);
         } else {
-          alert('Applied bonus to ' + count + ' guilds at Level ' + targetLevel);
+          alert('Applied ' + (rewardType === 'GIFT' ? 'Gift: ' + valueToApply : 'Bonus: ' + valueToApply) + ' to ' + count + ' guilds at Level ' + targetLevel);
         }
       }
     </script>
@@ -2200,62 +2252,101 @@ router.post('/distribute-bonuses', requireSuperAdmin, async (req, res) => {
     const body = req.body
     const currency = body.currency || 'dk'
     
-    const updates = []
-    
-    // Parse bonuses from body keys "bonus_{guildId}"
-    for (const key in body) {
-      if (key.startsWith('bonus_')) {
-        const guildId = parseInt(key.replace('bonus_', ''))
-        const amount = parseFloat(body[key])
-        
-        if (amount > 0) {
-          updates.push({ guildId, amount })
-        }
-      }
-    }
-    
-    if (updates.length === 0) {
-      return res.redirect('/super-admin/leaderboard-bonuses?error=No+bonuses+set')
-    }
+    // Parse bonuses/rewards from arrays
+    // bonuses[], types[], guildIds[]
+    const bonuses = body.bonuses || []
+    const types = body.types || []
+    const guildIds = body.guildIds || []
     
     let count = 0
     
-    for (const update of updates) {
+    // Ensure arrays
+    const guildIdArray = Array.isArray(guildIds) ? guildIds : [guildIds]
+    const bonusArray = Array.isArray(bonuses) ? bonuses : [bonuses]
+    const typeArray = Array.isArray(types) ? types : [types]
+    
+    for (let i = 0; i < guildIdArray.length; i++) {
+      const guildId = parseInt(guildIdArray[i])
+      const bonus = bonusArray[i]
+      const type = typeArray[i]
+      
+      if (!bonus || bonus.trim() === '') continue;
+      
       const guild = await prisma.guild.findUnique({
-        where: { id: update.guildId },
+        where: { id: guildId },
         include: { leader: true }
       })
       
       if (guild && guild.leader) {
-        // Update Leader Wallet
-        const updateData = {}
-        if (currency === 'dk') updateData.dk = { increment: update.amount }
-        else if (currency === 'tk') updateData.tk = { increment: update.amount }
-        else if (currency === 'coin') updateData.coin = { increment: parseInt(update.amount) }
-        else if (currency === 'diamond') updateData.diamond = { increment: parseInt(update.amount) }
-        
-        await prisma.user.update({
-          where: { id: guild.leader.id },
-          data: updateData
-        })
-        
-        // Send Notification
-        const currencyName = currency === 'dk' ? 'Dollar' : currency === 'tk' ? 'Taka' : currency.charAt(0).toUpperCase() + currency.slice(1)
-        const symbol = currency === 'dk' ? '$' : currency === 'tk' ? '৳' : ''
-        
-        await prisma.notification.create({
-          data: {
-            userId: guild.leader.id,
-            type: 'credit',
-            message: `Congratulations! Your guild "${guild.name}" has received a leaderboard bonus of ${symbol}${update.amount} ${currencyName} from the Admin.`
-          }
-        })
-        
+        if (type === 'GIFT') {
+           // Assign Gift
+           await prisma.guild.update({
+             where: { id: guildId },
+             data: {
+               currentReward: bonus,
+               rewardType: 'GIFT',
+               rewardStatus: 'PENDING_ADDRESS',
+               shippingAddress: null // Reset address for new gift
+             }
+           })
+           
+           // Notify
+           await prisma.notification.create({
+             data: {
+               userId: guild.leader.id,
+               type: 'system',
+               message: `Congratulations! Your guild "${guild.name}" has won a reward: ${bonus}. Please provide your shipping address in the leaderboard page.`
+             }
+           })
+           
+        } else {
+           // Cash Bonus
+           const amount = parseFloat(bonus)
+           if (isNaN(amount) || amount <= 0) continue;
+           
+           // Update Wallet
+           const updateData = {}
+           if (currency === 'dk') updateData.dk = { increment: amount }
+           else if (currency === 'tk') updateData.tk = { increment: amount }
+           else if (currency === 'coin') updateData.coin = { increment: parseInt(amount) }
+           else if (currency === 'diamond') updateData.diamond = { increment: parseInt(amount) }
+           
+           await prisma.user.update({
+             where: { id: guild.leader.id },
+             data: updateData
+           })
+           
+           // Also update currentReward display for Cash
+           await prisma.guild.update({
+             where: { id: guildId },
+             data: {
+               currentReward: (currency === 'dk' ? '$' : currency === 'tk' ? '৳' : '') + amount,
+               rewardType: 'CASH',
+               rewardStatus: 'APPLIED'
+             }
+           })
+           
+           // Send Notification
+           const currencyName = currency === 'dk' ? 'Dollar' : currency === 'tk' ? 'Taka' : currency.charAt(0).toUpperCase() + currency.slice(1)
+           const symbol = currency === 'dk' ? '$' : currency === 'tk' ? '৳' : ''
+           
+           await prisma.notification.create({
+             data: {
+               userId: guild.leader.id,
+               type: 'credit',
+               message: `Congratulations! Your guild "${guild.name}" has received a leaderboard bonus of ${symbol}${amount} ${currencyName} from the Admin.`
+             }
+           })
+        }
         count++
       }
     }
     
-    res.redirect(`/super-admin/leaderboard-bonuses?success=Successfully distributed bonuses to ${count} guilds`)
+    if (count === 0) {
+      return res.redirect('/super-admin/leaderboard-bonuses?error=No+rewards+distributed')
+    }
+    
+    res.redirect(`/super-admin/leaderboard-bonuses?success=Successfully distributed rewards to ${count} guilds`)
     
   } catch (e) {
     console.error(e)
