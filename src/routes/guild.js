@@ -1096,6 +1096,26 @@ router.get('/manage', requireLogin, async (req, res) => {
        <div class="manage-container">
           <a href="/guild" class="back-link"><i class="fas fa-arrow-left"></i> Back to Guild Dashboard</a>
           
+          <!-- EARNINGS & TRANSFER -->
+          <div class="section-card">
+             <div class="section-title"><i class="fas fa-coins" style="color:#10b981"></i> Guild Earnings</div>
+             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:16px;">
+                <div style="background:#020617; padding:16px; border-radius:12px; border:1px solid var(--border-color); text-align:center;">
+                   <div style="color:var(--text-muted); font-size:12px; text-transform:uppercase;">Total Earnings (BDT)</div>
+                   <div style="font-size:24px; font-weight:700; color:#facc15;">৳${user.guild.totalEarnings.toFixed(2)}</div>
+                </div>
+                <div style="background:#020617; padding:16px; border-radius:12px; border:1px solid var(--border-color); text-align:center;">
+                   <div style="color:var(--text-muted); font-size:12px; text-transform:uppercase;">Estimated Value (USD)</div>
+                   <div style="font-size:24px; font-weight:700; color:#10b981;">$${(user.guild.totalEarnings / parseFloat(settings.dollar_rate || 120)).toFixed(2)}</div>
+                </div>
+             </div>
+             
+             <button onclick="if(confirm('Transfer all guild earnings to your dashboard wallet? This will convert BDT to Dollars.')) document.getElementById('manageTransferForm').submit()" class="btn-save" style="background:linear-gradient(45deg, #10b981, #059669); border:none;">
+                <i class="fas fa-exchange-alt"></i> Transfer to Wallet
+             </button>
+             <form id="manageTransferForm" action="/guild/transfer-earnings" method="POST" style="display:none;"></form>
+          </div>
+
           <!-- MEMBER REQUESTS -->
           <div class="section-card">
              <div class="section-title"><i class="fas fa-user-plus" style="color:#facc15"></i> Member Requests (${pendingRequests.length})</div>
