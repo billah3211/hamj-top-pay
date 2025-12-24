@@ -727,7 +727,7 @@ router.get('/dashboard', async (req, res) => {
           <div class="balance-section">
             <div class="cards-scroll" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
               ${getUserCard('Diamond Balance', user.diamond, 'diamond', codes.diamond)}
-              ${getUserCard('Dollar Balance', '$' + user.dk, 'dollar', codes.dollar)}
+              ${getUserCard('Dollar Balance', '$' + Number(user.dk).toFixed(3), 'dollar', codes.dollar)}
               ${getUserCard('Coin Balance', user.coin, 'coin', codes.coin)}
               ${getUserCard('HaMJ T Balance', user.lora, 'hamjt', codes.hamjt)}
               ${getUserCard('Tk Balance', user.tk + ' tk', 'tk', codes.tk)}

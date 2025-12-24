@@ -857,6 +857,7 @@ router.get('/earn', requireLogin, async (req, res) => {
     const availableLinks = allAvailable.slice(0, 1) // Show only 1 task at a time
 
     const brandingSettings = await getSystemBranding()
+    const settings = await getSettings()
     
     const renderTask = (link) => `
       <div class="glass-panel" style="padding:24px;margin-bottom:12px;text-align:center">
