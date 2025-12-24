@@ -858,48 +858,39 @@ router.get('/', requireLogin, async (req, res) => {
           </div>
           
           <div style="padding:20px;">
-            <div style="display:flex; background:#0f172a; padding:4px; border-radius:12px; margin-bottom:20px;">
-               <button onclick="switchTab('youtuber')" id="tab-youtuber" style="flex:1; padding:10px; background:var(--primary); color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer;">YouTuber</button>
-               <button onclick="switchTab('user')" id="tab-user" style="flex:1; padding:10px; background:transparent; color:var(--text-muted); border:none; border-radius:8px; font-weight:600; cursor:pointer;">Regular User</button>
-            </div>
-
             <!-- YOUTUBER FORM -->
             <div id="form-youtuber">
                <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.2); padding:15px; border-radius:12px; margin-bottom:20px; font-size:13px; color:#a5b4fc;">
-                  <strong>Requirements:</strong><br>
-                  • 2,000+ Subscribers<br>
-                  • Active Channel related to Gaming/TopUp<br>
-                  • Must upload promotional video
+                  <strong>Requirements (শর্তসমূহ):</strong><br>
+                  • চ্যানেলে কমপক্ষে 2,000+ Subscribers থাকতে হবে<br>
+                  • যেকোনো ১টি ভিডিওতে 1,000+ Views থাকতে হবে<br>
+                  • Hamj Top Pay নিয়ে অন্তত ১টি ভিডিও তৈরি করতে হবে<br>
+                  • প্রতি মাসে কমপক্ষে ২টি ভিডিও আপলোড করা বাধ্যতামূলক<br><br>
+                  
+                  <strong>Additional Benefits (অতিরিক্ত সুবিধা):</strong><br>
+                  • আপনার নিজস্ব Guild তৈরি করার সুযোগ পাবেন<br>
+                  • আপনার Guild থেকে যদি কোনো ইউজার Top-Up করে, তাহলে প্রতি Top-Up এ আপনি ১০% কমিশন পাবেন<br>
+                  • আপনি আপনার Guild-এ ১,০০০ জন ইউজার সম্পূর্ণ ফ্রিতে জয়েন করাতে পারবেন<br>
+                  • যত বেশি ইউজার আপনার Guild-এ Active থাকবে, তত বেশি ইনকাম করার সুযোগ পাবেন
                </div>
                <form action="/guild/create" method="POST">
-                  <input type="hidden" name="type" value="YOUTUBER">
                   <div style="margin-bottom:15px;">
                      <label style="display:block; color:var(--text-muted); margin-bottom:6px; font-size:12px; font-weight:600;">Guild Name</label>
-                     <input type="text" name="name" required style="width:100%; background:#0f172a; border:1px solid var(--border-color); padding:12px; border-radius:10px; color:white;">
+                     <input type="text" name="name" required style="width:100%; background:#0f172a; border:1px solid var(--border-color); padding:12px; border-radius:10px; color:white;" placeholder="Enter Guild Name">
+                  </div>
+                  <div style="margin-bottom:15px;">
+                     <label style="display:block; color:var(--text-muted); margin-bottom:6px; font-size:12px; font-weight:600;">YouTube Channel Link</label>
+                     <input type="url" name="channelLink" required style="width:100%; background:#0f172a; border:1px solid var(--border-color); padding:12px; border-radius:10px; color:white;" placeholder="https://youtube.com/...">
+                  </div>
+                  <div style="margin-bottom:15px;">
+                     <label style="display:block; color:var(--text-muted); margin-bottom:6px; font-size:12px; font-weight:600;">Contact Email (Must match Channel)</label>
+                     <input type="email" name="email" required style="width:100%; background:#0f172a; border:1px solid var(--border-color); padding:12px; border-radius:10px; color:white;" placeholder="email@example.com">
                   </div>
                   <div style="margin-bottom:20px;">
-                     <label style="display:block; color:var(--text-muted); margin-bottom:6px; font-size:12px; font-weight:600;">Channel/Video Link</label>
-                     <input type="url" name="proof" required style="width:100%; background:#0f172a; border:1px solid var(--border-color); padding:12px; border-radius:10px; color:white;">
+                     <label style="display:block; color:var(--text-muted); margin-bottom:6px; font-size:12px; font-weight:600;">Hamj Top Pay Video Link</label>
+                     <input type="url" name="videoLink" required style="width:100%; background:#0f172a; border:1px solid var(--border-color); padding:12px; border-radius:10px; color:white;" placeholder="https://youtu.be/...">
                   </div>
                   <button type="submit" class="btn btn-primary" style="width:100%;">Submit for Approval</button>
-               </form>
-            </div>
-
-            <!-- USER FORM -->
-            <div id="form-user" style="display:none;">
-               <div style="background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.2); padding:15px; border-radius:12px; margin-bottom:20px; font-size:13px; color:#93c5fd;">
-                  <strong>Features:</strong><br>
-                  • 50 Member Limit<br>
-                  • 1% Commission<br>
-                  • Instant Creation (Cost: 500 Diamonds)
-               </div>
-               <form action="/guild/create" method="POST">
-                  <input type="hidden" name="type" value="USER">
-                  <div style="margin-bottom:15px;">
-                     <label style="display:block; color:var(--text-muted); margin-bottom:6px; font-size:12px; font-weight:600;">Guild Name</label>
-                     <input type="text" name="name" required style="width:100%; background:#0f172a; border:1px solid var(--border-color); padding:12px; border-radius:10px; color:white;">
-                  </div>
-                  <button type="submit" class="btn btn-primary" style="width:100%;">Create Guild (500 <i class="fas fa-gem"></i>)</button>
                </form>
             </div>
           </div>
@@ -912,25 +903,6 @@ router.get('/', requireLogin, async (req, res) => {
       }
       function closeModal(id) {
         document.getElementById(id).style.display = 'none';
-      }
-      function switchTab(type) {
-         document.getElementById('form-youtuber').style.display = type === 'youtuber' ? 'block' : 'none';
-         document.getElementById('form-user').style.display = type === 'user' ? 'block' : 'none';
-         
-         const btnYoutuber = document.getElementById('tab-youtuber');
-         const btnUser = document.getElementById('tab-user');
-         
-         if(type === 'youtuber') {
-            btnYoutuber.style.background = 'var(--primary)';
-            btnYoutuber.style.color = 'white';
-            btnUser.style.background = 'transparent';
-            btnUser.style.color = 'var(--text-muted)';
-         } else {
-            btnUser.style.background = 'var(--primary)';
-            btnUser.style.color = 'white';
-            btnYoutuber.style.background = 'transparent';
-            btnYoutuber.style.color = 'var(--text-muted)';
-         }
       }
     </script>
     ${getFooter()}
@@ -1307,33 +1279,12 @@ router.post('/update-info', requireLogin, async (req, res) => {
 // ----------------------------------------------------------------------
 
 router.post('/create', requireLogin, async (req, res) => {
-  const { name, type, proof } = req.body
+  const { name, channelLink, email, videoLink } = req.body
   const user = await prisma.user.findUnique({ where: { id: req.session.userId }, include: { guild: true } })
 
   if (user.guild) return res.redirect('/guild?error=Already+in+a+guild')
 
   try {
-    if (type === 'USER') {
-      if (user.diamonds < 500) return res.redirect('/guild?error=Not+enough+diamonds')
-      
-      await prisma.$transaction([
-        prisma.user.update({
-          where: { id: user.id },
-          data: { diamonds: { decrement: 500 }, guildScore: 0 }
-        }),
-        prisma.guild.create({
-          data: {
-            name,
-            type: 'USER',
-            leaderId: user.id,
-            status: 'APPROVED',
-            memberLimit: 50,
-            commissionRate: 1.0,
-            members: { connect: { id: user.id } }
-          }
-        })
-      ])
-    } else {
       await prisma.$transaction([
         prisma.user.update({
           where: { id: user.id },
@@ -1342,18 +1293,20 @@ router.post('/create', requireLogin, async (req, res) => {
         prisma.guild.create({
           data: {
             name,
+            username: name.toLowerCase().replace(/\s+/g, '') + Math.floor(Math.random() * 10000),
             type: 'YOUTUBER',
             leaderId: user.id,
             status: 'PENDING',
-            videoLink: proof,
-            memberLimit: 100,
-            commissionRate: 2.0,
+            youtubeChannelLink: channelLink,
+            contactEmail: email,
+            videoLink: videoLink,
+            memberLimit: 1000,
+            commissionRate: 10.0,
             members: { connect: { id: user.id } }
           }
         })
       ])
-    }
-    res.redirect('/guild?success=Guild+created+successfully')
+    res.redirect('/guild?success=Guild+request+submitted')
   } catch (err) {
     console.error(err)
     res.redirect('/guild?error=Creation+failed.+Name+might+be+taken.')

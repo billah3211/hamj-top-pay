@@ -899,9 +899,17 @@ router.get('/guild-requests', requireAdmin, async (req, res) => {
             <div class="section-title">Guild Requests</div>
             ${guilds.map(g => `
                 <div class="glass-panel" style="padding:20px; margin-bottom:15px;">
-                    <h3>${g.name} (@${g.username})</h3>
-                    <p style="color:#cbd5e1; font-size:13px; margin:5px 0;">Leader: ${g.leader.firstName} ${g.leader.lastName}</p>
-                    <p style="color:#94a3b8; font-size:13px;">${g.description || 'No description'}</p>
+                    <h3>${g.name}</h3>
+                    <p style="color:#cbd5e1; font-size:13px; margin:5px 0;">Leader: ${g.leader.firstName} ${g.leader.lastName} (@${g.leader.username})</p>
+                    
+                    <div style="background:rgba(255,255,255,0.05); padding:10px; border-radius:8px; margin:10px 0; font-size:13px;">
+                        <div style="margin-bottom:5px;"><strong style="color:#f472b6;">Channel:</strong> <a href="${g.youtubeChannelLink}" target="_blank" style="color:#60a5fa;">${g.youtubeChannelLink || 'N/A'}</a></div>
+                        <div style="margin-bottom:5px;"><strong style="color:#f472b6;">Video:</strong> <a href="${g.videoLink}" target="_blank" style="color:#60a5fa;">${g.videoLink || 'N/A'}</a></div>
+                        <div><strong style="color:#f472b6;">Email:</strong> ${g.contactEmail || 'N/A'}</div>
+                    </div>
+
+                    <p style="color:#94a3b8; font-size:13px;">${g.description || 'No description provided'}</p>
+                    
                     <div style="margin-top:15px; display:flex; gap:10px;">
                         <form action="/admin/guild-approve" method="POST"><input type="hidden" name="id" value="${g.id}"><button class="btn-premium" style="background:#22c55e; border-color:#22c55e;">Approve</button></form>
                         <form action="/admin/guild-reject" method="POST"><input type="hidden" name="id" value="${g.id}"><button class="btn-premium" style="background:#ef4444; border-color:#ef4444;">Reject</button></form>
