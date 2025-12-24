@@ -2,6 +2,7 @@ const express = require('express')
 const { prisma } = require('../db/prisma')
 const { getUserSidebar } = require('../utils/sidebar')
 const { getSystemSettings } = require('../utils/settings')
+const { getGuildLevelInfo } = require('../utils/guildLevel')
 const router = express.Router()
 
 const getHead = (title) => `
@@ -245,6 +246,10 @@ router.get('/', async (req, res) => {
               : `<div class="guild-avatar">${g.name[0]}</div>`
 
             const isLeader = currentUserId === g.leaderId
+            const levelInfo = getGuildLevelInfo(g.score || 0)
+            const nextLevelText = levelInfo.level < 11 
+              ? `${levelInfo.scoreNeeded} more for Lvl ${levelInfo.level + 1}` 
+              : 'Max Level'
             
             let rewardDisplay = ''
             if (g.rewardType === 'GIFT' && g.currentReward) {
@@ -276,7 +281,7 @@ router.get('/', async (req, res) => {
 
             return `
               <div class="guild-row-wrapper" style="position:relative;">
-                <a href="/guild/view/${g.id}" class="guild-row">
+                <div class="guild-row">
                   <div class="${rankClass}">#${rank}</div>
                   <div class="guild-info">
                      ${avatar}
@@ -286,13 +291,16 @@ router.get('/', async (req, res) => {
                          ${rank <= 3 ? '<i class="fas fa-check-circle" style="color:#34d399; margin-left:5px;"></i>' : ''}
                        </div>
                        <div class="guild-leader">Leader: ${g.leader.firstName} ${g.leader.lastName}</div>
-                       <div style="font-size:12px; color:#facc15; margin-top:2px;">Level ${g.level}</div>
+                       <div style="font-size:12px; color:#facc15; margin-top:2px;">
+                         Level ${g.level}
+                         <span style="color:var(--text-muted); margin-left:8px; font-size:11px;">• ${nextLevelText}</span>
+                       </div>
                      </div>
                   </div>
                   <div style="display:flex; flex-direction:column; align-items:flex-end;">
                      ${rewardDisplay}
                   </div>
-                </a>
+                </div>
               </div>
             `
           }).join('')}

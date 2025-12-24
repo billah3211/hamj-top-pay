@@ -7,6 +7,7 @@ const { prisma } = require('../db/prisma')
 const { storage } = require('../config/cloudinary')
 const { getUserSidebar } = require('../utils/sidebar')
 const { getSystemSettings: getSystemBranding } = require('../utils/settings')
+const { checkLevelUpReward } = require('../utils/guildLevel')
 const router = express.Router()
 
 // Multer Config for Screenshots (Cloudinary)
@@ -80,6 +81,26 @@ async function checkAutoApprovals() {
           tk: { increment: settings.rewards.tk }
         } 
       })
+
+      // Update Guild Score
+      const visitor = await tx.user.findUnique({ where: { id: sub.visitorId }, select: { id: true, guildId: true } })
+      if (visitor && visitor.guildId) {
+        const guild = await tx.guild.findUnique({ where: { id: visitor.guildId } })
+        if (guild) {
+          const oldScore = guild.score || 0
+          await tx.guild.update({
+            where: { id: visitor.guildId },
+            data: { score: { increment: 1 } }
+          })
+          
+          await tx.user.update({
+            where: { id: visitor.id },
+            data: { guildScore: { increment: 1 } }
+          })
+
+          await checkLevelUpReward(tx, visitor.guildId, oldScore, oldScore + 1)
+        }
+      }
       
       await tx.promotedLink.update({ where: { id: sub.promotedLinkId }, data: { completedVisits: { increment: 1 } } })
     })
@@ -740,16 +761,22 @@ router.post('/submission/:id/approve', requireLogin, async (req, res) => {
 
       // Update Guild Score if user is in a guild
       if (visitor.guildId) {
-        await tx.guild.update({
-          where: { id: visitor.guildId },
-          data: { score: { increment: 1 } }
-        })
-        
-        // Update User's Guild Score
-        await tx.user.update({
-          where: { id: visitor.id },
-          data: { guildScore: { increment: 1 } }
-        })
+        const guild = await tx.guild.findUnique({ where: { id: visitor.guildId } })
+        if (guild) {
+          const oldScore = guild.score || 0
+          await tx.guild.update({
+            where: { id: visitor.guildId },
+            data: { score: { increment: 1 } }
+          })
+          
+          // Update User's Guild Score
+          await tx.user.update({
+            where: { id: visitor.id },
+            data: { guildScore: { increment: 1 } }
+          })
+
+          await checkLevelUpReward(tx, visitor.guildId, oldScore, oldScore + 1)
+        }
       }
 
       // Increment completed visits
@@ -834,6 +861,26 @@ router.post('/link/:id/approve-all', requireLogin, async (req, res) => {
             tk: { increment: settings.rewards.tk }
           }
         })
+
+        // Update Guild Score
+        const visitor = await tx.user.findUnique({ where: { id: sub.visitorId }, select: { id: true, guildId: true } })
+        if (visitor && visitor.guildId) {
+          const guild = await tx.guild.findUnique({ where: { id: visitor.guildId } })
+          if (guild) {
+            const oldScore = guild.score || 0
+            await tx.guild.update({
+              where: { id: visitor.guildId },
+              data: { score: { increment: 1 } }
+            })
+            
+            await tx.user.update({
+              where: { id: visitor.id },
+              data: { guildScore: { increment: 1 } }
+            })
+
+            await checkLevelUpReward(tx, visitor.guildId, oldScore, oldScore + 1)
+          }
+        }
       }
       
       await tx.promotedLink.update({

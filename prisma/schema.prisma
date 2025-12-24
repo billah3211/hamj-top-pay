@@ -274,3 +274,12 @@ model LeaderboardBanner {
   rankPosition Int?
   createdAt   DateTime @default(now())
 }
+
+model LevelConfiguration {
+  id          Int     @id @default(autoincrement())
+  level       Int     @unique
+  minScore    Int
+  rewardType  String? // CASH, GIFT
+  rewardValue String?
+  currency    String? // dk, tk, coin, diamond
+}

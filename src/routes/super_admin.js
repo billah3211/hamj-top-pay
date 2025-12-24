@@ -1946,16 +1946,18 @@ router.post('/topup-wallets/delete', requireSuperAdmin, async (req, res) => {
 // Leaderboard Bonuses Management
 router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
   const settings = await getSystemSettings()
-  const guilds = await prisma.guild.findMany({
-    take: 100,
-    orderBy: [
-      { level: 'desc' },
-      { totalEarnings: 'desc' }
-    ],
-    include: { leader: true }
-  })
-  
-  const banners = await prisma.leaderboardBanner.findMany({ orderBy: { createdAt: 'desc' } })
+  const [guilds, banners, levelConfigs] = await Promise.all([
+    prisma.guild.findMany({
+      take: 100,
+      orderBy: [
+        { level: 'desc' },
+        { totalEarnings: 'desc' }
+      ],
+      include: { leader: true }
+    }),
+    prisma.leaderboardBanner.findMany({ orderBy: { createdAt: 'desc' } }),
+    prisma.levelConfiguration.findMany({ orderBy: { level: 'asc' } })
+  ])
 
   res.send(`
     ${getHead('Leaderboard Bonuses')}
@@ -1967,13 +1969,101 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
         </div>
         <div>
           <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">Leaderboard Bonuses</div>
-          <div style="color:var(--text-muted); font-size: 16px;">Manage banners and distribute level-based bonuses</div>
+          <div style="color:var(--text-muted); font-size: 16px;">Manage level rewards, banners and distribute bonuses</div>
         </div>
       </div>
 
       ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
       ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
       
+      <!-- Level Rewards Configuration (Automated) -->
+      <div class="glass-panel" style="padding: 24px; margin-bottom: 32px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+          <div>
+            <h3 style="margin:0; font-size: 20px;">Level Rewards (Automated)</h3>
+            <p style="margin:5px 0 0; font-size:13px; color:var(--text-muted);">Configure rewards that are automatically given when a guild reaches a level.</p>
+          </div>
+          <button onclick="document.getElementById('addLevelForm').style.display='block'" class="btn-premium" style="padding: 8px 16px; font-size: 14px;">+ Add Level Reward</button>
+        </div>
+        
+        <!-- Add Level Form -->
+        <div id="addLevelForm" style="display:none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
+          <form action="/super-admin/level-config/add" method="POST">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+              <div>
+                <label class="form-label">Target Level</label>
+                <input type="number" name="level" required placeholder="e.g. 1" class="form-input">
+              </div>
+              <div>
+                <label class="form-label">Min Score</label>
+                <input type="number" name="minScore" required placeholder="e.g. 1000" class="form-input">
+              </div>
+              <div>
+                <label class="form-label">Reward Type</label>
+                <select name="rewardType" class="form-input" onchange="this.parentElement.nextElementSibling.style.display = this.value === 'CASH' ? 'block' : 'none'; this.parentElement.nextElementSibling.nextElementSibling.style.display = this.value === 'GIFT' ? 'block' : 'none';">
+                  <option value="CASH">Cash Bonus</option>
+                  <option value="GIFT">Gift Item</option>
+                </select>
+              </div>
+              <div id="currencyField">
+                <label class="form-label">Currency (Cash)</label>
+                <select name="currency" class="form-input">
+                  <option value="dk">Dollar (DK)</option>
+                  <option value="tk">Taka (TK)</option>
+                  <option value="coin">Coin</option>
+                  <option value="diamond">Diamond</option>
+                </select>
+              </div>
+              <div id="giftField" style="display:none;">
+                 <label class="form-label">Gift Name (e.g. iPhone)</label>
+                 <input type="text" name="giftName" placeholder="Item Name" class="form-input">
+              </div>
+              <div>
+                 <label class="form-label">Amount (Cash)</label>
+                 <input type="number" name="amount" placeholder="e.g. 50" class="form-input">
+              </div>
+            </div>
+            <div style="margin-top: 15px; text-align: right;">
+              <button type="button" onclick="document.getElementById('addLevelForm').style.display='none'" class="btn-premium" style="background: transparent; border: 1px solid rgba(255,255,255,0.2);">Cancel</button>
+              <button type="submit" class="btn-premium">Save Level</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Levels List -->
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1);">
+              <th style="padding: 12px; color: var(--text-muted);">Level</th>
+              <th style="padding: 12px; color: var(--text-muted);">Min Score</th>
+              <th style="padding: 12px; color: var(--text-muted);">Reward</th>
+              <th style="padding: 12px; color: var(--text-muted);">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${levelConfigs.map(l => `
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="padding: 12px; font-weight: bold; color: var(--accent);">Level ${l.level}</td>
+                <td style="padding: 12px;">${l.minScore}</td>
+                <td style="padding: 12px;">
+                  ${l.rewardType === 'GIFT' 
+                    ? `<span style="color:#facc15"><i class="fas fa-gift"></i> ${l.rewardValue}</span>` 
+                    : `<span style="color:#34d399"><i class="fas fa-coins"></i> ${l.rewardValue} ${l.currency}</span>`
+                  }
+                </td>
+                <td style="padding: 12px;">
+                  <form action="/super-admin/level-config/delete" method="POST" onsubmit="return confirm('Delete Level ${l.level}?')" style="margin:0;">
+                    <input type="hidden" name="id" value="${l.id}">
+                    <button class="btn-premium" style="padding: 4px 8px; font-size: 11px; background: rgba(239,68,68,0.2); color: #fca5a5; border-color: rgba(239,68,68,0.3);">Delete</button>
+                  </form>
+                </td>
+              </tr>
+            `).join('')}
+            ${levelConfigs.length === 0 ? '<tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--text-muted);">No levels configured. Add levels to automate rewards.</td></tr>' : ''}
+          </tbody>
+        </table>
+      </div>
+
       <!-- Banners Management -->
       <div class="glass-panel" style="padding: 24px; margin-bottom: 32px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
@@ -2351,6 +2441,54 @@ router.post('/distribute-bonuses', requireSuperAdmin, async (req, res) => {
   } catch (e) {
     console.error(e)
     res.redirect('/super-admin/leaderboard-bonuses?error=' + encodeURIComponent(e.message))
+  }
+})
+
+// Level Config Routes
+router.post('/level-config/add', requireSuperAdmin, async (req, res) => {
+  try {
+    const { level, minScore, rewardType, currency, giftName, amount } = req.body
+    
+    // Check if level already exists
+    const existing = await prisma.levelConfiguration.findUnique({ where: { level: parseInt(level) } })
+    if (existing) {
+      // Update existing
+       await prisma.levelConfiguration.update({
+         where: { level: parseInt(level) },
+         data: {
+           minScore: parseInt(minScore),
+           rewardType,
+           currency: rewardType === 'CASH' ? currency : null,
+           rewardValue: rewardType === 'CASH' ? amount : giftName
+         }
+       })
+       return res.redirect('/super-admin/leaderboard-bonuses?success=Level+Config+Updated')
+    }
+
+    await prisma.levelConfiguration.create({
+      data: {
+        level: parseInt(level),
+        minScore: parseInt(minScore),
+        rewardType,
+        currency: rewardType === 'CASH' ? currency : null,
+        rewardValue: rewardType === 'CASH' ? amount : giftName
+      }
+    })
+    res.redirect('/super-admin/leaderboard-bonuses?success=Level+Config+Added')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/leaderboard-bonuses?error=Error+saving+level+config')
+  }
+})
+
+router.post('/level-config/delete', requireSuperAdmin, async (req, res) => {
+  try {
+    const { id } = req.body
+    await prisma.levelConfiguration.delete({ where: { id: parseInt(id) } })
+    res.redirect('/super-admin/leaderboard-bonuses?success=Level+Config+Deleted')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/leaderboard-bonuses?error=Error+deleting+level+config')
   }
 })
 
