@@ -63,6 +63,8 @@ model Guild {
   memberLimit     Int      @default(50)
   totalEarnings   Float    @default(0)
   commissionRate  Float    @default(1.0)
+  score           Int      @default(0)
+  level           Int      @default(0)
   
   currentAvatar   String?
   currentBanner   String?

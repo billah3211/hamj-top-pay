@@ -720,6 +720,11 @@ router.post('/submission/:id/approve', requireLogin, async (req, res) => {
       }
 
       // Reward User
+      const visitor = await tx.user.findUnique({
+        where: { id: submission.visitorId },
+        select: { id: true, guildId: true }
+      })
+
       await tx.user.update({
         where: { id: submission.visitorId },
         data: { 
@@ -728,6 +733,14 @@ router.post('/submission/:id/approve', requireLogin, async (req, res) => {
           tk: { increment: settings.rewards.tk }
         }
       })
+
+      // Update Guild Score if user is in a guild
+      if (visitor.guildId) {
+        await tx.guild.update({
+          where: { id: visitor.guildId },
+          data: { score: { increment: 1 } }
+        })
+      }
 
       // Increment completed visits
       await tx.promotedLink.update({

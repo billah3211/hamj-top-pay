@@ -99,6 +99,8 @@ const getFooter = () => `
 // GUILD ROUTES
 // ----------------------------------------------------------------------
 
+const { getGuildLevelInfo } = require('../utils/guildLevel')
+
 router.get('/', requireLogin, async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.session.userId },
@@ -107,6 +109,12 @@ router.get('/', requireLogin, async (req, res) => {
 
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
   const settings = await getSystemSettings()
+
+  // Calculate Guild Level Info
+  let guildLevelInfo = null
+  if (user.guild) {
+    guildLevelInfo = getGuildLevelInfo(user.guild.score || 0)
+  }
 
   // Get Top Guilds
   const topGuilds = await prisma.guild.findMany({
@@ -627,6 +635,32 @@ router.get('/', requireLogin, async (req, res) => {
 
       <!-- STATS GRID -->
       <div class="stats-grid">
+         <!-- GUILD LEVEL CARD -->
+         <div class="stat-box" style="grid-column: span 3; background: linear-gradient(135deg, rgba(217, 70, 239, 0.2), rgba(15, 23, 42, 0.8)); border: 1px solid rgba(217, 70, 239, 0.5);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+               <div>
+                  <div class="stat-label" style="color:#facc15">Guild Level</div>
+                  <div class="stat-value" style="font-size:48px; line-height:1;">
+                     ${guildLevelInfo.level} <span style="font-size:20px; color:var(--text-muted); font-weight:400;">/ 11</span>
+                  </div>
+               </div>
+               <div style="text-align:right;">
+                  <div class="stat-label">Total Score</div>
+                  <div class="stat-value" style="font-size:24px;">${user.guild.score || 0}</div>
+               </div>
+            </div>
+            
+            <!-- Progress Bar -->
+            <div style="background:rgba(255,255,255,0.1); height:12px; border-radius:6px; overflow:hidden; margin-bottom:8px;">
+               <div style="width:${guildLevelInfo.progress}%; background:linear-gradient(90deg, #d946ef, #facc15); height:100%; border-radius:6px; transition: width 0.5s ease;"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted);">
+               <span>Progress to Level ${guildLevelInfo.level + 1}</span>
+               <span>${guildLevelInfo.progress}% (${user.guild.score}/${guildLevelInfo.nextLevelScore})</span>
+            </div>
+            <i class="fas fa-trophy stat-icon-lg" style="color:#facc15; opacity:0.1;"></i>
+         </div>
+
          <div class="stat-box">
             <div class="stat-label">Total Members</div>
             <div class="stat-value">${memberCount} <span class="stat-sub">/ ${memberLimit}</span></div>
