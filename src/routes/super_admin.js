@@ -2181,7 +2181,7 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
         // The guilds are already sorted by Level then Earnings in the HTML order
         // We just need to find the first N guilds that match the level
         
-        // However, `inputs` NodeList order matches the table rows order
+        // However, inputs NodeList order matches the table rows order
         for (let i = 0; i < inputs.length; i++) {
            const input = inputs[i];
            const typeInput = typeInputs[i];
