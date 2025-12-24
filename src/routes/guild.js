@@ -862,16 +862,10 @@ router.get('/', requireLogin, async (req, res) => {
             <div id="form-youtuber">
                <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.2); padding:15px; border-radius:12px; margin-bottom:20px; font-size:13px; color:#a5b4fc;">
                   <strong>Requirements (শর্তসমূহ):</strong><br>
-                  • চ্যানেলে কমপক্ষে 2,000+ Subscribers থাকতে হবে<br>
-                  • যেকোনো ১টি ভিডিওতে 1,000+ Views থাকতে হবে<br>
-                  • Hamj Top Pay নিয়ে অন্তত ১টি ভিডিও তৈরি করতে হবে<br>
-                  • প্রতি মাসে কমপক্ষে ২টি ভিডিও আপলোড করা বাধ্যতামূলক<br><br>
+                  ${reqText.replace(/\n/g, '<br>')}<br><br>
                   
                   <strong>Additional Benefits (অতিরিক্ত সুবিধা):</strong><br>
-                  • আপনার নিজস্ব Guild তৈরি করার সুযোগ পাবেন<br>
-                  • আপনার Guild থেকে যদি কোনো ইউজার Top-Up করে, তাহলে প্রতি Top-Up এ আপনি ১০% কমিশন পাবেন<br>
-                  • আপনি আপনার Guild-এ ১,০০০ জন ইউজার সম্পূর্ণ ফ্রিতে জয়েন করাতে পারবেন<br>
-                  • যত বেশি ইউজার আপনার Guild-এ Active থাকবে, তত বেশি ইনকাম করার সুযোগ পাবেন
+                  ${benText.replace(/\n/g, '<br>')}
                </div>
                <form action="/guild/create" method="POST">
                   <div style="margin-bottom:15px;">
@@ -1285,6 +1279,12 @@ router.post('/create', requireLogin, async (req, res) => {
   if (user.guild) return res.redirect('/guild?error=Already+in+a+guild')
 
   try {
+      // Fetch dynamic commission rate
+      const commissionSetting = await prisma.systemSetting.findUnique({
+        where: { key: 'guild_commission_rate' }
+      })
+      const commissionRate = commissionSetting ? parseFloat(commissionSetting.value) : 10.0
+
       await prisma.$transaction([
         prisma.user.update({
           where: { id: user.id },
@@ -1301,7 +1301,7 @@ router.post('/create', requireLogin, async (req, res) => {
             contactEmail: email,
             videoLink: videoLink,
             memberLimit: 1000,
-            commissionRate: 10.0,
+            commissionRate: commissionRate,
             members: { connect: { id: user.id } }
           }
         })

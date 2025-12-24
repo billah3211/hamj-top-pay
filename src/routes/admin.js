@@ -946,10 +946,12 @@ router.post('/guild-reject', requireAdmin, async (req, res) => {
 // Guild Settings
 router.get('/guild-settings', requireAdmin, async (req, res) => {
   const youtuberReq = await prisma.systemSetting.findUnique({ where: { key: 'guild_requirements_youtuber' } })
-  const userReq = await prisma.systemSetting.findUnique({ where: { key: 'guild_requirements_user' } })
+  const youtuberBen = await prisma.systemSetting.findUnique({ where: { key: 'guild_benefits_youtuber' } })
+  const commissionRate = await prisma.systemSetting.findUnique({ where: { key: 'guild_commission_rate' } })
   
-  const defaultYoutuber = '2,000+ Subscribers\n1,000+ Views on 1 video\n1 video about Hamj Top Pay\n2 videos/month required'
-  const defaultUser = '• 50 Member Limit\n• 1% Commission on Member Top-Ups\n• Instant Creation'
+  const defaultYoutuberReq = '• চ্যানেলে কমপক্ষে 2,000+ Subscribers থাকতে হবে\n• যেকোনো ১টি ভিডিওতে 1,000+ Views থাকতে হবে\n• Hamj Top Pay নিয়ে অন্তত ১টি ভিডিও তৈরি করতে হবে\n• প্রতি মাসে কমপক্ষে ২টি ভিডিও আপলোড করা বাধ্যতামূলক'
+  const defaultYoutuberBen = '• আপনার নিজস্ব Guild তৈরি করার সুযোগ পাবেন\n• আপনার Guild থেকে যদি কোনো ইউজার Top-Up করে, তাহলে প্রতি Top-Up এ আপনি ১০% কমিশন পাবেন\n• আপনি আপনার Guild-এ ১,০০০ জন ইউজার সম্পূর্ণ ফ্রিতে জয়েন করাতে পারবেন\n• যত বেশি ইউজার আপনার Guild-এ Active থাকবে, তত বেশি ইনকাম করার সুযোগ পাবেন'
+  const defaultCommission = '10'
 
   res.send(`
     ${getHead('Guild Settings')}
@@ -962,14 +964,20 @@ router.get('/guild-settings', requireAdmin, async (req, res) => {
           
           <div class="form-group" style="margin-bottom:20px;">
             <label class="form-label" style="display:block; margin-bottom:8px; color:#f472b6;">YouTuber Guild Requirements</label>
-            <textarea name="youtuber_req" class="form-input" style="width:100%; height:150px; font-family:monospace;">${youtuberReq ? youtuberReq.value : defaultYoutuber}</textarea>
+            <textarea name="youtuber_req" class="form-input" style="width:100%; height:150px; font-family:monospace;">${youtuberReq ? youtuberReq.value : defaultYoutuberReq}</textarea>
             <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Enter each requirement on a new line.</div>
           </div>
 
           <div class="form-group" style="margin-bottom:20px;">
-            <label class="form-label" style="display:block; margin-bottom:8px; color:#60a5fa;">User Guild Features/Requirements</label>
-            <textarea name="user_req" class="form-input" style="width:100%; height:150px; font-family:monospace;">${userReq ? userReq.value : defaultUser}</textarea>
-            <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Enter each feature on a new line.</div>
+            <label class="form-label" style="display:block; margin-bottom:8px; color:#60a5fa;">YouTuber Guild Benefits</label>
+            <textarea name="youtuber_ben" class="form-input" style="width:100%; height:150px; font-family:monospace;">${youtuberBen ? youtuberBen.value : defaultYoutuberBen}</textarea>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Enter each benefit on a new line.</div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:20px;">
+            <label class="form-label" style="display:block; margin-bottom:8px; color:#facc15;">Default Commission Rate (%)</label>
+            <input type="number" step="0.1" name="commission_rate" value="${commissionRate ? commissionRate.value : defaultCommission}" class="form-input" style="width:100%;">
+            <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">Commission rate for new guilds (e.g., 10 for 10%).</div>
           </div>
 
           <button class="btn-premium">Save Settings</button>
@@ -981,7 +989,7 @@ router.get('/guild-settings', requireAdmin, async (req, res) => {
 })
 
 router.post('/guild-settings', requireAdmin, async (req, res) => {
-  const { youtuber_req, user_req } = req.body
+  const { youtuber_req, youtuber_ben, commission_rate } = req.body
   
   if (youtuber_req) {
     await prisma.systemSetting.upsert({
@@ -991,11 +999,19 @@ router.post('/guild-settings', requireAdmin, async (req, res) => {
     })
   }
 
-  if (user_req) {
+  if (youtuber_ben) {
     await prisma.systemSetting.upsert({
-      where: { key: 'guild_requirements_user' },
-      update: { value: user_req.trim() },
-      create: { key: 'guild_requirements_user', value: user_req.trim() }
+      where: { key: 'guild_benefits_youtuber' },
+      update: { value: youtuber_ben.trim() },
+      create: { key: 'guild_benefits_youtuber', value: youtuber_ben.trim() }
+    })
+  }
+
+  if (commission_rate) {
+    await prisma.systemSetting.upsert({
+      where: { key: 'guild_commission_rate' },
+      update: { value: commission_rate.toString() },
+      create: { key: 'guild_commission_rate', value: commission_rate.toString() }
     })
   }
 
