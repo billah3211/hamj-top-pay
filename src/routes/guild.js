@@ -104,7 +104,16 @@ const { getGuildLevelInfo } = require('../utils/guildLevel')
 router.get('/', requireLogin, async (req, res) => {
   const user = await prisma.user.findUnique({
     where: { id: req.session.userId },
-    include: { guild: { include: { leader: true, members: true } } }
+    include: { 
+      guild: { 
+        include: { 
+          leader: true, 
+          members: {
+            orderBy: { guildScore: 'desc' }
+          } 
+        } 
+      } 
+    }
   })
 
   const unreadCount = await prisma.notification.count({ where: { userId: user.id, isRead: false } })
@@ -708,7 +717,7 @@ router.get('/', requireLogin, async (req, res) => {
       
       <div class="members-grid">
          ${user.guild.members.map(m => `
-           <div class="member-card">
+           <a href="/profile/view/${m.id}" class="member-card" style="text-decoration:none; color:inherit; display:block;">
               ${m.id === user.guild.leaderId ? '<i class="fas fa-crown crown-icon"></i>' : ''}
               <div class="member-avatar">
                  ${m.currentAvatar ? 
@@ -717,8 +726,11 @@ router.get('/', requireLogin, async (req, res) => {
                  }
               </div>
               <div class="member-name">${m.username}</div>
-              <div class="member-role">${m.id === user.guild.leaderId ? 'Leader' : 'Member'}</div>
-           </div>
+              <div class="member-role" style="font-size:12px; margin-bottom:4px;">${m.id === user.guild.leaderId ? 'Leader' : 'Member'}</div>
+              <div style="font-size:12px; color:#10b981; font-weight:700; background:rgba(16, 185, 129, 0.1); padding:4px 12px; border-radius:12px; display:inline-flex; align-items:center; gap:6px; margin-top:8px;">
+                <i class="fas fa-bolt" style="font-size:10px;"></i> Score: ${m.guildScore || 0}
+              </div>
+           </a>
          `).join('')}
       </div>
 
@@ -1307,7 +1319,7 @@ router.post('/create', requireLogin, async (req, res) => {
       await prisma.$transaction([
         prisma.user.update({
           where: { id: user.id },
-          data: { diamonds: { decrement: 500 } }
+          data: { diamonds: { decrement: 500 }, guildScore: 0 }
         }),
         prisma.guild.create({
           data: {
@@ -1322,18 +1334,24 @@ router.post('/create', requireLogin, async (req, res) => {
         })
       ])
     } else {
-      await prisma.guild.create({
-        data: {
-          name,
-          type: 'YOUTUBER',
-          leaderId: user.id,
-          status: 'PENDING',
-          videoLink: proof,
-          memberLimit: 100,
-          commissionRate: 2.0,
-          members: { connect: { id: user.id } }
-        }
-      })
+      await prisma.$transaction([
+        prisma.user.update({
+          where: { id: user.id },
+          data: { guildScore: 0 }
+        }),
+        prisma.guild.create({
+          data: {
+            name,
+            type: 'YOUTUBER',
+            leaderId: user.id,
+            status: 'PENDING',
+            videoLink: proof,
+            memberLimit: 100,
+            commissionRate: 2.0,
+            members: { connect: { id: user.id } }
+          }
+        })
+      ])
     }
     res.redirect('/guild?success=Guild+created+successfully')
   } catch (err) {
@@ -1394,7 +1412,7 @@ router.post('/leave', requireLogin, async (req, res) => {
 
   await prisma.user.update({
     where: { id: user.id },
-    data: { guildId: null }
+    data: { guildId: null, guildScore: 0 }
   })
 
   res.redirect('/guild?success=Left+guild+successfully')
@@ -1425,7 +1443,7 @@ router.post('/request/approve', requireLogin, async (req, res) => {
     }),
     prisma.user.update({
       where: { id: request.userId },
-      data: { guildId: user.guild.id }
+      data: { guildId: user.guild.id, guildScore: 0 }
     }),
     prisma.notification.create({
       data: {

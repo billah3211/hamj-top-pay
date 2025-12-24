@@ -740,6 +740,12 @@ router.post('/submission/:id/approve', requireLogin, async (req, res) => {
           where: { id: visitor.guildId },
           data: { score: { increment: 1 } }
         })
+        
+        // Update User's Guild Score
+        await tx.user.update({
+          where: { id: visitor.id },
+          data: { guildScore: { increment: 1 } }
+        })
       }
 
       // Increment completed visits

@@ -44,6 +44,7 @@ model User {
   guildRequests GuildRequest[]
 
   guildId       Int?
+  guildScore    Int      @default(0)
   guild         Guild?   @relation(fields: [guildId], references: [id])
   ownedGuild    Guild?   @relation("GuildLeader")
 
