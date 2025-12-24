@@ -813,6 +813,7 @@ router.get('/dashboard', async (req, res) => {
 
 router.get('/notifications', async (req, res) => {
   if (!req.session.userId) return res.redirect('/login')
+  const settings = await getSystemSettings()
   const user = await prisma.user.findUnique({ where: { id: req.session.userId } })
   if (user.isBlocked) return res.redirect('/login?error=Account+blocked')
 

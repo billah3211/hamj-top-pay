@@ -41,6 +41,7 @@ model User {
   topUpRequests TopUpRequest[]
   withdrawalRequests WithdrawalRequest[]
   supportSessions SupportSession[]
+  guildRequests GuildRequest[]
 
   guildId       Int?
   guild         Guild?   @relation(fields: [guildId], references: [id])
@@ -72,6 +73,17 @@ model Guild {
 
   createdAt       DateTime @default(now())
   members         User[]
+  requests        GuildRequest[]
+}
+
+model GuildRequest {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  guildId   Int
+  guild     Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt DateTime @default(now())
 }
 
 model StoreItem {
