@@ -284,4 +284,152 @@ router.get('/', requireLogin, async (req, res) => {
   `)
 })
 
+// ----------------------------------------------------------------------
+// MANAGE GUILD (DESIGN & SETTINGS)
+// ----------------------------------------------------------------------
+router.get('/manage', requireLogin, async (req, res) => {
+  const user = await prisma.user.findUnique({
+    where: { id: req.session.userId },
+    include: { guild: true }
+  })
+
+  if (!user.guild || user.guild.leaderId !== user.id) {
+    return res.redirect('/guild')
+  }
+
+  // Fetch User's Inventory (Avatars & Banners)
+  const myItems = await prisma.userItem.findMany({
+    where: { userId: user.id },
+    include: { item: true }
+  })
+
+  const avatars = myItems.filter(i => i.item.type === 'avatar')
+  const banners = myItems.filter(i => i.item.type === 'banner')
+  
+  const [settings, unreadCount] = await Promise.all([
+    getSystemSettings(),
+    prisma.notification.count({ where: { userId: user.id, isRead: false } })
+  ])
+
+  res.send(`
+    ${getHead('Manage Guild')}
+    ${getUserSidebar('guild', unreadCount, user.id, user.role, settings)}
+    <div class="main-content">
+       <div class="section-header">
+          <div>
+             <a href="/guild" style="color:var(--text-muted); text-decoration:none; font-size:14px;"><i class="fas fa-arrow-left"></i> Back to Guild</a>
+             <div class="section-title" style="margin-top:10px;">Manage Guild</div>
+          </div>
+       </div>
+
+       <div class="glass-panel">
+          <form action="/guild/update-design" method="POST">
+             <h3 style="color:white; margin-bottom:20px;">Guild Appearance</h3>
+             
+             <!-- AVATAR SELECTION -->
+             <div style="margin-bottom: 30px;">
+                <label style="display:block; color:var(--text-muted); margin-bottom:10px;">Guild Avatar</label>
+                <div style="display:flex; gap:15px; overflow-x:auto; padding-bottom:10px;">
+                   <!-- Default -->
+                   <label style="cursor:pointer;">
+                      <input type="radio" name="avatar" value="" ${!user.guild.currentAvatar ? 'checked' : ''} style="display:none;" onchange="this.form.submit()">
+                      <div style="width:60px; height:60px; border-radius:50%; background:#334155; display:flex; align-items:center; justify-content:center; border:2px solid ${!user.guild.currentAvatar ? 'var(--primary)' : 'transparent'};">
+                         <span style="font-weight:bold;">${user.guild.name[0]}</span>
+                      </div>
+                      <div style="text-align:center; font-size:10px; color:var(--text-muted); margin-top:5px;">Default</div>
+                   </label>
+
+                   ${avatars.map(a => `
+                     <label style="cursor:pointer;">
+                        <input type="radio" name="avatar" value="${a.item.imageUrl}" ${user.guild.currentAvatar === a.item.imageUrl ? 'checked' : ''} style="display:none;" onchange="this.form.submit()">
+                        <div style="width:60px; height:60px; border-radius:50%; overflow:hidden; border:2px solid ${user.guild.currentAvatar === a.item.imageUrl ? 'var(--primary)' : 'transparent'};">
+                           <img src="${a.item.imageUrl}" style="width:100%; height:100%; object-fit:cover;">
+                        </div>
+                     </label>
+                   `).join('')}
+                </div>
+                ${avatars.length === 0 ? '<div style="font-size:12px; color:var(--text-muted);">Purchase avatars from the <a href="/store" style="color:var(--primary);">Store</a> to use them here.</div>' : ''}
+             </div>
+
+             <!-- BANNER SELECTION -->
+             <div style="margin-bottom: 30px;">
+                <label style="display:block; color:var(--text-muted); margin-bottom:10px;">Guild Banner</label>
+                <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap:15px;">
+                   <!-- Default -->
+                   <label style="cursor:pointer;">
+                      <input type="radio" name="banner" value="" ${!user.guild.currentBanner ? 'checked' : ''} style="display:none;" onchange="this.form.submit()">
+                      <div style="height:80px; border-radius:8px; background:linear-gradient(45deg, #1e293b, #334155); border:2px solid ${!user.guild.currentBanner ? 'var(--primary)' : 'transparent'};"></div>
+                      <div style="text-align:center; font-size:10px; color:var(--text-muted); margin-top:5px;">Default</div>
+                   </label>
+
+                   ${banners.map(b => `
+                     <label style="cursor:pointer;">
+                        <input type="radio" name="banner" value="${b.item.imageUrl}" ${user.guild.currentBanner === b.item.imageUrl ? 'checked' : ''} style="display:none;" onchange="this.form.submit()">
+                        <div style="height:80px; border-radius:8px; overflow:hidden; border:2px solid ${user.guild.currentBanner === b.item.imageUrl ? 'var(--primary)' : 'transparent'};">
+                           <img src="${b.item.imageUrl}" style="width:100%; height:100%; object-fit:cover;">
+                        </div>
+                     </label>
+                   `).join('')}
+                </div>
+                ${banners.length === 0 ? '<div style="font-size:12px; color:var(--text-muted);">Purchase banners from the <a href="/store" style="color:var(--primary);">Store</a> to use them here.</div>' : ''}
+             </div>
+          </form>
+
+          <div style="margin-top:40px; border-top:1px solid rgba(255,255,255,0.1); padding-top:20px;">
+             <h3 style="color:white; margin-bottom:20px;">Guild Settings</h3>
+             <form action="/guild/update-info" method="POST">
+                <div style="margin-bottom:15px;">
+                   <label style="display:block; color:var(--text-muted); margin-bottom:6px; font-size:12px;">Description</label>
+                   <textarea name="description" rows="3" style="width:100%; background:#0f172a; border:1px solid #334155; padding:10px; border-radius:8px; color:white;">${user.guild.description || ''}</textarea>
+                </div>
+                ${user.guild.type === 'YOUTUBER' ? `
+                   <div style="margin-bottom:15px;">
+                      <label style="display:block; color:var(--text-muted); margin-bottom:6px; font-size:12px;">YouTube Video Link (Featured)</label>
+                      <input type="url" name="videoLink" value="${user.guild.videoLink || ''}" style="width:100%; background:#0f172a; border:1px solid #334155; padding:10px; border-radius:8px; color:white;">
+                   </div>
+                ` : ''}
+                <button type="submit" class="btn-premium">Save Settings</button>
+             </form>
+          </div>
+       </div>
+    </div>
+    ${getFooter()}
+  `)
+})
+
+router.post('/update-design', requireLogin, async (req, res) => {
+  const { avatar, banner } = req.body
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId }, include: { guild: true } })
+  
+  if (!user.guild || user.guild.leaderId !== user.id) return res.redirect('/guild')
+
+  const updateData = {}
+  if (avatar !== undefined) updateData.currentAvatar = avatar || null
+  if (banner !== undefined) updateData.currentBanner = banner || null
+
+  await prisma.guild.update({
+    where: { id: user.guild.id },
+    data: updateData
+  })
+
+  res.redirect('/guild/manage')
+})
+
+router.post('/update-info', requireLogin, async (req, res) => {
+  const { description, videoLink } = req.body
+  const user = await prisma.user.findUnique({ where: { id: req.session.userId }, include: { guild: true } })
+  
+  if (!user.guild || user.guild.leaderId !== user.id) return res.redirect('/guild')
+
+  await prisma.guild.update({
+    where: { id: user.guild.id },
+    data: { 
+      description,
+      videoLink: videoLink || null
+    }
+  })
+
+  res.redirect('/guild/manage')
+})
+
 module.exports = router

@@ -64,6 +64,9 @@ model Guild {
   totalEarnings   Float    @default(0)
   commissionRate  Float    @default(1.0)
   
+  currentAvatar   String?
+  currentBanner   String?
+  
   // YouTuber Specific
   youtubeChannelLink String?
   videoLink          String?
