@@ -154,11 +154,11 @@ const getProfileModal = (user, level) => `
 // Generic View Profile Modal (Empty initially, populated via JS)
         const getViewProfileModal = () => `
 <div id="viewProfileModal" class="modal-premium">
-  <div class="modal-content" style="background: transparent; border: none; box-shadow: none; padding: 0;">
+  <div class="modal-content" style="background: transparent; border: none; box-shadow: none; padding: 0; max-height: 85vh; overflow-y: auto;">
     <div style="position: relative;">
-        <button class="modal-close" id="viewProfileBack" style="position: absolute; top: -15px; right: -15px; background: rgba(0,0,0,0.5); color: white; border: 2px solid rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; z-index: 100; font-size: 20px; display: flex; align-items: center; justify-content: center;">×</button>
+        <button class="modal-close" id="viewProfileBack" style="position: sticky; top: 10px; right: 0; margin-left: auto; background: rgba(0,0,0,0.5); color: white; border: 2px solid rgba(255,255,255,0.2); width: 36px; height: 36px; border-radius: 50%; cursor: pointer; z-index: 100; font-size: 20px; display: flex; align-items: center; justify-content: center; margin-bottom: -40px; margin-right: -10px;">×</button>
         <!-- Modal Body: Mimics Profile Page Structure -->
-        <div id="viewProfileContent" style="display: flex; flex-direction: column; gap: 20px;">
+        <div id="viewProfileContent" style="display: flex; flex-direction: column; gap: 20px; padding-bottom: 20px;">
             <!-- Content will be loaded here -->
             <div style="text-align:center; color:white;">Loading...</div>
         </div>
