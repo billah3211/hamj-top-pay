@@ -1477,7 +1477,7 @@ router.get('/topup-packages', requireSuperAdmin, async (req, res) => {
     <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
       <td style="padding:16px;">
          <div style="display:flex;align-items:center;gap:10px">
-           ${pkg.image ? `<img src="${pkg.image}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;background:rgba(255,255,255,0.1)">` : '<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,0.1);display:grid;place-items:center;color:var(--text-muted);font-size:10px">No Img</div>'}
+           ${pkg.image ? `<img src="${pkg.image}" style="width:100px;height:auto;aspect-ratio:2/1;border-radius:8px;object-fit:cover;background:rgba(255,255,255,0.1)">` : '<div style="width:100px;height:50px;border-radius:8px;background:rgba(255,255,255,0.1);display:grid;place-items:center;color:var(--text-muted);font-size:10px">No Img</div>'}
            <span style="color:white;font-weight:500">${pkg.name}</span>
          </div>
       </td>
@@ -1628,7 +1628,7 @@ router.get('/topup-wallets', requireSuperAdmin, async (req, res) => {
     <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
       <td style="padding:16px;">
          <div style="display:flex;align-items:center;gap:10px">
-           ${wallet.icon ? `<img src="${wallet.icon}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;background:rgba(255,255,255,0.1)">` : '<div style="width:40px;height:40px;border-radius:8px;background:rgba(255,255,255,0.1);display:grid;place-items:center;color:var(--text-muted);font-size:10px">No Icon</div>'}
+           ${wallet.icon ? `<img src="${wallet.icon}" style="width:50px;height:50px;border-radius:12px;object-fit:cover;background:rgba(255,255,255,0.1)">` : '<div style="width:50px;height:50px;border-radius:12px;background:rgba(255,255,255,0.1);display:grid;place-items:center;color:var(--text-muted);font-size:10px">No Icon</div>'}
            <span style="color:white;font-weight:500">${wallet.name}</span>
          </div>
       </td>
