@@ -1406,6 +1406,32 @@ router.get('/settings', requireSuperAdmin, async (req, res) => {
         </form>
       </div>
 
+      <!-- Currency Settings -->
+      <div class="glass-panel" style="padding: 32px; border-top: 4px solid #10b981; margin-bottom: 32px;">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">
+          <div style="background: rgba(16, 185, 129, 0.2); padding: 10px; border-radius: 10px;">
+             <img src="https://api.iconify.design/lucide:banknote.svg?color=%2310b981" width="24" height="24">
+          </div>
+          <h3 style="font-size: 18px; font-weight: 600; margin: 0;">Currency Settings</h3>
+        </div>
+
+        <form action="/super-admin/settings/update-currency" method="POST">
+          <div class="form-group">
+            <label class="form-label">Dollar Exchange Rate (BDT)</label>
+            <div style="position: relative;">
+               <span style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted);">$1 = ৳</span>
+               <input type="number" step="0.01" name="dollar_rate" value="${settings.dollar_rate || '120'}" class="form-input" style="padding-left: 60px;">
+            </div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px;">Used for calculating dollar earnings from BDT.</div>
+          </div>
+
+          <button type="submit" class="btn-premium full-width" style="background: linear-gradient(135deg, #10b981, #059669);">
+            <img src="https://api.iconify.design/lucide:save.svg?color=white" width="18" style="vertical-align: middle; margin-right: 8px;">
+            Save Currency Rate
+          </button>
+        </form>
+      </div>
+
       <!-- API Configuration -->
       <div class="glass-panel" style="padding: 32px; border-top: 4px solid #ec4899;">
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 24px;">

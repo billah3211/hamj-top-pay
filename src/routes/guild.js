@@ -763,7 +763,7 @@ router.get('/', requireLogin, async (req, res) => {
                       <span class="guild-stats-item"><i class="fas fa-users"></i> ${g.members.length} / ${g.memberLimit || 50}</span>
                       ${user.id === g.leaderId ? `
                         <span class="guild-stats-item" style="color:#fbbf24"><i class="fas fa-coins"></i> ৳${g.totalEarnings.toFixed(0)}</span>
-                        <span class="guild-stats-item" style="color:#10b981"><i class="fas fa-dollar-sign"></i> $${(g.totalEarnings / 120).toFixed(2)}</span>
+                        <span class="guild-stats-item" style="color:#10b981"><i class="fas fa-dollar-sign"></i> $${(g.totalEarnings / parseFloat(settings.dollar_rate || 120)).toFixed(2)}</span>
                       ` : ''}
                       <span class="guild-stats-item" style="color:#818cf8"><i class="fas fa-crown"></i> ${g.leader.username}</span>
                    </div>

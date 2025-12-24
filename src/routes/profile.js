@@ -248,6 +248,8 @@ router.get('/view/:id', async (req, res) => {
   const settings = await getSystemSettings()
   const sidebar = getUserSidebar('leaderboard', unreadCount, currentUser.id, currentUser.role, settings) // 'leaderboard' active since we came from there usually
 
+  const isOwnProfile = currentUser.id === user.id
+
   res.send(`
     <!doctype html>
     <html>
@@ -271,7 +273,7 @@ router.get('/view/:id', async (req, res) => {
               <div style="color:var(--text-muted);font-size:14px">Viewing public profile</div>
             </div>
             <div class="actions">
-              ${currentUser.id === user.id ? '<a href="/settings" class="btn-premium">Edit Profile</a>' : ''}
+              ${isOwnProfile ? '<a href="/settings" class="btn-premium">Edit Profile</a>' : ''}
             </div>
           </div>
 

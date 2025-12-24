@@ -13,6 +13,7 @@ async function getSystemSettings() {
     show_logo: 'false',
     github_link: '',
     currency: 'BDT', // Default currency
+    dollar_rate: '120', // Default exchange rate
     // Add other defaults as needed
   }
   
