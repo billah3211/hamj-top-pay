@@ -274,6 +274,31 @@ router.get('/', async (req, res) => {
     </div>
   ` : ''
   
+  // Contest Info Banner (Timer Only)
+  let contestInfoHtml = ''
+  if (deadline) {
+      const now = new Date()
+      const diffTime = deadline - now
+      const isEnded = diffTime < 0
+      
+      let timerText = ''
+      if (isEnded) {
+          timerText = '<span style="color:#ef4444;">Contest Ended</span>'
+      } else {
+          const days = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+          const hours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+          const minutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60))
+          timerText = `<span style="color:#facc15;"><i class="fas fa-clock"></i> Ends in: ${days}d ${hours}h ${minutes}m</span>`
+      }
+
+      contestInfoHtml = `
+        <div style="background:rgba(236, 72, 153, 0.1); border:1px solid rgba(236, 72, 153, 0.3); border-radius:16px; padding:20px; margin-bottom:30px; text-align:center;">
+            <h3 style="margin:0 0 10px 0; color:#f472b6; text-transform:uppercase; font-family:var(--font-head);">🏆 Contest Timer 🏆</h3>
+            <div style="font-size:24px; font-weight:bold; margin-bottom:0;">${timerText}</div>
+        </div>
+      `
+  }
+
   res.send(`
     ${getHead('Leaderboard')}
     <style>
@@ -295,6 +320,7 @@ router.get('/', async (req, res) => {
     <div class="main-content">
       <div class="leaderboard-container">
         ${bannerHtml}
+        ${contestInfoHtml}
         
         <div class="leaderboard-title">
           <i class="fas fa-crown"></i> Leaderboard
