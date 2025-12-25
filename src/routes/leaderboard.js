@@ -40,59 +40,164 @@ const getHead = (title) => `
       text-transform: uppercase; text-shadow: 0 4px 20px rgba(250, 204, 21, 0.3);
     }
     
-    .leaderboard-list { display: flex; flex-direction: column; gap: 15px; }
+    .leaderboard-list { display: flex; flex-direction: column; gap: 10px; }
     
-    .guild-row {
-      display: grid; grid-template-columns: 60px 1fr auto;
-      align-items: center; gap: 20px;
-      background: rgba(30, 41, 59, 0.4); 
+    /* Podium Styles */
+    .podium-container {
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 15px;
+      margin: 40px 0 50px;
+      padding: 0 10px;
+    }
+    
+    .podium-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      background: rgba(30, 41, 59, 0.4);
       backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 16px; 
-      padding: 16px 24px;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      text-decoration: none;
-      color: inherit;
-    }
-    .guild-row:hover { 
-      transform: translateX(5px) scale(1.01); 
-      background: rgba(30, 41, 59, 0.8); 
-      border-color: var(--primary); 
-      box-shadow: 0 10px 30px rgba(217, 70, 239, 0.15);
-    }
-
-    .rank-badge {
-      width: 40px; height: 40px; 
-      display: flex; align-items: center; justify-content: center; 
-      font-weight: 800; font-size: 18px; 
-      border-radius: 12px; 
-      background: rgba(255,255,255,0.05);
-      color: #94a3b8;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      padding: 20px 10px;
+      width: 30%;
+      max-width: 140px;
+      position: relative;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
-    .rank-1 { background: linear-gradient(135deg, #facc15 0%, #ca8a04 100%); color: #000; box-shadow: 0 0 15px rgba(250, 204, 21, 0.4); font-size: 22px; }
-    .rank-2 { background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%); color: #000; box-shadow: 0 0 15px rgba(226, 232, 240, 0.4); font-size: 20px; }
-    .rank-3 { background: linear-gradient(135deg, #fb923c 0%, #c2410c 100%); color: #000; box-shadow: 0 0 15px rgba(251, 146, 60, 0.4); font-size: 20px; }
-
-    .guild-info { display: flex; align-items: center; gap: 16px; }
-    .guild-avatar {
-      width: 50px; height: 50px; border-radius: 12px;
-      background: #334155; object-fit: cover;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 700; font-size: 20px; color: white;
+    .podium-item:hover { transform: translateY(-5px); }
+    
+    .p-rank-1 {
+      order: 2;
+      background: linear-gradient(180deg, rgba(250, 204, 21, 0.15) 0%, rgba(30, 41, 59, 0.6) 100%);
+      border: 1px solid rgba(250, 204, 21, 0.4);
+      transform: scale(1.15);
+      z-index: 2;
+      box-shadow: 0 10px 40px rgba(250, 204, 21, 0.15);
+      padding-bottom: 30px;
     }
-    .guild-name { font-weight: 700; font-size: 18px; color: white; font-family: var(--font-head); }
-    .guild-leader { font-size: 13px; color: var(--text-muted); }
-
-    .score-badge {
-      background: rgba(6, 182, 212, 0.1);
-      color: var(--secondary);
-      padding: 6px 16px;
-      border-radius: 20px;
-      font-weight: 700;
-      border: 1px solid rgba(6, 182, 212, 0.2);
+    .p-rank-1:hover { transform: scale(1.15) translateY(-5px); }
+    
+    .p-rank-2 {
+      order: 1;
+      background: linear-gradient(180deg, rgba(226, 232, 240, 0.1) 0%, rgba(30, 41, 59, 0.6) 100%);
+      border: 1px solid rgba(226, 232, 240, 0.3);
+      margin-bottom: -10px;
+    }
+    
+    .p-rank-3 {
+      order: 3;
+      background: linear-gradient(180deg, rgba(251, 146, 60, 0.1) 0%, rgba(30, 41, 59, 0.6) 100%);
+      border: 1px solid rgba(251, 146, 60, 0.3);
+      margin-bottom: -20px;
+    }
+    
+    .podium-avatar-container {
+      position: relative;
+      margin-bottom: 15px;
+    }
+    
+    .podium-avatar {
+      width: 60px; height: 60px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 3px solid rgba(255,255,255,0.1);
+      background: #1e293b;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold; font-size: 24px; color: #64748b;
+    }
+    
+    .p-rank-1 .podium-avatar { width: 80px; height: 80px; border-color: #facc15; box-shadow: 0 0 20px rgba(250, 204, 21, 0.3); }
+    .p-rank-2 .podium-avatar { border-color: #cbd5e1; box-shadow: 0 0 15px rgba(203, 213, 225, 0.2); }
+    .p-rank-3 .podium-avatar { border-color: #fb923c; box-shadow: 0 0 15px rgba(251, 146, 60, 0.2); }
+    
+    .crown-icon {
+      position: absolute;
+      top: -24px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 24px;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+      animation: float 3s ease-in-out infinite;
+    }
+    .p-rank-1 .crown-icon { color: #facc15; font-size: 32px; top: -32px; }
+    .p-rank-2 .crown-icon { color: #cbd5e1; }
+    .p-rank-3 .crown-icon { color: #fb923c; }
+    
+    @keyframes float { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(-5px); } }
+    
+    .podium-username {
       font-family: var(--font-head);
-      letter-spacing: 1px;
+      font-weight: 700;
+      color: white;
+      font-size: 14px;
+      margin-bottom: 4px;
+      width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .p-rank-1 .podium-username { font-size: 16px; color: #facc15; }
+    
+    .podium-stat {
+      font-size: 12px;
+      color: var(--text-muted);
+      background: rgba(0,0,0,0.4);
+      padding: 4px 12px;
+      border-radius: 12px;
+      display: flex; align-items: center; gap: 5px;
+    }
+    .p-rank-1 .podium-stat { background: rgba(250, 204, 21, 0.1); color: #facc15; font-weight: 600; }
+
+    /* List Styles */
+    .list-row {
+      display: flex;
+      align-items: center;
+      background: rgba(30, 41, 59, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      padding: 12px 20px;
+      border-radius: 16px;
+      transition: all 0.2s;
+    }
+    .list-row:hover {
+      background: rgba(30, 41, 59, 0.6);
+      transform: translateX(5px);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .list-rank {
+      font-family: var(--font-head);
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--text-muted);
+      width: 40px;
+    }
+    
+    .list-avatar {
+      width: 42px; height: 42px;
+      border-radius: 12px;
+      margin-right: 15px;
+      object-fit: cover;
+      background: #334155;
+      display: flex; align-items: center; justify-content: center;
+      color: #94a3b8; font-weight: bold;
+    }
+    
+    .list-info { flex: 1; min-width: 0; }
+    .list-name { font-weight: 600; font-size: 15px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .list-sub { font-size: 12px; color: var(--text-muted); }
+    
+    .list-stat {
+      text-align: right;
+      font-weight: 600;
+      color: #d8b4fe;
+      font-size: 14px;
+      background: rgba(168, 85, 247, 0.1);
+      padding: 6px 12px;
+      border-radius: 10px;
+      border: 1px solid rgba(168, 85, 247, 0.2);
     }
 
     /* Banner Slider */
@@ -358,89 +463,138 @@ router.get('/', async (req, res) => {
 
         <!-- Guilds List -->
         <div id="guilds-tab" class="tab-content active">
-          ${guilds.map((g, i) => {
-            const rank = i + 1
-            let rankClass = 'rank-badge'
-            if (rank === 1) rankClass += ' rank-1'
-            if (rank === 2) rankClass += ' rank-2'
-            if (rank === 3) rankClass += ' rank-3'
-            
-            const avatar = g.currentAvatar 
-              ? `<img src="${g.currentAvatar}" class="guild-avatar">`
-              : `<div class="guild-avatar">${g.name[0]}</div>`
-
-            return `
-              <div class="guild-row-wrapper" style="position:relative;">
-                <div class="guild-row">
-                  <div class="${rankClass}">#${rank}</div>
-                  <div class="guild-info">
-                     ${avatar}
-                     <div>
-                       <div class="guild-name">
-                         ${g.name} 
-                         ${rank <= 3 ? '<i class="fas fa-check-circle" style="color:#34d399; margin-left:5px;"></i>' : ''}
-                       </div>
-                       <div class="guild-leader">Leader: ${g.leader.firstName} ${g.leader.lastName}</div>
-                       <div style="font-size:12px; color:#facc15; margin-top:2px;">
-                         Level ${g.level}
-                       </div>
-                     </div>
-                  </div>
-                  <div style="display:flex; flex-direction:column; align-items:flex-end;">
-                     <div class="score-badge">
+          ${(() => {
+             const top3 = guilds.slice(0, 3);
+             const rest = guilds.slice(3);
+             let html = '';
+             
+             // Podium
+             if (top3.length > 0) {
+               html += '<div class="podium-container">';
+               const podiumOrder = [];
+               if (top3[1]) podiumOrder.push(top3[1]);
+               if (top3[0]) podiumOrder.push(top3[0]);
+               if (top3[2]) podiumOrder.push(top3[2]);
+               
+               podiumOrder.forEach(g => {
+                 const rank = guilds.indexOf(g) + 1;
+                 const avatar = g.currentAvatar 
+                    ? `<img src="${g.currentAvatar}" class="podium-avatar">`
+                    : `<div class="podium-avatar">${g.name[0]}</div>`;
+                 
+                 html += `
+                   <div class="podium-item p-rank-${rank}">
+                      <div class="podium-avatar-container">
+                        ${avatar}
+                        <div class="crown-icon"><i class="fas fa-crown"></i></div>
+                      </div>
+                      <div class="podium-username">${g.name}</div>
+                      <div class="podium-stat">
                         ⚡ ${g.score}
-                     </div>
+                      </div>
+                   </div>
+                 `;
+               });
+               html += '</div>';
+             }
+             
+             // List
+             html += '<div class="leaderboard-list">';
+             rest.forEach((g, i) => {
+                const rank = i + 4;
+                const avatar = g.currentAvatar 
+                  ? `<img src="${g.currentAvatar}" class="list-avatar">`
+                  : `<div class="list-avatar">${g.name[0]}</div>`;
+                
+                html += `
+                  <div class="list-row">
+                    <div class="list-rank">#${rank}</div>
+                    ${avatar}
+                    <div class="list-info">
+                       <div class="list-name">${g.name}</div>
+                       <div class="list-sub">Leader: ${g.leader.firstName}</div>
+                    </div>
+                    <div class="list-stat">
+                       ⚡ ${g.score}
+                    </div>
                   </div>
-                </div>
-              </div>
-            `
-          }).join('')}
-          
-          ${guilds.length === 0 ? '<div style="text-align:center; color:#94a3b8;">No guilds found</div>' : ''}
+                `;
+             });
+             html += '</div>';
+             
+             if (guilds.length === 0) html += '<div style="text-align:center; color:#94a3b8; padding: 40px;">No guilds found</div>';
+             return html;
+          })()}
         </div>
 
         <!-- Users List -->
         <div id="users-tab" class="tab-content">
-          ${users.map((u, i) => {
-            const rank = i + 1
-            let rankClass = 'rank-badge'
-            if (rank === 1) rankClass += ' rank-1'
-            if (rank === 2) rankClass += ' rank-2'
-            if (rank === 3) rankClass += ' rank-3'
-            
-            const avatar = u.currentAvatar 
-              ? `<img src="${u.currentAvatar}" class="guild-avatar">`
-              : `<div class="guild-avatar">${u.username[0]}</div>`
-
-            return `
-              <div class="guild-row" style="flex-wrap:wrap;">
-                  <div style="display:flex; align-items:center; width:100%;">
-                      <div class="${rankClass}">#${rank}</div>
-                      <div class="guild-info">
-                         ${avatar}
-                         <div>
-                           <div class="guild-name">
-                             ${u.username} 
-                             ${rank <= 3 ? '<i class="fas fa-check-circle" style="color:#34d399; margin-left:5px;"></i>' : ''}
-                           </div>
-                           <div class="guild-leader">${u.firstName} ${u.lastName} • ${u.country || 'Global'}</div>
-                         </div>
+          ${(() => {
+             const top3 = users.slice(0, 3);
+             const rest = users.slice(3);
+             
+             let html = '';
+             
+             // Podium
+             if (top3.length > 0) {
+               html += '<div class="podium-container">';
+               // Reorder for podium visual (2, 1, 3) - handle cases with < 3 users
+               const podiumOrder = [];
+               if (top3[1]) podiumOrder.push(top3[1]); // Rank 2
+               if (top3[0]) podiumOrder.push(top3[0]); // Rank 1
+               if (top3[2]) podiumOrder.push(top3[2]); // Rank 3
+               
+               podiumOrder.forEach(u => {
+                 const rank = users.indexOf(u) + 1;
+                 
+                 const avatar = u.currentAvatar 
+                    ? `<img src="${u.currentAvatar}" class="podium-avatar">`
+                    : `<div class="podium-avatar">${u.username[0]}</div>`;
+                    
+                 html += `
+                   <div class="podium-item p-rank-${rank}">
+                      <div class="podium-avatar-container">
+                        ${avatar}
+                        <div class="crown-icon"><i class="fas fa-crown"></i></div>
                       </div>
-                      <div style="margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
-                         <div class="work-badge">
-                           <i class="fas fa-briefcase"></i> Work: ${u._count.linkSubmissions}
-                         </div>
-                         <!-- 
-                         <div class="score-badge" style="font-size:12px; padding:4px 10px;">
-                           ৳${u.tk.toFixed(2)}
-                         </div> 
-                         -->
+                      <div class="podium-username">${u.username}</div>
+                      <div class="podium-stat">
+                        <i class="fas fa-briefcase"></i> ${u._count.linkSubmissions}
                       </div>
+                   </div>
+                 `;
+               });
+               html += '</div>';
+             }
+             
+             // List
+             html += '<div class="leaderboard-list">';
+             rest.forEach((u, i) => {
+                const rank = i + 4;
+                const avatar = u.currentAvatar 
+                  ? `<img src="${u.currentAvatar}" class="list-avatar">`
+                  : `<div class="list-avatar">${u.username[0]}</div>`;
+                  
+                html += `
+                  <div class="list-row">
+                    <div class="list-rank">#${rank}</div>
+                    ${avatar}
+                    <div class="list-info">
+                       <div class="list-name">${u.username}</div>
+                       <div class="list-sub">${u.firstName} ${u.lastName}</div>
+                    </div>
+                    <div class="list-stat">
+                       ${u._count.linkSubmissions} Work
+                    </div>
                   </div>
-              </div>
-            `
-          }).join('')}
-          ${users.length === 0 ? '<div style="text-align:center; color:#94a3b8;">No users found</div>' : ''}
+                `;
+             });
+             html += '</div>';
+             
+             if (users.length === 0) html += '<div style="text-align:center; color:#94a3b8; padding: 40px;">No users found</div>';
+             
+             return html;
+          })()}
         </div>
       </div>
     </div>
