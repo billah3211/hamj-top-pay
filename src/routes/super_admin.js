@@ -1972,14 +1972,14 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
       ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
       ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
       
-      <!-- Bonus Scheduler (Automated) -->
+      <!-- Contest Schedule -->
       <div class="glass-panel" style="padding: 24px; margin-bottom: 32px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
           <div>
-            <h3 style="margin:0; font-size: 20px;">Schedule Automatic Bonus</h3>
-            <p style="margin:5px 0 0; font-size:13px; color:var(--text-muted);">Set a date and time. System will automatically reward the top N users at that time.</p>
+            <h3 style="margin:0; font-size: 20px;">Contest Schedule</h3>
+            <p style="margin:5px 0 0; font-size:13px; color:var(--text-muted);">Set a date and time for the contest deadline.</p>
           </div>
-          <button onclick="document.getElementById('addScheduleForm').style.display='block'" class="btn-premium" style="padding: 8px 16px; font-size: 14px;">+ Schedule New Bonus</button>
+          <button onclick="document.getElementById('addScheduleForm').style.display='block'" class="btn-premium" style="padding: 8px 16px; font-size: 14px;">+ Schedule Contest</button>
         </div>
         
         <!-- Add Schedule Form -->
@@ -1990,18 +1990,10 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
                 <label class="form-label">Date & Time</label>
                 <input type="datetime-local" name="scheduledDate" required class="form-input">
               </div>
-              <div>
-                <label class="form-label">Number of Winners (Top N)</label>
-                <input type="number" name="winnerCount" required placeholder="e.g. 5" min="1" max="100" class="form-input">
-              </div>
-              <div>
-                <label class="form-label">Bonus Amount (TK)</label>
-                <input type="number" name="amount" required placeholder="e.g. 50" class="form-input">
-              </div>
             </div>
             <div style="margin-top: 15px; text-align: right;">
               <button type="button" onclick="document.getElementById('addScheduleForm').style.display='none'" class="btn-premium" style="background: transparent; border: 1px solid rgba(255,255,255,0.2);">Cancel</button>
-              <button type="submit" class="btn-premium">Schedule Bonus</button>
+              <button type="submit" class="btn-premium">Schedule</button>
             </div>
           </form>
         </div>
@@ -2011,8 +2003,6 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
           <thead>
             <tr style="text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1);">
               <th style="padding: 12px; color: var(--text-muted);">Scheduled Date</th>
-              <th style="padding: 12px; color: var(--text-muted);">Winners</th>
-              <th style="padding: 12px; color: var(--text-muted);">Amount</th>
               <th style="padding: 12px; color: var(--text-muted);">Status</th>
               <th style="padding: 12px; color: var(--text-muted);">Action</th>
             </tr>
@@ -2021,8 +2011,6 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
             ${bonusSchedules.map(s => `
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                 <td style="padding: 12px; font-weight: bold; color: var(--accent);">${new Date(s.scheduledDate).toLocaleString()}</td>
-                <td style="padding: 12px;">Top ${s.winnerCount}</td>
-                <td style="padding: 12px;">${s.amount} TK</td>
                 <td style="padding: 12px;">
                   <span style="padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; background: ${s.status === 'COMPLETED' ? 'rgba(16, 185, 129, 0.2); color: #10b981;' : 'rgba(250, 204, 21, 0.2); color: #facc15;'}">
                     ${s.status}
@@ -2038,7 +2026,7 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
                 </td>
               </tr>
             `).join('')}
-            ${bonusSchedules.length === 0 ? '<tr><td colspan="5" style="padding: 20px; text-align: center; color: var(--text-muted);">No bonuses scheduled.</td></tr>' : ''}
+            ${bonusSchedules.length === 0 ? '<tr><td colspan="3" style="padding: 20px; text-align: center; color: var(--text-muted);">No contests scheduled.</td></tr>' : ''}
           </tbody>
         </table>
       </div>
@@ -2091,44 +2079,7 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
         </div>
       </div>
 
-      <!-- User Leaderboard (Read-Only) -->
-      <div class="glass-panel" style="padding: 24px; margin-bottom: 24px;">
-        <h3 style="margin-bottom: 16px; color: white;">Top Users (Current Standing)</h3>
-        
-        <!-- Users Table -->
-        <div style="overflow: hidden;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-              <tr style="background: rgba(255,255,255,0.02); text-align: left;">
-                <th style="padding: 16px; color: var(--text-muted);">Rank</th>
-                <th style="padding: 16px; color: var(--text-muted);">User</th>
-                <th style="padding: 16px; color: var(--text-muted);">Earnings (TK)</th>
-                <th style="padding: 16px; color: var(--text-muted);">Contact</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${users.map((u, index) => `
-                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                  <td style="padding: 16px;">
-                    <div style="width: 32px; height: 32px; background: ${index < 3 ? 'linear-gradient(135deg, #facc15, #eab308)' : 'rgba(255,255,255,0.1)'}; color: ${index < 3 ? 'black' : 'white'}; border-radius: 50%; display: grid; place-items: center; font-weight: bold;">
-                      ${index + 1}
-                    </div>
-                  </td>
-                  <td style="padding: 16px;">
-                    <div style="font-weight: 600; color: white;">${u.username}</div>
-                  </td>
-                  <td style="padding: 16px; color: #10b981;">
-                    ৳${u.tk.toFixed(2)}
-                  </td>
-                  <td style="padding: 16px; font-size: 12px; color: var(--text-muted);">
-                    ${u.phone || u.email}
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
+
     </div>
     ${getScripts()}
   `)
@@ -2136,20 +2087,20 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
 
 router.post('/bonus-schedule/add', requireSuperAdmin, async (req, res) => {
   try {
-    const { scheduledDate, winnerCount, amount } = req.body
+    const { scheduledDate } = req.body
     
     await prisma.userBonusSchedule.create({
       data: {
         scheduledDate: new Date(scheduledDate),
-        winnerCount: parseInt(winnerCount),
-        amount: parseFloat(amount)
+        winnerCount: 0,
+        amount: 0
       }
     })
     
-    res.redirect('/super-admin/leaderboard-bonuses?success=Bonus+Scheduled')
+    res.redirect('/super-admin/leaderboard-bonuses?success=Contest+Scheduled')
   } catch (e) {
     console.error(e)
-    res.redirect('/super-admin/leaderboard-bonuses?error=Error+scheduling+bonus')
+    res.redirect('/super-admin/leaderboard-bonuses?error=Error+scheduling+contest')
   }
 })
 
