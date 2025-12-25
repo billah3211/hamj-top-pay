@@ -228,7 +228,12 @@ router.get('/', async (req, res) => {
          lastName: true,
          currentAvatar: true,
          tk: true,
-         country: true
+         country: true,
+         rewardTitle: true,
+         rewardAmount: true,
+         rewardCurrency: true,
+         rewardUnlockDate: true,
+         rewardStatus: true
       }
     })
   ])
@@ -265,6 +270,33 @@ router.get('/', async (req, res) => {
 
   res.send(`
     ${getHead('Leaderboard')}
+    <style>
+      @keyframes pulse-green {
+        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+      }
+      .claim-btn {
+        background: linear-gradient(90deg, #22c55e, #16a34a);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-weight: bold;
+        font-size: 11px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.3s ease;
+      }
+      .claim-btn:hover {
+        transform: translateY(-2px);
+      }
+      .pulse-animation {
+        animation: pulse-green 2s infinite;
+      }
+    </style>
     ${getUserSidebar('leaderboard', unreadCount, currentUserId, currentUserRole, settings)}
     
     <div class="main-content">
@@ -368,24 +400,67 @@ router.get('/', async (req, res) => {
               ? `<img src="${u.currentAvatar}" class="guild-avatar">`
               : `<div class="guild-avatar">${u.username[0]}</div>`
 
+            let userRewardDisplay = ''
+            if (u.rewardStatus === 'LOCKED' || u.rewardStatus === 'CLAIMABLE') {
+                const now = new Date()
+                const unlockDate = new Date(u.rewardUnlockDate)
+                const isClaimable = now >= unlockDate
+                const isMyReward = currentUserId === u.id
+
+                let statusBadge = ''
+                if (isClaimable) {
+                    if (isMyReward) {
+                         statusBadge = `
+                            <form action="/leaderboard/claim-reward" method="POST" style="display:inline;">
+                                <button class="claim-btn pulse-animation">
+                                    <i class="fas fa-gift"></i> CLAIM
+                                </button>
+                            </form>
+                         `
+                    } else {
+                        statusBadge = `<span style="color:#22c55e; font-size:10px; font-weight:bold;">READY TO CLAIM</span>`
+                    }
+                } else {
+                    const diffTime = Math.abs(unlockDate - now);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                    statusBadge = `<span style="color:#facc15; font-size:10px;"><i class="fas fa-clock"></i> In ${diffDays} days</span>`
+                }
+
+                userRewardDisplay = `
+                    <div style="margin-top:5px; background:rgba(255,255,255,0.05); padding:4px 8px; border-radius:6px; display:flex; align-items:center; gap:6px; border:1px solid rgba(255,255,255,0.1);">
+                        <i class="fas fa-trophy" style="color:#f472b6; font-size:12px;"></i>
+                        <div style="display:flex; flex-direction:column;">
+                            <span style="font-size:11px; font-weight:bold; color:white;">${u.rewardTitle || 'Bonus Reward'}</span>
+                            <span style="font-size:10px; color:#94a3b8;">${u.rewardAmount} ${u.rewardCurrency.toUpperCase()}</span>
+                        </div>
+                        <div style="margin-left:auto;">
+                            ${statusBadge}
+                        </div>
+                    </div>
+                `
+            }
+
             return `
-              <div class="guild-row">
-                  <div class="${rankClass}">#${rank}</div>
-                  <div class="guild-info">
-                     ${avatar}
-                     <div>
-                       <div class="guild-name">
-                         ${u.username} 
-                         ${rank <= 3 ? '<i class="fas fa-check-circle" style="color:#34d399; margin-left:5px;"></i>' : ''}
-                       </div>
-                       <div class="guild-leader">${u.firstName} ${u.lastName} • ${u.country || 'Global'}</div>
-                     </div>
+              <div class="guild-row" style="flex-wrap:wrap;">
+                  <div style="display:flex; align-items:center; width:100%;">
+                      <div class="${rankClass}">#${rank}</div>
+                      <div class="guild-info">
+                         ${avatar}
+                         <div>
+                           <div class="guild-name">
+                             ${u.username} 
+                             ${rank <= 3 ? '<i class="fas fa-check-circle" style="color:#34d399; margin-left:5px;"></i>' : ''}
+                           </div>
+                           <div class="guild-leader">${u.firstName} ${u.lastName} • ${u.country || 'Global'}</div>
+                         </div>
+                      </div>
+                      <div style="margin-left:auto; display:flex; flex-direction:column; align-items:flex-end;">
+                         <div class="score-badge">
+                           ৳${u.tk.toFixed(2)}
+                         </div>
+                      </div>
                   </div>
-                  <div style="display:flex; flex-direction:column; align-items:flex-end;">
-                     <div class="score-badge">
-                       ৳${u.tk.toFixed(2)}
-                     </div>
-                  </div>
+                  ${userRewardDisplay ? `<div style="width:100%; padding-left:50px;">${userRewardDisplay}</div>` : ''}
               </div>
             `
           }).join('')}
@@ -432,6 +507,70 @@ router.get('/', async (req, res) => {
     
     ${getFooter()}
   `)
+})
+
+router.post('/claim-reward', async (req, res) => {
+    if (!req.session.userId) return res.redirect('/login')
+
+    try {
+        const userId = req.session.userId
+        const user = await prisma.user.findUnique({ where: { id: userId } })
+
+        if (!user || user.rewardStatus !== 'LOCKED' && user.rewardStatus !== 'CLAIMABLE') {
+            throw new Error('No reward available')
+        }
+
+        const now = new Date()
+        const unlockDate = new Date(user.rewardUnlockDate)
+
+        if (now < unlockDate) {
+            throw new Error('Reward is not unlocked yet')
+        }
+
+        const type = user.rewardCurrency
+        const amount = user.rewardAmount
+
+        const updateData = {
+            rewardStatus: 'CLAIMED'
+        }
+        
+        // Add balance
+        if (type === 'tk') updateData.tk = { increment: amount }
+        else if (type === 'dk') updateData.dk = { increment: amount }
+        else if (type === 'diamond') updateData.diamond = { increment: amount }
+        else if (type === 'coin') updateData.coin = { increment: amount }
+
+        const transactionOps = [
+             prisma.user.update({
+                where: { id: userId },
+                data: updateData
+             }),
+             prisma.notification.create({
+                data: {
+                    userId,
+                    message: `You claimed your reward: ${amount} ${type.toUpperCase()}`,
+                    type: 'credit'
+                }
+             })
+        ]
+
+        // Sync guild earnings if TK
+        if (user.guildId && type === 'tk') {
+             transactionOps.push(
+                prisma.guild.update({
+                    where: { id: user.guildId },
+                    data: { totalEarnings: { increment: amount } }
+                })
+             )
+        }
+
+        await prisma.$transaction(transactionOps)
+
+        res.redirect('/leaderboard?success=Reward+claimed!')
+    } catch (e) {
+        console.error(e)
+        res.redirect('/leaderboard?error=' + encodeURIComponent(e.message))
+    }
 })
 
 router.post('/submit-address', async (req, res) => {

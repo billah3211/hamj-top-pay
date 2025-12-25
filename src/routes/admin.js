@@ -533,6 +533,39 @@ router.get('/user/:id', requireAdmin, async (req, res) => {
                         <button style="background:#f472b6; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;">Update Balance</button>
                     </form>
                 </div>
+
+                <div style="margin-top:25px; padding-top:20px; border-top:1px solid rgba(255,255,255,0.1);">
+                    <div style="font-weight:bold; color:white; margin-bottom:15px;">Set Leaderboard Reward</div>
+                    <form action="/admin/user-reward" method="POST" style="display:flex; flex-direction:column; gap:10px;">
+                        <input type="hidden" name="userId" value="${user.id}">
+                        
+                        <input type="text" name="rewardTitle" placeholder="Reward Title (e.g. Weekly Winner)" value="${user.rewardTitle || ''}" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; padding:10px; border-radius:5px;">
+                        
+                        <div style="display:flex; gap:10px;">
+                             <input type="number" name="rewardAmount" placeholder="Amount" value="${user.rewardAmount || ''}" step="any" style="flex:1; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; padding:10px; border-radius:5px;">
+                             <select name="rewardCurrency" style="flex:1; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; padding:8px; border-radius:5px;">
+                                <option value="tk" ${user.rewardCurrency === 'tk' ? 'selected' : ''}>BDT ৳</option>
+                                <option value="dk" ${user.rewardCurrency === 'dk' ? 'selected' : ''}>Dollar $</option>
+                                <option value="diamond" ${user.rewardCurrency === 'diamond' ? 'selected' : ''}>Diamonds 💎</option>
+                                <option value="coin" ${user.rewardCurrency === 'coin' ? 'selected' : ''}>Coins 🪙</option>
+                            </select>
+                        </div>
+
+                        <div style="display:flex; flex-direction:column; gap:5px;">
+                            <label style="font-size:12px; color:#94a3b8;">Unlock Date</label>
+                            <input type="datetime-local" name="rewardUnlockDate" value="${user.rewardUnlockDate ? new Date(new Date(user.rewardUnlockDate).getTime() - (new Date().getTimezoneOffset() * 60000)).toISOString().slice(0, 16) : ''}" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; padding:10px; border-radius:5px;">
+                        </div>
+
+                        <select name="rewardStatus" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:white; padding:8px; border-radius:5px;">
+                            <option value="NONE" ${user.rewardStatus === 'NONE' ? 'selected' : ''}>None (Clear)</option>
+                            <option value="LOCKED" ${user.rewardStatus === 'LOCKED' ? 'selected' : ''}>Locked / Pending</option>
+                            <option value="CLAIMABLE" ${user.rewardStatus === 'CLAIMABLE' ? 'selected' : ''}>Claimable Now</option>
+                            <option value="CLAIMED" ${user.rewardStatus === 'CLAIMED' ? 'selected' : ''}>Claimed</option>
+                        </select>
+
+                        <button style="background:#8b5cf6; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer; font-weight:bold;">Set Reward</button>
+                    </form>
+                </div>
                 ` : ''}
             </div>
          </div>
@@ -675,6 +708,39 @@ router.post('/user-balance', requireAdmin, async (req, res) => {
     }
 
     await prisma.$transaction(transactionOps)
+
+    res.redirect(`/admin/user/${id}`)
+})
+
+router.post('/user-reward', requireAdmin, async (req, res) => {
+    if (req.session.role !== 'SUPER_ADMIN') return res.redirect('/admin/users')
+
+    const { userId, rewardTitle, rewardAmount, rewardCurrency, rewardUnlockDate, rewardStatus } = req.body
+    const id = parseInt(userId)
+
+    const updateData = {
+        rewardTitle: rewardTitle || null,
+        rewardAmount: rewardAmount ? parseFloat(rewardAmount) : 0,
+        rewardCurrency: rewardCurrency || 'tk',
+        rewardStatus: rewardStatus || 'NONE'
+    }
+
+    if (rewardUnlockDate) {
+        updateData.rewardUnlockDate = new Date(rewardUnlockDate)
+    } else {
+        updateData.rewardUnlockDate = null
+    }
+
+    if (rewardStatus === 'NONE') {
+        updateData.rewardTitle = null
+        updateData.rewardAmount = 0
+        updateData.rewardUnlockDate = null
+    }
+
+    await prisma.user.update({
+        where: { id },
+        data: updateData
+    })
 
     res.redirect(`/admin/user/${id}`)
 })

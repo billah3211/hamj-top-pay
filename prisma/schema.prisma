@@ -48,6 +48,13 @@ model User {
   guild         Guild?   @relation(fields: [guildId], references: [id])
   ownedGuild    Guild?   @relation("GuildLeader")
 
+  // Leaderboard Personal Reward
+  rewardTitle       String?
+  rewardAmount      Float     @default(0)
+  rewardCurrency    String?   // "tk", "dk", "diamond", "coin"
+  rewardUnlockDate  DateTime?
+  rewardStatus      String    @default("NONE") // NONE, LOCKED, CLAIMED
+
   resetPasswordToken String?
   resetPasswordExpires DateTime?
 }
