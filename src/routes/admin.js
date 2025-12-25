@@ -1372,4 +1372,292 @@ router.get('/api/messages/:sessionId', requireAdmin, async (req, res) => {
   res.json(messages)
 })
 
+router.get('/leaderboard', requireAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
+  
+  // Default Settings
+  const deadline = settings.leaderboard_deadline || ''
+  const userWinnerCount = parseInt(settings.leaderboard_user_winners_count) || 10
+  const guildWinnerCount = parseInt(settings.leaderboard_guild_winners_count) || 5
+  const userMinWork = parseInt(settings.leaderboard_user_min_work) || 0
+  const guildMinScore = parseInt(settings.leaderboard_guild_min_score) || 0
+
+  // Fetch Potential Winners (Users)
+  // Ordered by TK (Earnings), but must meet Min Work requirement
+  // We fetch a bit more to filter in memory if needed, or use proper filtering if possible
+  // Prisma doesn't support complex aggregation filtering easily in findMany, so we'll fetch top 100 and filter
+  const topUsers = await prisma.user.findMany({
+    where: { 
+        role: 'USER', 
+        isBlocked: false,
+        linkSubmissions: {
+            some: { status: 'APPROVED' } // Optimization: Must have at least some work
+        }
+    },
+    orderBy: { tk: 'desc' },
+    take: 200, // Fetch more to allow filtering
+    include: {
+        _count: {
+            select: { linkSubmissions: { where: { status: 'APPROVED' } } }
+        }
+    }
+  })
+
+  // Filter by Min Work and Limit
+  const qualifiedUsers = topUsers
+    .filter(u => u._count.linkSubmissions >= userMinWork)
+    .slice(0, userWinnerCount)
+
+  // Fetch Potential Winners (Guilds)
+  const topGuilds = await prisma.guild.findMany({
+    where: { status: 'APPROVED', score: { gte: guildMinScore } },
+    orderBy: { score: 'desc' },
+    take: guildWinnerCount,
+    include: { leader: true }
+  })
+
+  res.send(`
+    ${getHead('Leaderboard Management')}
+    ${getSidebar('leaderboard', req.session.role, settings)}
+    <div class="main-content">
+      <div class="section-title">Leaderboard Contest Settings</div>
+      
+      <!-- Settings Form -->
+      <div class="glass-panel" style="padding:24px; margin-bottom:30px;">
+        <form action="/admin/leaderboard-settings" method="POST">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom:20px;">
+                <div>
+                    <label class="form-label" style="display:block; margin-bottom:8px; color:#f472b6;">Contest Deadline</label>
+                    <input type="datetime-local" name="deadline" value="${deadline}" class="form-input" style="width:100%;">
+                </div>
+                <div>
+                    <label class="form-label" style="display:block; margin-bottom:8px; color:#60a5fa;">User Winners Count</label>
+                    <input type="number" name="user_winners" value="${userWinnerCount}" class="form-input" style="width:100%;">
+                </div>
+                <div>
+                    <label class="form-label" style="display:block; margin-bottom:8px; color:#60a5fa;">Guild Winners Count</label>
+                    <input type="number" name="guild_winners" value="${guildWinnerCount}" class="form-input" style="width:100%;">
+                </div>
+                <div>
+                    <label class="form-label" style="display:block; margin-bottom:8px; color:#facc15;">Min Work (Users)</label>
+                    <input type="number" name="min_work" value="${userMinWork}" class="form-input" style="width:100%;">
+                </div>
+                <div>
+                    <label class="form-label" style="display:block; margin-bottom:8px; color:#facc15;">Min Score (Guilds)</label>
+                    <input type="number" name="min_score" value="${guildMinScore}" class="form-input" style="width:100%;">
+                </div>
+            </div>
+            <button class="btn-premium">Save Settings</button>
+        </form>
+      </div>
+
+      <div class="section-title">Projected Winners (If Ended Now)</div>
+      
+      <!-- Tabs -->
+      <div style="display:flex; gap:10px; margin-bottom:20px;">
+        <button onclick="showTab('users')" id="tab-users" class="btn-premium active">Top Users</button>
+        <button onclick="showTab('guilds')" id="tab-guilds" class="btn-premium" style="background:transparent; border:1px solid rgba(255,255,255,0.1);">Top Guilds</button>
+      </div>
+
+      <!-- Users Table -->
+      <div id="view-users" class="glass-panel" style="padding:0; overflow:hidden;">
+        <div style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1); color:#94a3b8; font-size:13px;">
+            Showing Top ${qualifiedUsers.length} Users (Min Work: ${userMinWork})
+        </div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; min-width:800px;">
+              <thead>
+                <tr style="background:rgba(255,255,255,0.05); text-align:left;">
+                  <th style="padding:15px; color:#94a3b8; width:60px;">Rank</th>
+                  <th style="padding:15px; color:#94a3b8;">User</th>
+                  <th style="padding:15px; color:#94a3b8;">Work Count</th>
+                  <th style="padding:15px; color:#94a3b8;">Balance (TK)</th>
+                  <th style="padding:15px; color:#94a3b8; text-align:right;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${qualifiedUsers.map((u, i) => `
+                  <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:15px;">
+                      <div style="width:30px; height:30px; background:${i < 3 ? '#facc15' : 'rgba(255,255,255,0.1)'}; color:${i < 3 ? 'black' : 'white'}; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold;">${i + 1}</div>
+                    </td>
+                    <td style="padding:15px;">
+                      <a href="/admin/user/${u.id}" style="text-decoration:none;">
+                          <div style="font-weight:bold; color:white;">${u.firstName} ${u.lastName}</div>
+                          <div style="font-size:12px; color:#94a3b8;">@${u.username}</div>
+                      </a>
+                    </td>
+                    <td style="padding:15px; color:#a855f7; font-weight:bold;">${u._count.linkSubmissions}</td>
+                    <td style="padding:15px; color:#22c55e; font-weight:bold;">৳ ${u.tk}</td>
+                    <td style="padding:15px; text-align:right;">
+                      <button onclick="openRewardModal('${u.id}', '${u.firstName}', 'user')" class="btn-premium" style="padding:6px 12px; font-size:12px;">Send Reward</button>
+                    </td>
+                  </tr>
+                `).join('')}
+                ${qualifiedUsers.length === 0 ? '<tr><td colspan="5" style="padding:30px; text-align:center; color:#94a3b8;">No users meet the criteria yet.</td></tr>' : ''}
+              </tbody>
+            </table>
+        </div>
+      </div>
+
+      <!-- Guilds Table -->
+      <div id="view-guilds" class="glass-panel" style="padding:0; overflow:hidden; display:none;">
+        <div style="padding:15px; border-bottom:1px solid rgba(255,255,255,0.1); color:#94a3b8; font-size:13px;">
+            Showing Top ${topGuilds.length} Guilds (Min Score: ${guildMinScore})
+        </div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; min-width:800px;">
+              <thead>
+                <tr style="background:rgba(255,255,255,0.05); text-align:left;">
+                  <th style="padding:15px; color:#94a3b8; width:60px;">Rank</th>
+                  <th style="padding:15px; color:#94a3b8;">Guild</th>
+                  <th style="padding:15px; color:#94a3b8;">Leader</th>
+                  <th style="padding:15px; color:#94a3b8;">Score</th>
+                  <th style="padding:15px; color:#94a3b8; text-align:right;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${topGuilds.map((g, i) => `
+                  <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <td style="padding:15px;">
+                      <div style="width:30px; height:30px; background:${i < 3 ? '#facc15' : 'rgba(255,255,255,0.1)'}; color:${i < 3 ? 'black' : 'white'}; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold;">${i + 1}</div>
+                    </td>
+                    <td style="padding:15px;">
+                      <div style="font-weight:bold; color:white;">${g.name}</div>
+                      <div style="font-size:12px; color:#94a3b8;">Level ${g.level}</div>
+                    </td>
+                    <td style="padding:15px;">
+                      <a href="/admin/user/${g.leaderId}" style="text-decoration:none;">
+                          <div style="color:white;">${g.leader.firstName}</div>
+                          <div style="font-size:12px; color:#94a3b8;">@${g.leader.username}</div>
+                      </a>
+                    </td>
+                    <td style="padding:15px; color:#f59e0b; font-weight:bold;">⚡ ${g.score}</td>
+                    <td style="padding:15px; text-align:right;">
+                      <button onclick="openRewardModal('${g.leaderId}', '${g.leader.firstName} (Guild: ${g.name})', 'guild')" class="btn-premium" style="padding:6px 12px; font-size:12px;">Send Reward</button>
+                    </td>
+                  </tr>
+                `).join('')}
+                 ${topGuilds.length === 0 ? '<tr><td colspan="5" style="padding:30px; text-align:center; color:#94a3b8;">No guilds meet the criteria yet.</td></tr>' : ''}
+              </tbody>
+            </table>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Reward Modal -->
+    <div id="rewardModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:100; align-items:center; justify-content:center;">
+        <div class="glass-panel" style="width:90%; max-width:500px; padding:30px; position:relative;">
+            <button onclick="document.getElementById('rewardModal').style.display='none'" style="position:absolute; top:15px; right:15px; background:none; border:none; color:white; font-size:20px; cursor:pointer;">&times;</button>
+            <h3 style="margin-top:0; color:#f472b6;">Send Reward</h3>
+            <p style="color:#94a3b8; font-size:14px; margin-bottom:20px;">Sending reward to: <span id="rewardUserName" style="color:white; font-weight:bold;"></span></p>
+            
+            <form action="/admin/distribute-reward" method="POST">
+                <input type="hidden" name="userId" id="rewardUserId">
+                <input type="hidden" name="type" id="rewardType">
+                
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; color:#94a3b8; font-size:12px; margin-bottom:5px;">Currency</label>
+                    <select name="currency" class="form-input" style="width:100%;">
+                        <option value="tk">BDT ৳</option>
+                        <option value="diamond">Diamonds 💎</option>
+                        <option value="coin">Coins 🪙</option>
+                        <option value="dk">Dollar $</option>
+                    </select>
+                </div>
+                
+                <div style="margin-bottom:15px;">
+                    <label style="display:block; color:#94a3b8; font-size:12px; margin-bottom:5px;">Amount</label>
+                    <input type="number" name="amount" step="any" required class="form-input" style="width:100%;">
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <label style="display:block; color:#94a3b8; font-size:12px; margin-bottom:5px;">Message (Notification)</label>
+                    <textarea name="message" required class="form-input" style="width:100%; height:80px;">Congratulations! You have won a leaderboard reward.</textarea>
+                </div>
+
+                <button class="btn-premium" style="width:100%;">Send Reward</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function showTab(tab) {
+            document.getElementById('view-users').style.display = tab === 'users' ? 'block' : 'none';
+            document.getElementById('view-guilds').style.display = tab === 'guilds' ? 'block' : 'none';
+            document.getElementById('tab-users').classList.toggle('active', tab === 'users');
+            document.getElementById('tab-users').style.background = tab === 'users' ? 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)' : 'transparent';
+            document.getElementById('tab-guilds').classList.toggle('active', tab === 'guilds');
+            document.getElementById('tab-guilds').style.background = tab === 'guilds' ? 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)' : 'transparent';
+        }
+
+        function openRewardModal(userId, name, type) {
+            document.getElementById('rewardModal').style.display = 'flex';
+            document.getElementById('rewardUserId').value = userId;
+            document.getElementById('rewardUserName').innerText = name;
+            document.getElementById('rewardType').value = type;
+        }
+    </script>
+    ${getScripts()}
+  `)
+})
+
+router.post('/leaderboard-settings', requireAdmin, async (req, res) => {
+    const { deadline, user_winners, guild_winners, min_work, min_score } = req.body
+    
+    const settingsToUpdate = [
+        { key: 'leaderboard_deadline', value: deadline },
+        { key: 'leaderboard_user_winners_count', value: user_winners },
+        { key: 'leaderboard_guild_winners_count', value: guild_winners },
+        { key: 'leaderboard_user_min_work', value: min_work },
+        { key: 'leaderboard_guild_min_score', value: min_score }
+    ]
+
+    for (const s of settingsToUpdate) {
+        await prisma.systemSetting.upsert({
+            where: { key: s.key },
+            update: { value: s.value.toString() },
+            create: { key: s.key, value: s.value.toString() }
+        })
+    }
+
+    res.redirect('/admin/leaderboard')
+})
+
+router.post('/distribute-reward', requireAdmin, async (req, res) => {
+    const { userId, currency, amount, message } = req.body
+    const id = parseInt(userId)
+    const val = parseFloat(amount)
+
+    if (isNaN(id) || isNaN(val) || val <= 0) return res.redirect('/admin/leaderboard')
+
+    const updateData = {}
+    updateData[currency] = { increment: val }
+
+    await prisma.$transaction([
+        prisma.user.update({ where: { id }, data: updateData }),
+        prisma.notification.create({
+            data: {
+                userId: id,
+                message: message,
+                type: 'gift'
+            }
+        })
+    ])
+
+    // If it's TK, update guild earnings too (optional, but keeps consistency)
+    if (currency === 'tk') {
+        const user = await prisma.user.findUnique({ where: { id } })
+        if (user && user.guildId) {
+            await prisma.guild.update({
+                where: { id: user.guildId },
+                data: { totalEarnings: { increment: val } }
+            })
+        }
+    }
+
+    res.redirect('/admin/leaderboard')
+})
+
 module.exports = router

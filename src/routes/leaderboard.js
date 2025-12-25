@@ -209,16 +209,26 @@ const getFooter = () => `
 `
 
 router.get('/', async (req, res) => {
+  const settings = await getSystemSettings()
+  
+  // Contest Settings
+  const deadline = settings.leaderboard_deadline ? new Date(settings.leaderboard_deadline) : null
+  const userWinnerCount = parseInt(settings.leaderboard_user_winners_count) || 10
+  const guildWinnerCount = parseInt(settings.leaderboard_guild_winners_count) || 5
+  const userMinWork = parseInt(settings.leaderboard_user_min_work) || 0
+  const guildMinScore = parseInt(settings.leaderboard_guild_min_score) || 0
+  
   const [guilds, banners, users] = await Promise.all([
     prisma.guild.findMany({
       take: 100,
-      orderBy: { totalEarnings: 'desc' },
+      orderBy: { score: 'desc' }, // Ordered by Score as requested
       include: { leader: true }
     }),
     prisma.leaderboardBanner.findMany({
       orderBy: { createdAt: 'desc' }
     }),
     prisma.user.findMany({
+      where: { role: 'USER', isBlocked: false },
       take: 100,
       orderBy: { tk: 'desc' },
       select: {
@@ -229,11 +239,9 @@ router.get('/', async (req, res) => {
          currentAvatar: true,
          tk: true,
          country: true,
-         rewardTitle: true,
-         rewardAmount: true,
-         rewardCurrency: true,
-         rewardUnlockDate: true,
-         rewardStatus: true
+         _count: {
+            select: { linkSubmissions: { where: { status: 'APPROVED' } } }
+         }
       }
     })
   ])
@@ -248,8 +256,6 @@ router.get('/', async (req, res) => {
     currentUserRole = me ? me.role : 'USER'
     unreadCount = await prisma.notification.count({ where: { userId: req.session.userId, isRead: false } })
   }
-
-  const settings = await getSystemSettings()
   
   const bannerHtml = banners.length > 0 ? `
     <div class="banner-container">
@@ -267,34 +273,52 @@ router.get('/', async (req, res) => {
       </div>
     </div>
   ` : ''
+  
+  // Contest Info Banner
+  let contestInfoHtml = ''
+  if (deadline) {
+      const now = new Date()
+      const diffTime = deadline - now
+      const isEnded = diffTime < 0
+      
+      let timerText = ''
+      if (isEnded) {
+          timerText = '<span style="color:#ef4444;">Contest Ended</span>'
+      } else {
+          const days = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+          const hours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+          const minutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60))
+          timerText = `<span style="color:#facc15;"><i class="fas fa-clock"></i> Ends in: ${days}d ${hours}h ${minutes}m</span>`
+      }
+
+      contestInfoHtml = `
+        <div style="background:rgba(236, 72, 153, 0.1); border:1px solid rgba(236, 72, 153, 0.3); border-radius:16px; padding:20px; margin-bottom:30px; text-align:center;">
+            <h3 style="margin:0 0 10px 0; color:#f472b6; text-transform:uppercase; font-family:var(--font-head);">🏆 Special Leaderboard Event 🏆</h3>
+            <div style="font-size:18px; font-weight:bold; margin-bottom:10px;">${timerText}</div>
+            <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:20px; font-size:14px; color:#cbd5e1;">
+                <div><i class="fas fa-users"></i> Top ${userWinnerCount} Users Win</div>
+                <div><i class="fas fa-shield-alt"></i> Top ${guildWinnerCount} Guilds Win</div>
+                <div><i class="fas fa-tasks"></i> Min Work: ${userMinWork}</div>
+                <div><i class="fas fa-bolt"></i> Min Score: ${guildMinScore}</div>
+            </div>
+        </div>
+      `
+  }
 
   res.send(`
     ${getHead('Leaderboard')}
     <style>
-      @keyframes pulse-green {
-        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-      }
-      .claim-btn {
-        background: linear-gradient(90deg, #22c55e, #16a34a);
-        color: white;
-        border: none;
-        padding: 6px 12px;
-        border-radius: 6px;
-        font-weight: bold;
-        font-size: 11px;
-        cursor: pointer;
-        display: flex;
+      .work-badge {
+        background: rgba(168, 85, 247, 0.1);
+        color: #d8b4fe;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+        border: 1px solid rgba(168, 85, 247, 0.2);
+        display: inline-flex;
         align-items: center;
         gap: 5px;
-        transition: all 0.3s ease;
-      }
-      .claim-btn:hover {
-        transform: translateY(-2px);
-      }
-      .pulse-animation {
-        animation: pulse-green 2s infinite;
       }
     </style>
     ${getUserSidebar('leaderboard', unreadCount, currentUserId, currentUserRole, settings)}
@@ -302,6 +326,8 @@ router.get('/', async (req, res) => {
     <div class="main-content">
       <div class="leaderboard-container">
         ${bannerHtml}
+        ${contestInfoHtml}
+        
         <div class="leaderboard-title">
           <i class="fas fa-crown"></i> Leaderboard
         </div>
@@ -324,40 +350,6 @@ router.get('/', async (req, res) => {
               ? `<img src="${g.currentAvatar}" class="guild-avatar">`
               : `<div class="guild-avatar">${g.name[0]}</div>`
 
-            const isLeader = currentUserId === g.leaderId
-            const levelInfo = getGuildLevelInfo(g.score || 0)
-            const nextLevelText = levelInfo.level < 11 
-              ? `${levelInfo.scoreNeeded} more for Lvl ${levelInfo.level + 1}` 
-              : 'Max Level'
-            
-            let rewardDisplay = ''
-            if (g.rewardType === 'GIFT' && g.currentReward) {
-               rewardDisplay = `
-                 <div class="score-badge" style="background: rgba(250, 204, 21, 0.1); color: #facc15; border-color: rgba(250, 204, 21, 0.2);">
-                    <i class="fas fa-gift" style="margin-right:4px;"></i> ${g.currentReward}
-                 </div>
-               `
-               if (isLeader && g.rewardStatus === 'PENDING_ADDRESS') {
-                 rewardDisplay += `
-                   <button onclick="event.preventDefault(); openAddressModal(${g.id})" style="margin-top:5px; font-size:10px; padding:4px 8px; background:#ec4899; color:white; border:none; border-radius:4px; cursor:pointer;">
-                     Add Address
-                   </button>
-                 `
-               }
-            } else if (g.rewardType === 'CASH' && g.currentReward) {
-               rewardDisplay = `
-                 <div class="score-badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2);">
-                    <i class="fas fa-coins" style="margin-right:4px;"></i> ${g.currentReward}
-                 </div>
-               `
-            } else {
-               rewardDisplay = `
-                 <div class="score-badge">
-                   $${g.totalEarnings.toFixed(2)}
-                 </div>
-               `
-            }
-
             return `
               <div class="guild-row-wrapper" style="position:relative;">
                 <div class="guild-row">
@@ -372,12 +364,13 @@ router.get('/', async (req, res) => {
                        <div class="guild-leader">Leader: ${g.leader.firstName} ${g.leader.lastName}</div>
                        <div style="font-size:12px; color:#facc15; margin-top:2px;">
                          Level ${g.level}
-                         <span style="color:var(--text-muted); margin-left:8px; font-size:11px;">• ${nextLevelText}</span>
                        </div>
                      </div>
                   </div>
                   <div style="display:flex; flex-direction:column; align-items:flex-end;">
-                     ${rewardDisplay}
+                     <div class="score-badge">
+                        ⚡ ${g.score}
+                     </div>
                   </div>
                 </div>
               </div>
@@ -400,46 +393,6 @@ router.get('/', async (req, res) => {
               ? `<img src="${u.currentAvatar}" class="guild-avatar">`
               : `<div class="guild-avatar">${u.username[0]}</div>`
 
-            let userRewardDisplay = ''
-            if (u.rewardStatus === 'LOCKED' || u.rewardStatus === 'CLAIMABLE') {
-                const now = new Date()
-                const unlockDate = new Date(u.rewardUnlockDate)
-                const isClaimable = now >= unlockDate
-                const isMyReward = currentUserId === u.id
-
-                let statusBadge = ''
-                if (isClaimable) {
-                    if (isMyReward) {
-                         statusBadge = `
-                            <form action="/leaderboard/claim-reward" method="POST" style="display:inline;">
-                                <button class="claim-btn pulse-animation">
-                                    <i class="fas fa-gift"></i> CLAIM
-                                </button>
-                            </form>
-                         `
-                    } else {
-                        statusBadge = `<span style="color:#22c55e; font-size:10px; font-weight:bold;">READY TO CLAIM</span>`
-                    }
-                } else {
-                    const diffTime = Math.abs(unlockDate - now);
-                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-                    statusBadge = `<span style="color:#facc15; font-size:10px;"><i class="fas fa-clock"></i> In ${diffDays} days</span>`
-                }
-
-                userRewardDisplay = `
-                    <div style="margin-top:5px; background:rgba(255,255,255,0.05); padding:4px 8px; border-radius:6px; display:flex; align-items:center; gap:6px; border:1px solid rgba(255,255,255,0.1);">
-                        <i class="fas fa-trophy" style="color:#f472b6; font-size:12px;"></i>
-                        <div style="display:flex; flex-direction:column;">
-                            <span style="font-size:11px; font-weight:bold; color:white;">${u.rewardTitle || 'Bonus Reward'}</span>
-                            <span style="font-size:10px; color:#94a3b8;">${u.rewardAmount} ${u.rewardCurrency.toUpperCase()}</span>
-                        </div>
-                        <div style="margin-left:auto;">
-                            ${statusBadge}
-                        </div>
-                    </div>
-                `
-            }
-
             return `
               <div class="guild-row" style="flex-wrap:wrap;">
                   <div style="display:flex; align-items:center; width:100%;">
@@ -454,13 +407,15 @@ router.get('/', async (req, res) => {
                            <div class="guild-leader">${u.firstName} ${u.lastName} • ${u.country || 'Global'}</div>
                          </div>
                       </div>
-                      <div style="margin-left:auto; display:flex; flex-direction:column; align-items:flex-end;">
-                         <div class="score-badge">
+                      <div style="margin-left:auto; display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
+                         <div class="work-badge">
+                           <i class="fas fa-briefcase"></i> Work: ${u._count.linkSubmissions}
+                         </div>
+                         <div class="score-badge" style="font-size:12px; padding:4px 10px;">
                            ৳${u.tk.toFixed(2)}
                          </div>
                       </div>
                   </div>
-                  ${userRewardDisplay ? `<div style="width:100%; padding-left:50px;">${userRewardDisplay}</div>` : ''}
               </div>
             `
           }).join('')}
