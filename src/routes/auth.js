@@ -187,7 +187,10 @@ router.get('/signup', (req, res) => {
 
             <div class="form-group">
               <label class="form-label">Email Address</label>
-              <input class="form-input" type="email" name="email" required placeholder="john@example.com">
+              <div style="display:flex;align-items:center;">
+                <input class="form-input" name="emailPrefix" required placeholder="example123" style="border-top-right-radius:0;border-bottom-right-radius:0;border-right:none;">
+                <div style="background:rgba(15, 23, 42, 0.6);border:1px solid var(--glass-border);border-left:none;padding:12px 16px;border-top-right-radius:12px;border-bottom-right-radius:12px;color:var(--text-muted);white-space:nowrap;">@gmail.com</div>
+              </div>
             </div>
 
             <div class="form-row">
@@ -247,8 +250,8 @@ router.get('/signup', (req, res) => {
 
 router.post('/signup', async (req, res) => {
   try {
-    const { firstName, lastName, email, country, countryCode, phone, password, confirmPassword } = req.body
-    if (!firstName || !lastName || !email || !country || !countryCode || !phone || !password || !confirmPassword) {
+    const { firstName, lastName, emailPrefix, country, countryCode, phone, password, confirmPassword } = req.body
+    if (!firstName || !lastName || !emailPrefix || !country || !countryCode || !phone || !password || !confirmPassword) {
       return res.redirect('/signup?error=Missing+fields')
     }
     if (password !== confirmPassword) {
@@ -258,6 +261,9 @@ router.post('/signup', async (req, res) => {
     const base = makeBaseUsername(firstName, lastName)
     const username = await ensureUniqueUsername(base)
     const hash = await bcrypt.hash(password, 10)
+    
+    // Construct and normalize email
+    const email = `${emailPrefix}@gmail.com`.toLowerCase()
 
     const user = await prisma.user.create({ data: { firstName, lastName, username, email, country, phone: fullPhone, passwordHash: hash, isLoggedIn: true } })
     req.session.userId = user.id
@@ -346,8 +352,14 @@ router.get('/login', (req, res) => {
 })
 
 const loginHandler = async (req, res) => {
-  const { identifier, password, login_source } = req.body
+  const { password, login_source } = req.body
+  let { identifier } = req.body
+
   if (!identifier || !password) return res.redirect('/login?error=Missing+credentials')
+  
+  // Normalize identifier (case insensitive)
+  identifier = identifier.trim().toLowerCase()
+
   const user = await prisma.user.findFirst({ where: { OR: [ { email: identifier }, { username: identifier }, { phone: identifier } ] } })
   if (!user) return res.redirect('/login?error=User+not+found')
   if (user.isBlocked) return res.redirect('/login?error=Account+blocked+by+admin')
@@ -428,7 +440,8 @@ router.get('/forgot-password', (req, res) => {
 })
 
 router.post('/forgot-password', async (req, res) => {
-  const { email } = req.body
+  let { email } = req.body
+  if (email) email = email.toLowerCase()
   try {
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user) {
