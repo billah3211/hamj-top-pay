@@ -635,6 +635,10 @@ router.post('/user-balance', requireAdmin, async (req, res) => {
 
     if (isNaN(val) || val <= 0) return res.redirect(`/admin/user/${id}`)
 
+    // Fetch user to check for guild membership
+    const user = await prisma.user.findUnique({ where: { id } })
+    if (!user) return res.redirect('/admin/users')
+
     const updateData = {}
     if (operation === 'add') {
         updateData[type] = { increment: val }
@@ -642,7 +646,7 @@ router.post('/user-balance', requireAdmin, async (req, res) => {
         updateData[type] = { decrement: val }
     }
 
-    await prisma.$transaction([
+    const transactionOps = [
         prisma.user.update({ where: { id }, data: updateData }),
         prisma.notification.create({
             data: {
@@ -651,7 +655,26 @@ router.post('/user-balance', requireAdmin, async (req, res) => {
                 type: operation === 'add' ? 'credit' : 'debit'
             }
         })
-    ])
+    ]
+
+    // Sync with Guild Total Earnings if type is 'tk' (BDT)
+    // This ensures the leaderboard reflects the bonus
+    if (user.guildId && type === 'tk') {
+        const guildUpdateData = {}
+        if (operation === 'add') {
+            guildUpdateData.totalEarnings = { increment: val }
+        } else {
+            guildUpdateData.totalEarnings = { decrement: val }
+        }
+        transactionOps.push(
+            prisma.guild.update({ 
+                where: { id: user.guildId }, 
+                data: guildUpdateData 
+            })
+        )
+    }
+
+    await prisma.$transaction(transactionOps)
 
     res.redirect(`/admin/user/${id}`)
 })

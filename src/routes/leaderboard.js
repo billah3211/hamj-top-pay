@@ -421,10 +421,10 @@ router.get('/', async (req, res) => {
          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
          
          if(tab === 'guilds') {
-            document.querySelector('button[onclick="switchTab(\\\'guilds\\\')"]').classList.add('active');
+            document.getElementById('tab-btn-guilds').classList.add('active');
             document.getElementById('guilds-tab').classList.add('active');
          } else {
-            document.querySelector('button[onclick="switchTab(\\\'users\\\')"]').classList.add('active');
+            document.getElementById('tab-btn-users').classList.add('active');
             document.getElementById('users-tab').classList.add('active');
          }
       }
