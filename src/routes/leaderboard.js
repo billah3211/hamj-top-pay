@@ -136,6 +136,34 @@ const getHead = (title) => `
       cursor: pointer; transition: all 0.3s;
     }
     .banner-dot.active { background: #fff; width: 24px; border-radius: 4px; }
+    
+    /* Tabs */
+    .leaderboard-tabs {
+      display: flex; justify-content: center; gap: 20px; margin-bottom: 30px;
+    }
+    .tab-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 12px 24px;
+      border-radius: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-family: var(--font-head);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: white;
+      border-color: var(--primary);
+      box-shadow: 0 0 15px rgba(217, 70, 239, 0.4);
+    }
+    .tab-content { display: none; animation: fadeIn 0.5s ease; }
+    .tab-content.active { display: flex; flex-direction: column; gap: 15px; }
+    
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
@@ -181,7 +209,7 @@ const getFooter = () => `
 `
 
 router.get('/', async (req, res) => {
-  const [guilds, banners] = await Promise.all([
+  const [guilds, banners, users] = await Promise.all([
     prisma.guild.findMany({
       take: 100,
       orderBy: { totalEarnings: 'desc' },
@@ -189,6 +217,19 @@ router.get('/', async (req, res) => {
     }),
     prisma.leaderboardBanner.findMany({
       orderBy: { createdAt: 'desc' }
+    }),
+    prisma.user.findMany({
+      take: 100,
+      orderBy: { tk: 'desc' },
+      select: {
+         id: true,
+         username: true,
+         firstName: true,
+         lastName: true,
+         currentAvatar: true,
+         tk: true,
+         country: true
+      }
     })
   ])
 
@@ -223,17 +264,23 @@ router.get('/', async (req, res) => {
   ` : ''
 
   res.send(`
-    ${getHead('Guild Leaderboard')}
+    ${getHead('Leaderboard')}
     ${getUserSidebar('leaderboard', unreadCount, currentUserId, currentUserRole, settings)}
     
     <div class="main-content">
       <div class="leaderboard-container">
         ${bannerHtml}
         <div class="leaderboard-title">
-          <i class="fas fa-crown"></i> Top 100 Guilds
+          <i class="fas fa-crown"></i> Leaderboard
         </div>
 
-        <div class="leaderboard-list">
+        <div class="leaderboard-tabs">
+           <button class="tab-btn active" onclick="switchTab('guilds')">Guilds</button>
+           <button class="tab-btn" onclick="switchTab('users')">Top Users</button>
+        </div>
+
+        <!-- Guilds List -->
+        <div id="guilds-tab" class="tab-content active">
           ${guilds.map((g, i) => {
             const rank = i + 1
             let rankClass = 'rank-badge'
@@ -307,6 +354,43 @@ router.get('/', async (req, res) => {
           
           ${guilds.length === 0 ? '<div style="text-align:center; color:#94a3b8;">No guilds found</div>' : ''}
         </div>
+
+        <!-- Users List -->
+        <div id="users-tab" class="tab-content">
+          ${users.map((u, i) => {
+            const rank = i + 1
+            let rankClass = 'rank-badge'
+            if (rank === 1) rankClass += ' rank-1'
+            if (rank === 2) rankClass += ' rank-2'
+            if (rank === 3) rankClass += ' rank-3'
+            
+            const avatar = u.currentAvatar 
+              ? `<img src="${u.currentAvatar}" class="guild-avatar">`
+              : `<div class="guild-avatar">${u.username[0]}</div>`
+
+            return `
+              <div class="guild-row">
+                  <div class="${rankClass}">#${rank}</div>
+                  <div class="guild-info">
+                     ${avatar}
+                     <div>
+                       <div class="guild-name">
+                         ${u.username} 
+                         ${rank <= 3 ? '<i class="fas fa-check-circle" style="color:#34d399; margin-left:5px;"></i>' : ''}
+                       </div>
+                       <div class="guild-leader">${u.firstName} ${u.lastName} • ${u.country || 'Global'}</div>
+                     </div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                     <div class="score-badge">
+                       ৳${u.tk.toFixed(2)}
+                     </div>
+                  </div>
+              </div>
+            `
+          }).join('')}
+          ${users.length === 0 ? '<div style="text-align:center; color:#94a3b8;">No users found</div>' : ''}
+        </div>
       </div>
     </div>
     
@@ -330,6 +414,19 @@ router.get('/', async (req, res) => {
       function openAddressModal(guildId) {
         document.getElementById('modalGuildId').value = guildId;
         document.getElementById('addressModal').style.display = 'flex';
+      }
+
+      function switchTab(tab) {
+         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+         
+         if(tab === 'guilds') {
+            document.querySelector('button[onclick="switchTab(\\\'guilds\\\')"]').classList.add('active');
+            document.getElementById('guilds-tab').classList.add('active');
+         } else {
+            document.querySelector('button[onclick="switchTab(\\\'users\\\')"]').classList.add('active');
+            document.getElementById('users-tab').classList.add('active');
+         }
       }
     </script>
     
