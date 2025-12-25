@@ -288,13 +288,14 @@ router.get('/', async (req, res) => {
           const days = Math.floor(diffTime / (1000 * 60 * 60 * 24))
           const hours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
           const minutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60))
-          timerText = `<span style="color:#facc15;"><i class="fas fa-clock"></i> Ends in: ${days}d ${hours}h ${minutes}m</span>`
+          const seconds = Math.floor((diffTime % (1000 * 60)) / 1000)
+          timerText = `<span style="color:#facc15;"><i class="fas fa-clock"></i> Ends in: ${days}d ${hours}h ${minutes}m ${seconds}s</span>`
       }
 
       contestInfoHtml = `
         <div style="background:rgba(236, 72, 153, 0.1); border:1px solid rgba(236, 72, 153, 0.3); border-radius:16px; padding:20px; margin-bottom:30px; text-align:center;">
             <h3 style="margin:0 0 10px 0; color:#f472b6; text-transform:uppercase; font-family:var(--font-head);">🏆 Contest Timer 🏆</h3>
-            <div style="font-size:24px; font-weight:bold; margin-bottom:0;">${timerText}</div>
+            <div id="contest-timer" data-deadline="${deadline.getTime()}" style="font-size:24px; font-weight:bold; margin-bottom:0;">${timerText}</div>
         </div>
       `
   }
