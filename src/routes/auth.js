@@ -730,7 +730,7 @@ router.get('/dashboard', async (req, res) => {
               ${getUserCard('Dollar Balance', '$' + (user.dk + (user.tk / parseFloat(settings.dollar_rate || 120))).toFixed(3), 'dollar', codes.dollar)}
               ${getUserCard('Coin Balance', user.coin, 'coin', codes.coin)}
               ${getUserCard('HaMJ T Balance', user.lora, 'hamjt', codes.hamjt)}
-              ${getUserCard('Tk Balance', user.tk + ' tk', 'tk', codes.tk)}
+              ${getUserCard('Tk Balance', (user.tk + (user.dk * parseFloat(settings.dollar_rate || 120))).toFixed(2) + ' tk', 'tk', codes.tk)}
             </div>
           </div>
 
