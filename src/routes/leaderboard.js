@@ -203,6 +203,30 @@ const getFooter = () => `
       if (slides.length > 0) {
         setInterval(nextSlide, 5000);
       }
+      
+      // Timer Script
+      function updateTimer() {
+        const timerEl = document.getElementById('contest-timer');
+        if (!timerEl) return;
+        
+        const deadline = parseInt(timerEl.getAttribute('data-deadline'));
+        const now = new Date().getTime();
+        const diffTime = deadline - now;
+        
+        if (diffTime < 0) {
+          timerEl.innerHTML = '<span style="color:#ef4444;">Contest Ended</span>';
+          return;
+        }
+        
+        const days = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diffTime % (1000 * 60)) / 1000);
+        
+        timerEl.innerHTML = '<span style="color:#facc15;"><i class="fas fa-clock"></i> Ends in: ' + days + 'd ' + hours + 'h ' + minutes + 'm ' + seconds + 's</span>';
+      }
+      
+      setInterval(updateTimer, 1000);
     </script>
   </body>
   </html>
