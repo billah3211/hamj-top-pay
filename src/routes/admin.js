@@ -1485,7 +1485,6 @@ router.get('/leaderboard', requireAdmin, async (req, res) => {
                   <th style="padding:15px; color:#94a3b8; width:60px;">Rank</th>
                   <th style="padding:15px; color:#94a3b8;">User</th>
                   <th style="padding:15px; color:#94a3b8;">Work Count</th>
-                  <th style="padding:15px; color:#94a3b8;">Balance (TK)</th>
                   <th style="padding:15px; color:#94a3b8; text-align:right;">Action</th>
                 </tr>
               </thead>
@@ -1502,13 +1501,12 @@ router.get('/leaderboard', requireAdmin, async (req, res) => {
                       </a>
                     </td>
                     <td style="padding:15px; color:#a855f7; font-weight:bold;">${u._count.linkSubmissions}</td>
-                    <td style="padding:15px; color:#22c55e; font-weight:bold;">৳ ${u.tk}</td>
                     <td style="padding:15px; text-align:right;">
                       <button onclick="openRewardModal('${u.id}', '${u.firstName}', 'user')" class="btn-premium" style="padding:6px 12px; font-size:12px;">Send Reward</button>
                     </td>
                   </tr>
                 `).join('')}
-                ${qualifiedUsers.length === 0 ? '<tr><td colspan="5" style="padding:30px; text-align:center; color:#94a3b8;">No users meet the criteria yet.</td></tr>' : ''}
+                ${qualifiedUsers.length === 0 ? '<tr><td colspan="4" style="padding:30px; text-align:center; color:#94a3b8;">No users meet the criteria yet.</td></tr>' : ''}
               </tbody>
             </table>
         </div>
