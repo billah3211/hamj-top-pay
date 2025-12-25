@@ -391,7 +391,7 @@ router.get('/', async (req, res) => {
     }),
     // Top Ups (fetch data to aggregate)
     prisma.topUpRequest.findMany({
-      where: { status: 'APPROVED' },
+      where: { status: 'COMPLETED' },
       select: {
         userId: true,
         package: { select: { price: true } }
