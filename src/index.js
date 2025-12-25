@@ -28,7 +28,6 @@ const apiRoutes = require('./routes/api')
 
 const { createServer } = require('http')
 const { Server } = require('socket.io')
-const { getAIResponse } = require('./services/aiService')
 // const { initBonusScheduler } = require('./services/bonusScheduler')
 
 const app = express()
@@ -88,7 +87,7 @@ io.on('connection', (socket) => {
 
       if (!session) {
         session = await prisma.supportSession.create({
-          data: { userId: parseInt(userId), status: 'AI_MODE' }
+          data: { userId: parseInt(userId), status: 'LIVE_CHAT' }
         })
       }
 
@@ -101,54 +100,21 @@ io.on('connection', (socket) => {
         }
       })
 
-      // 3. AI Logic or Live Chat
-      if (session.status === 'AI_MODE' && sender === 'user') {
-        const aiRes = await getAIResponse(message)
-        
-        // Save AI Response
-        await prisma.chatMessage.create({
-          data: {
-            sessionId: session.id,
-            sender: 'ai',
-            message: aiRes.text
-          }
-        })
-
-        // Emit to user
-        io.to(`user_${userId}`).emit('receive_message', {
-          sender: 'ai',
-          message: aiRes.text
-        })
-
-        // Check for handover
-        if (aiRes.handover) {
-          await prisma.supportSession.update({
-            where: { id: session.id },
-            data: { status: 'LIVE_CHAT' }
-          })
-          // Notify Admins
-          io.to('admin_room').emit('new_support_request', {
-            userId: userId,
-            message: message
-          })
-        }
-      } 
-      else if (session.status === 'LIVE_CHAT') {
+      // 3. Live Chat Logic
+      if (sender === 'user') {
         // Forward to admins if user sent it
-        if (sender === 'user') {
-          io.to('admin_room').emit('receive_admin_message', {
-            userId: userId,
-            message: message,
-            sender: 'user'
-          })
-        } 
-        // Forward to user if admin sent it
-        else if (sender === 'admin') {
-           io.to(`user_${userId}`).emit('receive_message', {
-            sender: 'admin',
-            message: message
-          })
-        }
+        io.to('admin_room').emit('receive_admin_message', {
+          userId: userId,
+          message: message,
+          sender: 'user'
+        })
+      } 
+      else if (sender === 'admin') {
+         // Forward to user if admin sent it
+         io.to(`user_${userId}`).emit('receive_message', {
+          sender: 'admin',
+          message: message
+        })
       }
 
     } catch (error) {

@@ -1493,17 +1493,6 @@ router.get('/settings', requireSuperAdmin, async (req, res) => {
             <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px; padding-left: 4px;">Used for sending SMS notifications.</div>
           </div>
 
-          <!-- Gemini API Key -->
-          <div class="form-group" style="margin-bottom: 32px;">
-            <label class="form-label" style="display: block; margin-bottom: 8px; font-weight: 500;">
-              Gemini API Key
-            </label>
-            <div style="position: relative;">
-              <input type="text" name="GEMINI_API_KEY" value="${geminiKey}" class="form-input" style="width: 100%; padding: 14px 16px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: 12px; color: white; font-size: 16px;" placeholder="Enter Gemini API Key">
-            </div>
-            <div style="font-size: 13px; color: var(--text-muted); margin-top: 6px; padding-left: 4px;">Used for AI Support Assistant.</div>
-          </div>
-
           <button type="submit" class="btn-premium full-width" style="padding: 14px; font-size: 16px; background: linear-gradient(135deg, #ec4899, #8b5cf6);">
             <img src="https://api.iconify.design/lucide:save.svg?color=white" width="18" style="vertical-align: middle; margin-right: 8px;">
             Save API Keys
@@ -1566,21 +1555,13 @@ router.get('/settings', requireSuperAdmin, async (req, res) => {
 
 router.post('/settings/update-api', requireSuperAdmin, async (req, res) => {
   try {
-    const { SMS_API_KEY, GEMINI_API_KEY } = req.body
+    const { SMS_API_KEY } = req.body
 
     if (SMS_API_KEY !== undefined) {
       await prisma.appConfig.upsert({
         where: { key: 'SMS_API_KEY' },
         update: { value: SMS_API_KEY },
         create: { key: 'SMS_API_KEY', value: SMS_API_KEY, description: 'SMS Service API Key' }
-      })
-    }
-
-    if (GEMINI_API_KEY !== undefined) {
-      await prisma.appConfig.upsert({
-        where: { key: 'GEMINI_API_KEY' },
-        update: { value: GEMINI_API_KEY },
-        create: { key: 'GEMINI_API_KEY', value: GEMINI_API_KEY, description: 'Google Gemini AI API Key' }
       })
     }
 

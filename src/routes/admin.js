@@ -1335,13 +1335,11 @@ router.get('/support', requireAdmin, async (req, res) => {
       .user-name { font-weight: bold; color: white; margin-bottom: 4px; }
       .last-msg { font-size: 12px; color: var(--text-muted); }
       .status-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-top: 4px; text-transform: uppercase; }
-      .status-badge.ai_mode { background: #3b82f6; color: white; }
       .status-badge.live_chat { background: #ec4899; color: white; }
       
       .message { padding: 10px 14px; border-radius: 12px; max-width: 70%; font-size: 14px; line-height: 1.4; }
       .message.user { align-self: flex-start; background: #334155; color: white; border-bottom-left-radius: 2px; }
       .message.admin { align-self: flex-end; background: #ec4899; color: white; border-bottom-right-radius: 2px; }
-      .message.ai { align-self: center; background: rgba(255,255,255,0.1); color: #94a3b8; font-size: 12px; border-radius: 8px; }
     </style>
 
     <script src="/socket.io/socket.io.js"></script>
