@@ -230,7 +230,7 @@ router.get('/', async (req, res) => {
     prisma.user.findMany({
       where: { role: 'USER', isBlocked: false },
       take: 100,
-      orderBy: { tk: 'desc' },
+      orderBy: { linkSubmissions: { _count: 'desc' } },
       select: {
          id: true,
          username: true,
@@ -411,9 +411,11 @@ router.get('/', async (req, res) => {
                          <div class="work-badge">
                            <i class="fas fa-briefcase"></i> Work: ${u._count.linkSubmissions}
                          </div>
+                         <!-- 
                          <div class="score-badge" style="font-size:12px; padding:4px 10px;">
                            ৳${u.tk.toFixed(2)}
-                         </div>
+                         </div> 
+                         -->
                       </div>
                   </div>
               </div>

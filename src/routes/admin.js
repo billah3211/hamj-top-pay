@@ -1394,7 +1394,7 @@ router.get('/leaderboard', requireAdmin, async (req, res) => {
             some: { status: 'APPROVED' } // Optimization: Must have at least some work
         }
     },
-    orderBy: { tk: 'desc' },
+    orderBy: { linkSubmissions: { _count: 'desc' } }, // Changed to sort by Work Count
     take: 200, // Fetch more to allow filtering
     include: {
         _count: {
@@ -1415,12 +1415,26 @@ router.get('/leaderboard', requireAdmin, async (req, res) => {
     take: guildWinnerCount,
     include: { leader: true }
   })
+  
+  // Contest Status Check
+  const now = new Date()
+  const contestDeadline = deadline ? new Date(deadline) : null
+  const isEnded = contestDeadline && now >= contestDeadline
+  const statusBadge = isEnded 
+    ? `<span style="background:#ef4444; color:white; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:bold;">ENDED</span>`
+    : `<span style="background:#22c55e; color:white; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:bold;">ACTIVE</span>`
+  
+  const sectionTitle = isEnded 
+    ? `Final Winners List (Contest Ended)`
+    : `Projected Winners (If Ended Now)`
 
   res.send(`
     ${getHead('Leaderboard Management')}
     ${getSidebar('leaderboard', req.session.role, settings)}
     <div class="main-content">
-      <div class="section-title">Leaderboard Contest Settings</div>
+      <div class="section-title" style="display:flex; align-items:center; gap:15px;">
+         Leaderboard Contest Settings ${statusBadge}
+      </div>
       
       <!-- Settings Form -->
       <div class="glass-panel" style="padding:24px; margin-bottom:30px;">
@@ -1451,7 +1465,7 @@ router.get('/leaderboard', requireAdmin, async (req, res) => {
         </form>
       </div>
 
-      <div class="section-title">Projected Winners (If Ended Now)</div>
+      <div class="section-title">${sectionTitle}</div>
       
       <!-- Tabs -->
       <div style="display:flex; gap:10px; margin-bottom:20px;">
