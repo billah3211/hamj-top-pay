@@ -274,37 +274,6 @@ router.get('/', async (req, res) => {
     </div>
   ` : ''
   
-  // Contest Info Banner
-  let contestInfoHtml = ''
-  if (deadline) {
-      const now = new Date()
-      const diffTime = deadline - now
-      const isEnded = diffTime < 0
-      
-      let timerText = ''
-      if (isEnded) {
-          timerText = '<span style="color:#ef4444;">Contest Ended</span>'
-      } else {
-          const days = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-          const hours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-          const minutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60))
-          timerText = `<span style="color:#facc15;"><i class="fas fa-clock"></i> Ends in: ${days}d ${hours}h ${minutes}m</span>`
-      }
-
-      contestInfoHtml = `
-        <div style="background:rgba(236, 72, 153, 0.1); border:1px solid rgba(236, 72, 153, 0.3); border-radius:16px; padding:20px; margin-bottom:30px; text-align:center;">
-            <h3 style="margin:0 0 10px 0; color:#f472b6; text-transform:uppercase; font-family:var(--font-head);">🏆 Special Leaderboard Event 🏆</h3>
-            <div style="font-size:18px; font-weight:bold; margin-bottom:10px;">${timerText}</div>
-            <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:20px; font-size:14px; color:#cbd5e1;">
-                <div><i class="fas fa-users"></i> Top ${userWinnerCount} Users Win</div>
-                <div><i class="fas fa-shield-alt"></i> Top ${guildWinnerCount} Guilds Win</div>
-                <div><i class="fas fa-tasks"></i> Min Work: ${userMinWork}</div>
-                <div><i class="fas fa-bolt"></i> Min Score: ${guildMinScore}</div>
-            </div>
-        </div>
-      `
-  }
-
   res.send(`
     ${getHead('Leaderboard')}
     <style>
@@ -326,7 +295,6 @@ router.get('/', async (req, res) => {
     <div class="main-content">
       <div class="leaderboard-container">
         ${bannerHtml}
-        ${contestInfoHtml}
         
         <div class="leaderboard-title">
           <i class="fas fa-crown"></i> Leaderboard
