@@ -132,12 +132,6 @@ router.get('/', requireLogin, async (req, res) => {
     guildLevelInfo = getGuildLevelInfo(user.guild.score || 0)
   }
 
-  // Get Top Guilds
-  const topGuilds = await prisma.guild.findMany({
-    take: 10,
-    orderBy: { totalEarnings: 'desc' },
-    include: { leader: true, members: true }
-  })
 
   // Get My Pending Requests
   const myRequests = await prisma.guildRequest.findMany({
@@ -758,7 +752,7 @@ router.get('/', requireLogin, async (req, res) => {
             <button onclick="openModal('createGuildModal')" class="btn btn-primary" style="padding:12px 32px; font-size:16px;">
                <i class="fas fa-plus-circle"></i> Create New Guild
             </button>
-            <a href="#top-guilds" class="btn btn-outline" style="padding:12px 32px; font-size:16px;">
+            <a href="/leaderboard" class="btn btn-outline" style="padding:12px 32px; font-size:16px;">
                <i class="fas fa-search"></i> Browse Guilds
             </a>
          </div>
@@ -797,62 +791,7 @@ router.get('/', requireLogin, async (req, res) => {
     }
   }
 
-  // ----------------------------------------------------------------------
-  // TOP GUILDS SECTION
-  // ----------------------------------------------------------------------
   html += `
-    <div id="top-guilds" style="margin-top: 60px;">
-      <div class="section-header">
-         <div class="section-title"><i class="fas fa-trophy" style="color:#fbbf24"></i> Top Guilds Leaderboard</div>
-      </div>
-      
-      <div class="top-guilds-list">
-        ${topGuilds.map((g, index) => `
-          <div class="guild-row">
-             <div class="rank-display rank-${index + 1}">#${index + 1}</div>
-             
-             <div class="guild-info-cell">
-                <div class="guild-info-avatar">
-                   ${g.currentAvatar ? 
-                     `<img src="${g.currentAvatar}" style="width:100%;height:100%;object-fit:cover;">` : 
-                     `<div style="width:100%;height:100%;background:#334155;display:flex;align-items:center;justify-content:center;font-size:24px;color:white;">${g.name[0]}</div>`
-                   }
-                </div>
-                
-                <div style="flex:1;">
-                   <div style="font-weight:700; font-size:18px; color:var(--text-main);">${g.name}</div>
-                   <div class="guild-stats-row">
-                      <span class="guild-stats-item"><i class="fas fa-users"></i> ${g.members.length} / ${g.memberLimit || 50}</span>
-                      ${user.id === g.leaderId ? `
-                        <span class="guild-stats-item" style="color:#fbbf24"><i class="fas fa-coins"></i> ৳${g.totalEarnings.toFixed(0)}</span>
-                        <span class="guild-stats-item" style="color:#10b981"><i class="fas fa-dollar-sign"></i> $${(g.totalEarnings / parseFloat(settings.dollar_rate || 120)).toFixed(2)}</span>
-                      ` : ''}
-                      <span class="guild-stats-item" style="color:#818cf8"><i class="fas fa-crown"></i> ${g.leader.username}</span>
-                   </div>
-                </div>
-             </div>
-
-             <div class="guild-actions-cell">
-                ${!user.guild ? `
-                   ${myRequests.some(r => r.guildId === g.id) ? `
-                     <button disabled class="btn btn-outline" style="opacity:0.5; cursor:not-allowed;">Requested</button>
-                   ` : `
-                     <form action="/guild/join" method="POST">
-                       <input type="hidden" name="guildId" value="${g.id}">
-                       <button type="submit" class="btn btn-primary">Join Guild</button>
-                     </form>
-                   `}
-                ` : `
-                    <span style="color:var(--text-muted); font-size:13px; font-weight:500;">
-                       ${user.guild.id === g.id ? '<span style="color:#10b981">Your Guild</span>' : ''}
-                    </span>
-                `}
-             </div>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-
     </div> <!-- End guild-container -->
     </div> <!-- End main-content -->
 

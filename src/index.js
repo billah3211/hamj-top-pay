@@ -29,8 +29,12 @@ const apiRoutes = require('./routes/api')
 const { createServer } = require('http')
 const { Server } = require('socket.io')
 const { getAIResponse } = require('./services/aiService')
+const { initBonusScheduler } = require('./services/bonusScheduler')
 
 const app = express()
+
+// Initialize Background Services
+initBonusScheduler()
 
 // View Engine Setup
 app.use(expressLayouts)

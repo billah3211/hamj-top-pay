@@ -1946,21 +1946,17 @@ router.post('/topup-wallets/delete', requireSuperAdmin, async (req, res) => {
 // Leaderboard Bonuses Management
 router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
   const settings = await getSystemSettings()
-  const [guilds, banners, levelConfigs] = await Promise.all([
-    prisma.guild.findMany({
+  const [users, banners, bonusSchedules] = await Promise.all([
+    prisma.user.findMany({
       take: 100,
-      orderBy: [
-        { level: 'desc' },
-        { totalEarnings: 'desc' }
-      ],
-      include: { leader: true }
+      orderBy: { tk: 'desc' }, // Ranking by Total Earnings (TK)
     }),
     prisma.leaderboardBanner.findMany({ orderBy: { createdAt: 'desc' } }),
-    prisma.levelConfiguration.findMany({ orderBy: { level: 'asc' } })
+    prisma.userBonusSchedule.findMany({ orderBy: { scheduledDate: 'desc' } })
   ])
 
   res.send(`
-    ${getHead('Leaderboard Bonuses')}
+    ${getHead('User Leaderboard Bonuses')}
     ${getSidebar('leaderboard', settings)}
     <div class="main-content">
       <div class="section-header" style="background: linear-gradient(to right, rgba(236, 72, 153, 0.1), transparent); padding: 24px; border-radius: 16px; border: 1px solid rgba(236, 72, 153, 0.1); margin-bottom: 32px; display: flex; align-items: center; gap: 20px;">
@@ -1968,98 +1964,81 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
            <img src="https://api.iconify.design/lucide:crown.svg?color=%23ec4899" width="32" height="32">
         </div>
         <div>
-          <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">Leaderboard Bonuses</div>
-          <div style="color:var(--text-muted); font-size: 16px;">Manage level rewards, banners and distribute bonuses</div>
+          <div class="section-title" style="font-size: 28px; margin-bottom: 4px;">User Leaderboard & Bonus</div>
+          <div style="color:var(--text-muted); font-size: 16px;">Schedule automatic bonuses for top users</div>
         </div>
       </div>
 
       ${req.query.success ? `<div class="alert success">${req.query.success}</div>` : ''}
       ${req.query.error ? `<div class="alert error">${req.query.error}</div>` : ''}
       
-      <!-- Level Rewards Configuration (Automated) -->
+      <!-- Bonus Scheduler (Automated) -->
       <div class="glass-panel" style="padding: 24px; margin-bottom: 32px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
           <div>
-            <h3 style="margin:0; font-size: 20px;">Level Rewards (Automated)</h3>
-            <p style="margin:5px 0 0; font-size:13px; color:var(--text-muted);">Configure rewards that are automatically given when a guild reaches a level.</p>
+            <h3 style="margin:0; font-size: 20px;">Schedule Automatic Bonus</h3>
+            <p style="margin:5px 0 0; font-size:13px; color:var(--text-muted);">Set a date and time. System will automatically reward the top N users at that time.</p>
           </div>
-          <button onclick="document.getElementById('addLevelForm').style.display='block'" class="btn-premium" style="padding: 8px 16px; font-size: 14px;">+ Add Level Reward</button>
+          <button onclick="document.getElementById('addScheduleForm').style.display='block'" class="btn-premium" style="padding: 8px 16px; font-size: 14px;">+ Schedule New Bonus</button>
         </div>
         
-        <!-- Add Level Form -->
-        <div id="addLevelForm" style="display:none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
-          <form action="/super-admin/level-config/add" method="POST">
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+        <!-- Add Schedule Form -->
+        <div id="addScheduleForm" style="display:none; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1);">
+          <form action="/super-admin/bonus-schedule/add" method="POST">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
               <div>
-                <label class="form-label">Target Level</label>
-                <input type="number" name="level" required placeholder="e.g. 1" class="form-input">
-              </div>
-              <div>
-                <label class="form-label">Min Score</label>
-                <input type="number" name="minScore" required placeholder="e.g. 1000" class="form-input">
+                <label class="form-label">Date & Time</label>
+                <input type="datetime-local" name="scheduledDate" required class="form-input">
               </div>
               <div>
-                <label class="form-label">Reward Type</label>
-                <select name="rewardType" class="form-input" onchange="this.parentElement.nextElementSibling.style.display = this.value === 'CASH' ? 'block' : 'none'; this.parentElement.nextElementSibling.nextElementSibling.style.display = this.value === 'GIFT' ? 'block' : 'none';">
-                  <option value="CASH">Cash Bonus</option>
-                  <option value="GIFT">Gift Item</option>
-                </select>
-              </div>
-              <div id="currencyField">
-                <label class="form-label">Currency (Cash)</label>
-                <select name="currency" class="form-input">
-                  <option value="dk">Dollar (DK)</option>
-                  <option value="tk">Taka (TK)</option>
-                  <option value="coin">Coin</option>
-                  <option value="diamond">Diamond</option>
-                </select>
-              </div>
-              <div id="giftField" style="display:none;">
-                 <label class="form-label">Gift Name (e.g. iPhone)</label>
-                 <input type="text" name="giftName" placeholder="Item Name" class="form-input">
+                <label class="form-label">Number of Winners (Top N)</label>
+                <input type="number" name="winnerCount" required placeholder="e.g. 5" min="1" max="100" class="form-input">
               </div>
               <div>
-                 <label class="form-label">Amount (Cash)</label>
-                 <input type="number" name="amount" placeholder="e.g. 50" class="form-input">
+                <label class="form-label">Bonus Amount (TK)</label>
+                <input type="number" name="amount" required placeholder="e.g. 50" class="form-input">
               </div>
             </div>
             <div style="margin-top: 15px; text-align: right;">
-              <button type="button" onclick="document.getElementById('addLevelForm').style.display='none'" class="btn-premium" style="background: transparent; border: 1px solid rgba(255,255,255,0.2);">Cancel</button>
-              <button type="submit" class="btn-premium">Save Level</button>
+              <button type="button" onclick="document.getElementById('addScheduleForm').style.display='none'" class="btn-premium" style="background: transparent; border: 1px solid rgba(255,255,255,0.2);">Cancel</button>
+              <button type="submit" class="btn-premium">Schedule Bonus</button>
             </div>
           </form>
         </div>
 
-        <!-- Levels List -->
+        <!-- Schedules List -->
         <table style="width: 100%; border-collapse: collapse;">
           <thead>
             <tr style="text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1);">
-              <th style="padding: 12px; color: var(--text-muted);">Level</th>
-              <th style="padding: 12px; color: var(--text-muted);">Min Score</th>
-              <th style="padding: 12px; color: var(--text-muted);">Reward</th>
+              <th style="padding: 12px; color: var(--text-muted);">Scheduled Date</th>
+              <th style="padding: 12px; color: var(--text-muted);">Winners</th>
+              <th style="padding: 12px; color: var(--text-muted);">Amount</th>
+              <th style="padding: 12px; color: var(--text-muted);">Status</th>
               <th style="padding: 12px; color: var(--text-muted);">Action</th>
             </tr>
           </thead>
           <tbody>
-            ${levelConfigs.map(l => `
+            ${bonusSchedules.map(s => `
               <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                <td style="padding: 12px; font-weight: bold; color: var(--accent);">Level ${l.level}</td>
-                <td style="padding: 12px;">${l.minScore}</td>
+                <td style="padding: 12px; font-weight: bold; color: var(--accent);">${new Date(s.scheduledDate).toLocaleString()}</td>
+                <td style="padding: 12px;">Top ${s.winnerCount}</td>
+                <td style="padding: 12px;">${s.amount} TK</td>
                 <td style="padding: 12px;">
-                  ${l.rewardType === 'GIFT' 
-                    ? `<span style="color:#facc15"><i class="fas fa-gift"></i> ${l.rewardValue}</span>` 
-                    : `<span style="color:#34d399"><i class="fas fa-coins"></i> ${l.rewardValue} ${l.currency}</span>`
-                  }
+                  <span style="padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: bold; background: ${s.status === 'COMPLETED' ? 'rgba(16, 185, 129, 0.2); color: #10b981;' : 'rgba(250, 204, 21, 0.2); color: #facc15;'}">
+                    ${s.status}
+                  </span>
                 </td>
                 <td style="padding: 12px;">
-                  <form action="/super-admin/level-config/delete" method="POST" onsubmit="return confirm('Delete Level ${l.level}?')" style="margin:0;">
-                    <input type="hidden" name="id" value="${l.id}">
-                    <button class="btn-premium" style="padding: 4px 8px; font-size: 11px; background: rgba(239,68,68,0.2); color: #fca5a5; border-color: rgba(239,68,68,0.3);">Delete</button>
-                  </form>
+                  ${s.status === 'PENDING' ? `
+                    <form action="/super-admin/bonus-schedule/delete" method="POST" onsubmit="return confirm('Cancel this schedule?')" style="margin:0;">
+                      <input type="hidden" name="id" value="${s.id}">
+                      <button class="btn-premium" style="padding: 4px 8px; font-size: 11px; background: rgba(239,68,68,0.2); color: #fca5a5; border-color: rgba(239,68,68,0.3);">Cancel</button>
+                    </form>
+                  ` : '-'}
                 </td>
               </tr>
             `).join('')}
-            ${levelConfigs.length === 0 ? '<tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--text-muted);">No levels configured. Add levels to automate rewards.</td></tr>' : ''}
+            ${bonusSchedules.length === 0 ? '<tr><td colspan="5" style="padding: 20px; text-align: center; color: var(--text-muted);">No bonuses scheduled.</td></tr>' : ''}
           </tbody>
         </table>
       </div>
@@ -2080,8 +2059,8 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
                 <input type="file" name="image" required accept="image/*" class="form-input" style="padding: 8px;">
               </div>
               <div>
-                 <label class="form-label">Description (Optional)</label>
-                 <input type="text" name="description" placeholder="e.g. 1st Place Reward" class="form-input">
+                <label class="form-label">Description (Optional)</label>
+                <input type="text" name="description" placeholder="e.g. Next Bonus: 25th Dec" class="form-input">
               </div>
             </div>
             <div style="margin-top: 15px; text-align: right;">
@@ -2108,77 +2087,27 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
               </div>
             </div>
           `).join('')}
-          ${banners.length === 0 ? '<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 20px;">No banners uploaded yet. Upload banners to show prizes on the leaderboard.</div>' : ''}
+          ${banners.length === 0 ? '<div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 20px;">No banners uploaded. Upload banners to show prizes on the leaderboard.</div>' : ''}
         </div>
       </div>
 
-      <form action="/super-admin/distribute-bonuses" method="POST" id="bonusForm">
+      <!-- User Leaderboard (Read-Only) -->
+      <div class="glass-panel" style="padding: 24px; margin-bottom: 24px;">
+        <h3 style="margin-bottom: 16px; color: white;">Top Users (Current Standing)</h3>
         
-        <!-- Controls -->
-        <div class="glass-panel" style="padding: 24px; margin-bottom: 24px;">
-          <h3 style="margin-bottom: 16px; color: white;">Distribution Settings</h3>
-          <div style="display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap;">
-            
-            <div style="flex: 1; min-width: 150px;">
-              <label class="form-label">Reward Type</label>
-              <select id="rewardType" class="form-input" onchange="toggleRewardInputs()">
-                <option value="CASH">Cash Bonus</option>
-                <option value="GIFT">Gift Item</option>
-              </select>
-            </div>
-
-            <div style="flex: 1; min-width: 150px;">
-              <label class="form-label">Currency (if Cash)</label>
-              <select name="currency" class="form-input">
-                <option value="dk">Dollar (DK)</option>
-                <option value="tk">Taka (TK)</option>
-                <option value="coin">Coin</option>
-                <option value="diamond">Diamond</option>
-              </select>
-            </div>
-
-            <div style="flex: 3; min-width: 400px; display: flex; gap: 10px; align-items: flex-end;">
-               <div style="flex:1">
-                 <label class="form-label">Filter by Level</label>
-                 <input type="number" id="filterLevel" placeholder="1" class="form-input" min="0">
-               </div>
-               <div style="flex:1">
-                 <label class="form-label">Top N Users</label>
-                 <input type="number" id="quickRank" placeholder="5" class="form-input" min="1" max="100">
-               </div>
-               <div style="flex:1" id="amountContainer">
-                 <label class="form-label">Amount</label>
-                 <input type="number" id="quickAmount" placeholder="10" class="form-input">
-               </div>
-               <div style="flex:1; display:none;" id="giftNameContainer">
-                 <label class="form-label">Gift Name</label>
-                 <input type="text" id="giftName" placeholder="e.g. iPhone 15" class="form-input">
-               </div>
-               <button type="button" class="btn-premium" onclick="applyLevelBonus()">Apply</button>
-            </div>
-
-          </div>
-          <div style="margin-top: 10px; font-size: 12px; color: var(--text-muted);">
-            Use "Filter by Level" to target specific level holders. Select "Gift Item" to assign a physical reward requiring an address.
-          </div>
-        </div>
-
-        <!-- Guilds Table -->
-        <div class="glass-panel" style="overflow: hidden;">
+        <!-- Users Table -->
+        <div style="overflow: hidden;">
           <table style="width: 100%; border-collapse: collapse;">
             <thead>
               <tr style="background: rgba(255,255,255,0.02); text-align: left;">
                 <th style="padding: 16px; color: var(--text-muted);">Rank</th>
-                <th style="padding: 16px; color: var(--text-muted);">Guild</th>
-                <th style="padding: 16px; color: var(--text-muted);">Level</th>
-                <th style="padding: 16px; color: var(--text-muted);">Leader</th>
-                <th style="padding: 16px; color: var(--text-muted);">Earnings</th>
-                <th style="padding: 16px; color: var(--text-muted);">Current Reward</th>
-                <th style="padding: 16px; color: var(--text-muted);">Bonus/Gift</th>
+                <th style="padding: 16px; color: var(--text-muted);">User</th>
+                <th style="padding: 16px; color: var(--text-muted);">Earnings (TK)</th>
+                <th style="padding: 16px; color: var(--text-muted);">Contact</th>
               </tr>
             </thead>
             <tbody>
-              ${guilds.map((guild, index) => `
+              ${users.map((u, index) => `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
                   <td style="padding: 16px;">
                     <div style="width: 32px; height: 32px; background: ${index < 3 ? 'linear-gradient(135deg, #facc15, #eab308)' : 'rgba(255,255,255,0.1)'}; color: ${index < 3 ? 'black' : 'white'}; border-radius: 50%; display: grid; place-items: center; font-weight: bold;">
@@ -2186,92 +2115,55 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
                     </div>
                   </td>
                   <td style="padding: 16px;">
-                    <div style="font-weight: 600; color: white;">${guild.name}</div>
-                    <div style="font-size: 12px; color: var(--text-muted);">${guild.members ? guild.members.length : 0} Members</div>
-                  </td>
-                  <td style="padding: 16px;">
-                     <span class="level-badge" style="background: rgba(236, 72, 153, 0.2); color: #ec4899; padding: 4px 10px; border-radius: 20px; font-weight: bold; border: 1px solid rgba(236, 72, 153, 0.3);">Level ${guild.level}</span>
-                  </td>
-                  <td style="padding: 16px;">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      <img src="${guild.leader.currentAvatar || 'https://api.iconify.design/lucide:user.svg?color=white'}" style="width: 24px; height: 24px; border-radius: 50%;">
-                      <span>${guild.leader.username}</span>
-                    </div>
+                    <div style="font-weight: 600; color: white;">${u.username}</div>
                   </td>
                   <td style="padding: 16px; color: #10b981;">
-                    $${guild.totalEarnings.toFixed(2)}
+                    ৳${u.tk.toFixed(2)}
                   </td>
-                  <td style="padding: 16px;">
-                    ${guild.currentReward ? `
-                      <div style="font-size:12px;">
-                        <span style="color:${guild.rewardType === 'GIFT' ? '#facc15' : '#10b981'}; font-weight:bold;">${guild.currentReward}</span>
-                        ${guild.rewardStatus === 'PENDING_ADDRESS' ? '<div style="color:#ef4444; font-size:10px;">Waiting for Address</div>' : ''}
-                        ${guild.shippingAddress ? '<div style="color:#3b82f6; font-size:10px; cursor:pointer;" title="'+guild.shippingAddress+'">Address Provided</div>' : ''}
-                      </div>
-                    ` : '<span style="color:#94a3b8;">-</span>'}
-                  </td>
-                  <td style="padding: 16px;">
-                    <input type="hidden" name="guildIds[]" value="${guild.id}">
-                    <input type="text" name="bonuses[]" class="form-input bonus-input" data-level="${guild.level}" placeholder="Amount or Gift Name" style="width: 150px;">
-                    <input type="hidden" name="types[]" class="type-input" value="CASH">
+                  <td style="padding: 16px; font-size: 12px; color: var(--text-muted);">
+                    ${u.phone || u.email}
                   </td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
         </div>
-
-        <div style="margin-top: 32px; text-align: right;">
-          <button type="submit" class="btn-premium" style="padding: 12px 32px; font-size: 16px;">
-            <img src="https://api.iconify.design/lucide:send.svg?color=white" width="20" style="vertical-align: middle; margin-right: 8px;">
-            Distribute Rewards
-          </button>
-        </div>
-      </form>
+      </div>
     </div>
+    ${getScripts()}
+  `)
+})
 
-    <script>
-      function toggleRewardInputs() {
-        const type = document.getElementById('rewardType').value;
-        const amountContainer = document.getElementById('amountContainer');
-        const giftNameContainer = document.getElementById('giftNameContainer');
-        
-        if (type === 'GIFT') {
-          amountContainer.style.display = 'none';
-          giftNameContainer.style.display = 'block';
-        } else {
-          amountContainer.style.display = 'block';
-          giftNameContainer.style.display = 'none';
-        }
+router.post('/bonus-schedule/add', requireSuperAdmin, async (req, res) => {
+  try {
+    const { scheduledDate, winnerCount, amount } = req.body
+    
+    await prisma.userBonusSchedule.create({
+      data: {
+        scheduledDate: new Date(scheduledDate),
+        winnerCount: parseInt(winnerCount),
+        amount: parseFloat(amount)
       }
+    })
+    
+    res.redirect('/super-admin/leaderboard-bonuses?success=Bonus+Scheduled')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/leaderboard-bonuses?error=Error+scheduling+bonus')
+  }
+})
 
-      function applyLevelBonus() {
-        const targetLevel = parseInt(document.getElementById('filterLevel').value);
-        const topN = parseInt(document.getElementById('quickRank').value);
-        const rewardType = document.getElementById('rewardType').value;
-        
-        const amount = document.getElementById('quickAmount').value;
-        const giftName = document.getElementById('giftName').value;
-        
-        const valueToApply = rewardType === 'GIFT' ? giftName : amount;
-        
-        if (isNaN(targetLevel) || !topN || !valueToApply) {
-           alert('Please fill in all fields (Level, Top N, Amount/Gift Name)');
-           return;
-        }
-        
-        const inputs = document.querySelectorAll('.bonus-input');
-        const typeInputs = document.querySelectorAll('.type-input');
-        
-        // Reset
-        inputs.forEach(input => input.value = '');
-        typeInputs.forEach(input => input.value = 'CASH'); // Default reset
+router.post('/bonus-schedule/delete', requireSuperAdmin, async (req, res) => {
+  try {
+    const { id } = req.body
+    await prisma.userBonusSchedule.delete({ where: { id: parseInt(id) } })
+    res.redirect('/super-admin/leaderboard-bonuses?success=Schedule+Deleted')
+  } catch (e) {
+    console.error(e)
+    res.redirect('/super-admin/leaderboard-bonuses?error=Error+deleting+schedule')
+  }
+})
 
-        let count = 0;
-        // The guilds are already sorted by Level then Earnings in the HTML order
-        // We just need to find the first N guilds that match the level
-        
-        // However, inputs NodeList order matches the table rows order
         for (let i = 0; i < inputs.length; i++) {
            const input = inputs[i];
            const typeInput = typeInputs[i];

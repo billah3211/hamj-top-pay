@@ -275,11 +275,11 @@ model LeaderboardBanner {
   createdAt   DateTime @default(now())
 }
 
-model LevelConfiguration {
-  id          Int     @id @default(autoincrement())
-  level       Int     @unique
-  minScore    Int
-  rewardType  String? // CASH, GIFT
-  rewardValue String?
-  currency    String? // dk, tk, coin, diamond
+model UserBonusSchedule {
+  id            Int      @id @default(autoincrement())
+  scheduledDate DateTime
+  winnerCount   Int      // e.g., 5 or 10
+  amount        Float    // Bonus amount per user
+  status        String   @default("PENDING") // PENDING, COMPLETED
+  createdAt     DateTime @default(now())
 }
