@@ -307,8 +307,8 @@ router.get('/', async (req, res) => {
         </div>
 
         <div class="leaderboard-tabs">
-           <button class="tab-btn active" onclick="switchTab('guilds')">Guilds</button>
-           <button class="tab-btn" onclick="switchTab('users')">Top Users</button>
+           <button id="tab-btn-guilds" class="tab-btn active" onclick="switchTab('guilds')">Guilds</button>
+           <button id="tab-btn-users" class="tab-btn" onclick="switchTab('users')">Top Users</button>
         </div>
 
         <!-- Guilds List -->
