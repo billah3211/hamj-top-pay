@@ -307,8 +307,8 @@ router.get('/', async (req, res) => {
         </div>
 
         <div class="leaderboard-tabs">
-           <button id="tab-btn-guilds" class="tab-btn active" onclick="switchTab('guilds')">Guilds</button>
-           <button id="tab-btn-users" class="tab-btn" onclick="switchTab('users')">Top Users</button>
+           <button class="tab-btn active" onclick="switchTab('guilds', this)">Guilds</button>
+           <button class="tab-btn" onclick="switchTab('users', this)">Top Users</button>
         </div>
 
         <!-- Guilds List -->
@@ -491,16 +491,24 @@ router.get('/', async (req, res) => {
         document.getElementById('addressModal').style.display = 'flex';
       }
 
-      function switchTab(tab) {
+      function switchTab(tab, btn) {
+         // Remove active class from all buttons and contents
          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
          
-         if(tab === 'guilds') {
-            document.getElementById('tab-btn-guilds').classList.add('active');
-            document.getElementById('guilds-tab').classList.add('active');
+         // Add active class to clicked button
+         if (btn) {
+             btn.classList.add('active');
          } else {
-            document.getElementById('tab-btn-users').classList.add('active');
-            document.getElementById('users-tab').classList.add('active');
+             // Fallback if btn not provided (should not happen with new onclick)
+             if (tab === 'guilds') document.querySelector('button[onclick*="guilds"]').classList.add('active');
+             if (tab === 'users') document.querySelector('button[onclick*="users"]').classList.add('active');
+         }
+
+         // Show content
+         const content = document.getElementById(tab + '-tab');
+         if (content) {
+             content.classList.add('active');
          }
       }
     </script>
