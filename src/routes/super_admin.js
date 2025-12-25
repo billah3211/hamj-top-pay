@@ -2017,12 +2017,10 @@ router.get('/leaderboard-bonuses', requireSuperAdmin, async (req, res) => {
                   </span>
                 </td>
                 <td style="padding: 12px;">
-                  ${s.status === 'PENDING' ? `
-                    <form action="/super-admin/bonus-schedule/delete" method="POST" onsubmit="return confirm('Cancel this schedule?')" style="margin:0;">
-                      <input type="hidden" name="id" value="${s.id}">
-                      <button class="btn-premium" style="padding: 4px 8px; font-size: 11px; background: rgba(239,68,68,0.2); color: #fca5a5; border-color: rgba(239,68,68,0.3);">Cancel</button>
-                    </form>
-                  ` : '-'}
+                  <form action="/super-admin/bonus-schedule/delete" method="POST" onsubmit="return confirm('Delete this schedule?')" style="margin:0;">
+                    <input type="hidden" name="id" value="${s.id}">
+                    <button class="btn-premium" style="padding: 4px 8px; font-size: 11px; background: rgba(239,68,68,0.2); color: #fca5a5; border-color: rgba(239,68,68,0.3);">Delete</button>
+                  </form>
                 </td>
               </tr>
             `).join('')}
