@@ -347,7 +347,7 @@ router.get('/', async (req, res) => {
   const userMinWork = parseInt(settings.leaderboard_user_min_work) || 0
   const guildMinScore = parseInt(settings.leaderboard_guild_min_score) || 0
   
-  const [guilds, banners, users] = await Promise.all([
+  const [guilds, banners, users, topPromoters, approvedTopUps] = await Promise.all([
     prisma.guild.findMany({
       take: 100,
       orderBy: { score: 'desc' }, // Ordered by Score as requested
@@ -372,8 +372,57 @@ router.get('/', async (req, res) => {
             select: { linkSubmissions: { where: { status: 'APPROVED' } } }
          }
       }
+    }),
+    // Top Promoters
+    prisma.user.findMany({
+      where: { role: 'USER', isBlocked: false },
+      take: 100,
+      orderBy: { promotedLinks: { _count: 'desc' } },
+      select: {
+         id: true,
+         username: true,
+         firstName: true,
+         lastName: true,
+         currentAvatar: true,
+         _count: {
+            select: { promotedLinks: true }
+         }
+      }
+    }),
+    // Top Ups (fetch data to aggregate)
+    prisma.topUpRequest.findMany({
+      where: { status: 'APPROVED' },
+      select: {
+        userId: true,
+        package: { select: { price: true } }
+      }
     })
   ])
+
+  // Process Top Ups
+  const topUpMap = {};
+  approvedTopUps.forEach(r => {
+      if (!topUpMap[r.userId]) topUpMap[r.userId] = 0;
+      topUpMap[r.userId] += r.package.price;
+  });
+
+  const sortedTopUpUserIds = Object.keys(topUpMap)
+      .map(id => ({ userId: parseInt(id), total: topUpMap[id] }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 100);
+
+  // Fetch user details for top up leaderboard
+  const topUpUsersDetails = await prisma.user.findMany({
+      where: { id: { in: sortedTopUpUserIds.map(u => u.userId) } },
+      select: { id: true, username: true, firstName: true, lastName: true, currentAvatar: true }
+  });
+
+  // Merge details
+  const topTopUps = sortedTopUpUserIds.map(item => {
+      const u = topUpUsersDetails.find(u => u.id === item.userId);
+      if (!u) return null;
+      return { ...u, totalTopUp: item.total };
+  }).filter(u => u !== null);
 
   let unreadCount = 0
   let currentUserId = null
@@ -459,6 +508,8 @@ router.get('/', async (req, res) => {
         <div class="leaderboard-tabs">
            <button class="tab-btn active" onclick="switchTab('guilds', this)">Guilds</button>
            <button class="tab-btn" onclick="switchTab('users', this)">Top Users</button>
+           <button class="tab-btn" onclick="switchTab('promoters', this)">Top Promoters</button>
+           <button class="tab-btn" onclick="switchTab('topups', this)">Top Top-Ups</button>
         </div>
 
         <!-- Guilds List -->
@@ -593,6 +644,134 @@ router.get('/', async (req, res) => {
              
              if (users.length === 0) html += '<div style="text-align:center; color:#94a3b8; padding: 40px;">No users found</div>';
              
+             return html;
+          })()}
+        </div>
+
+        <!-- Promoters List -->
+        <div id="promoters-tab" class="tab-content">
+          ${(() => {
+             const top3 = topPromoters.slice(0, 3);
+             const rest = topPromoters.slice(3);
+             let html = '';
+             
+             if (top3.length > 0) {
+               html += '<div class="podium-container">';
+               const podiumOrder = [];
+               if (top3[1]) podiumOrder.push(top3[1]);
+               if (top3[0]) podiumOrder.push(top3[0]);
+               if (top3[2]) podiumOrder.push(top3[2]);
+               
+               podiumOrder.forEach(u => {
+                 const rank = topPromoters.indexOf(u) + 1;
+                 const avatar = u.currentAvatar 
+                    ? `<img src="${u.currentAvatar}" class="podium-avatar">`
+                    : `<div class="podium-avatar">${u.username[0]}</div>`;
+                    
+                 html += `
+                   <div class="podium-item p-rank-${rank}">
+                      <div class="podium-avatar-container">
+                        ${avatar}
+                        <div class="crown-icon"><i class="fas fa-crown"></i></div>
+                      </div>
+                      <div class="podium-username">${u.username}</div>
+                      <div class="podium-stat">
+                        <i class="fas fa-bullhorn"></i> ${u._count.promotedLinks}
+                      </div>
+                   </div>
+                 `;
+               });
+               html += '</div>';
+             }
+             
+             html += '<div class="leaderboard-list">';
+             rest.forEach((u, i) => {
+                const rank = i + 4;
+                const avatar = u.currentAvatar 
+                  ? `<img src="${u.currentAvatar}" class="list-avatar">`
+                  : `<div class="list-avatar">${u.username[0]}</div>`;
+                  
+                html += `
+                  <div class="list-row">
+                    <div class="list-rank">#${rank}</div>
+                    ${avatar}
+                    <div class="list-info">
+                       <div class="list-name">${u.username}</div>
+                       <div class="list-sub">${u.firstName} ${u.lastName}</div>
+                    </div>
+                    <div class="list-stat">
+                       ${u._count.promotedLinks} Promotes
+                    </div>
+                  </div>
+                `;
+             });
+             html += '</div>';
+             
+             if (topPromoters.length === 0) html += '<div style="text-align:center; color:#94a3b8; padding: 40px;">No promoters found</div>';
+             return html;
+          })()}
+        </div>
+
+        <!-- Top Ups List -->
+        <div id="topups-tab" class="tab-content">
+          ${(() => {
+             const top3 = topTopUps.slice(0, 3);
+             const rest = topTopUps.slice(3);
+             let html = '';
+             
+             if (top3.length > 0) {
+               html += '<div class="podium-container">';
+               const podiumOrder = [];
+               if (top3[1]) podiumOrder.push(top3[1]);
+               if (top3[0]) podiumOrder.push(top3[0]);
+               if (top3[2]) podiumOrder.push(top3[2]);
+               
+               podiumOrder.forEach(u => {
+                 const rank = topTopUps.indexOf(u) + 1;
+                 const avatar = u.currentAvatar 
+                    ? `<img src="${u.currentAvatar}" class="podium-avatar">`
+                    : `<div class="podium-avatar">${u.username[0]}</div>`;
+                    
+                 html += `
+                   <div class="podium-item p-rank-${rank}">
+                      <div class="podium-avatar-container">
+                        ${avatar}
+                        <div class="crown-icon"><i class="fas fa-crown"></i></div>
+                      </div>
+                      <div class="podium-username">${u.username}</div>
+                      <div class="podium-stat">
+                        <i class="fas fa-coins"></i> ${u.totalTopUp}
+                      </div>
+                   </div>
+                 `;
+               });
+               html += '</div>';
+             }
+             
+             html += '<div class="leaderboard-list">';
+             rest.forEach((u, i) => {
+                const rank = i + 4;
+                const avatar = u.currentAvatar 
+                  ? `<img src="${u.currentAvatar}" class="list-avatar">`
+                  : `<div class="list-avatar">${u.username[0]}</div>`;
+                  
+                html += `
+                  <div class="list-row">
+                    <div class="list-rank">#${rank}</div>
+                    ${avatar}
+                    <div class="list-info">
+                       <div class="list-name">${u.username}</div>
+                       <div class="list-sub">${u.firstName} ${u.lastName}</div>
+                    </div>
+                    <div class="list-stat">
+                       ${u.totalTopUp} TK
+                    </div>
+                  </div>
+                `;
+             });
+             html += '</div>';
+             
+             if (topTopUps.length === 0) html += '<div style="text-align:center; color:#94a3b8; padding: 40px;">No top-ups found</div>';
              return html;
           })()}
         </div>
