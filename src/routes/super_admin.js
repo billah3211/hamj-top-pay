@@ -2089,11 +2089,20 @@ router.post('/bonus-schedule/add', requireSuperAdmin, async (req, res) => {
   try {
     const { scheduledDate } = req.body
     
+    // Update System Setting for Leaderboard Deadline
+    await prisma.systemSetting.upsert({
+      where: { key: 'leaderboard_deadline' },
+      update: { value: new Date(scheduledDate).toISOString() },
+      create: { key: 'leaderboard_deadline', value: new Date(scheduledDate).toISOString() }
+    })
+    
+    // Create Schedule Record (marked as COMPLETED so it doesn't stay PENDING)
     await prisma.userBonusSchedule.create({
       data: {
         scheduledDate: new Date(scheduledDate),
         winnerCount: 0,
-        amount: 0
+        amount: 0,
+        status: 'COMPLETED'
       }
     })
     
