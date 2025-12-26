@@ -37,62 +37,64 @@ const handleOxapayWebhook = async (req, res) => {
     // Log webhook body for debugging
     console.log('OxaPay Webhook:', req.body)
 
-    const { trackId, status, amount } = req.body
+    const { orderId, status, amount, payCurrency, txID } = req.body
+
+    // 1. Extract User ID
+    if (!orderId) {
+        console.warn('Missing orderId in webhook')
+        return res.status(400).json({ error: 'Missing orderId' })
+    }
     
-    if (!trackId) return res.status(400).json({ error: 'Missing trackId' })
+    // Format: TRX-[Timestamp]-[UserId]
+    const parts = orderId.split('-')
+    const userId = parseInt(parts[parts.length - 1])
 
-    const transaction = await prisma.transaction.findUnique({
-      where: { transactionId: trackId.toString() }
-    })
-
-    if (!transaction) {
-        console.warn(`Transaction not found for trackId: ${trackId}`)
-        return res.status(404).json({ error: 'Transaction not found' })
+    if (isNaN(userId)) {
+        console.error(`Failed to extract userId from orderId: ${orderId}`)
+        return res.status(400).json({ error: 'Invalid userId in orderId' })
     }
 
-    if (transaction.status === 'COMPLETED') {
-        return res.json({ message: 'Already processed' })
-    }
-
-    // User instruction: If status === 'Paid'
-    if (status === 'Paid') { 
+    // 2. Verify Payment
+    if (status === 'Paid') {
        const amountVal = parseFloat(amount)
-       if (isNaN(amountVal)) {
-           console.error(`Invalid amount in webhook: ${amount}`)
-           return res.status(400).json({ error: 'Invalid amount' })
-       }
-
-       // Update Transaction
-       await prisma.transaction.update({
-         where: { id: transaction.id },
-         data: { status: 'COMPLETED' }
-       })
-
-       // Update User Balance (dk = Dollar Balance)
+       
+       // 3. Update Balance (Increment DK/Dollar Balance)
+       // Note: Using dk (Float) as amount is in USD/Float. 
+       // If conversion to diamonds is needed, a rate must be applied. 
+       // For now, we credit the USD amount to the user's balance.
        await prisma.user.update({
-         where: { id: transaction.userId },
+         where: { id: userId },
          data: { dk: { increment: amountVal } }
        })
+
+       // 4. Save History (Create NEW Transaction)
+       await prisma.transaction.create({
+         data: {
+            userId: userId,
+            amount: amountVal,
+            currency: 'USD', // Base currency is USD
+            type: 'DEPOSIT',
+            status: 'COMPLETED',
+            method: `Oxapay - ${payCurrency || 'Unknown'}`,
+            transactionId: txID || `Unknown-${Date.now()}`, // Use txID from webhook
+            provider: 'oxapay',
+            details: JSON.stringify(req.body)
+         }
+       })
+
+       // 5. Log Success
+       console.log(`Top Up Successful for User ${userId}`)
 
        // Send Notification
        await prisma.notification.create({
          data: {
-           userId: transaction.userId,
+           userId: userId,
            message: 'Top Up Successful',
            type: 'credit'
          }
        })
-    } else if (status === 'Expired' || status === 'Failed') {
-        await prisma.transaction.update({
-            where: { id: transaction.id },
-            data: { status: 'FAILED' }
-        })
     } else {
-        // Update other statuses like "Waiting", "Confirming"
-        await prisma.transaction.update({
-            where: { id: transaction.id },
-            data: { status: status.toUpperCase() }
-        })
+        console.log(`Payment status is ${status}, skipping balance update.`)
     }
 
     res.json({ success: true })
