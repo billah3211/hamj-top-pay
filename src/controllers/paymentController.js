@@ -210,19 +210,6 @@ const handleOxapayWebhook = async (req, res) => {
             // Returning 500 triggers retry, which should hit "Already COMPLETED" check next time.
             return res.status(500).json({ error: 'Internal processing error' })
         }
-    }
-
-       // 6. Log Success
-       console.log(`Top Up Successful for User ${userId}: ${diamondAmount} Diamonds`)
-
-       // Send Notification
-       await prisma.notification.create({
-         data: {
-           userId: userId,
-           message: `Top Up Successful! ${diamondAmount} Diamonds added to your account.`,
-           type: 'credit'
-         }
-       })
     } else {
         console.log(`Payment status is ${status}, skipping balance update.`)
     }
