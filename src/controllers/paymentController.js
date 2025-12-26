@@ -84,113 +84,133 @@ const handleOxapayWebhook = async (req, res) => {
 
     // 2. Verify Payment
     if (status === 'Paid') {
-       // Check for existing transaction
-       const existingTx = await prisma.transaction.findFirst({
-           where: { 
-               OR: [
-                   { transactionId: txID }, // Match by Blockchain TXID
-                   { details: { contains: orderId } } // Match by OrderID (from pending init)
-               ]
-           }
-       })
+        try {
+            await prisma.$transaction(async (tx) => {
+                // A. Strict Check: Is this TXID already processed?
+                // This prevents "Unique constraint failed" if a completed transaction already exists.
+                const existingCompleted = await tx.transaction.findUnique({
+                    where: { transactionId: txID }
+                })
 
-       // If transaction exists and is already COMPLETED, skip
-       if (existingTx && existingTx.status === 'COMPLETED') {
-           console.log(`Transaction ${txID} or Order ${orderId} already processed (COMPLETED). Skipping.`)
-           return res.json({ success: true })
-       }
+                if (existingCompleted && existingCompleted.status === 'COMPLETED') {
+                    console.log(`Transaction ${txID} already COMPLETED. Ignoring.`)
+                    return // Treated as success
+                }
 
-       const amountVal = parseFloat(amount)
-       
-       let diamondAmount = 0
-       let packageName = 'Custom TopUp'
-       let priceTk = 0
+                // B. Find Pending Transaction by OrderID (if not found by TXID)
+                const pendingTx = await tx.transaction.findFirst({
+                    where: { 
+                        details: { contains: orderId },
+                        status: 'PENDING'
+                    }
+                })
 
-       // Fetch Package if packageId exists
-       if (!isNaN(packageId)) {
-           const pkg = await prisma.topUpPackage.findUnique({ where: { id: packageId } })
-           if (pkg) {
-               diamondAmount = pkg.diamondAmount
-               packageName = pkg.name
-               priceTk = pkg.price
-           }
-       }
+                // C. Prepare Data
+                const amountVal = parseFloat(amount)
+                let diamondAmount = 0
+                let packageName = 'Custom TopUp'
+                let priceTk = 0
 
-       // 3. Update Balance (Increment DIAMOND)
-       if (diamondAmount > 0) {
-           await prisma.user.update({
-             where: { id: userId },
-             data: { diamond: { increment: diamondAmount } }
-           })
-       } else {
-           // Fallback: If no package ID, maybe credit USD (or handle as error?)
-           // For now, we assume packageId is always present for this flow.
-           console.warn(`No package found for ID ${packageId}, crediting DK instead.`)
-           await prisma.user.update({
-             where: { id: userId },
-             data: { dk: { increment: amountVal } }
-           })
-       }
+                if (!isNaN(packageId)) {
+                    const pkg = await tx.topUpPackage.findUnique({ where: { id: parseInt(packageId) } })
+                    if (pkg) {
+                        diamondAmount = pkg.diamondAmount
+                        packageName = pkg.name
+                        priceTk = pkg.price
+                    }
+                }
 
-       // 4. Save/Update History (Transaction)
-       if (existingTx && existingTx.status === 'PENDING') {
-           // Update existing pending transaction
-           await prisma.transaction.update({
-               where: { id: existingTx.id },
-               data: {
-                   status: 'COMPLETED',
-                   transactionId: txID || existingTx.transactionId, // Update with real TXID if available
-                   details: JSON.stringify({ ...req.body, packageId, diamondAmount })
-               }
-           })
-       } else {
-           // Create new transaction if none exists
-           try {
-               await prisma.transaction.create({
-                 data: {
-                    user: { connect: { id: userId } },
-                    amount: amountVal,
-                    currency: 'USD',
-                    type: 'DEPOSIT', // Or TOPUP
-                    status: 'COMPLETED',
-                    transactionId: txID || `Unknown-${Date.now()}`,
-                    provider: `Oxapay - ${payCurrency || 'Unknown'}`,
-                    details: JSON.stringify({ ...req.body, packageId, diamondAmount })
-                 }
-               })
-           } catch (e) {
-               console.error('Transaction creation failed (likely duplicate):', e.message)
-           }
-       }
+                // D. Update Balance (Increment)
+                if (diamondAmount > 0) {
+                    await tx.user.update({
+                        where: { id: userId },
+                        data: { diamond: { increment: diamondAmount } }
+                    })
+                } else {
+                    await tx.user.update({
+                        where: { id: userId },
+                        data: { dk: { increment: amountVal } }
+                    })
+                }
 
-       // 5. Create TopUpRequest (For Admin Panel History)
-       // Find the Crypto / Binance wallet
-       const wallet = await prisma.topUpWallet.findFirst({
-           where: { 
-               name: 'Crypto / Binance'
-           }
-       })
-       
-       // Fallback to ID 1 if not found, but we expect it to exist now
-       const walletId = wallet ? wallet.id : 1 
+                // E. Update or Create Transaction
+                if (pendingTx) {
+                    // Update existing pending transaction
+                    // We must ensure 'transactionId' doesn't conflict. 
+                    // Since we checked findUnique(txID) above, conflict is unlikely unless race condition.
+                    await tx.transaction.update({
+                        where: { id: pendingTx.id },
+                        data: {
+                            status: 'COMPLETED',
+                            transactionId: txID, // Update with real TXID
+                            details: JSON.stringify({ ...req.body, packageId, diamondAmount })
+                        }
+                    })
+                } else {
+                    // Create new transaction
+                    await tx.transaction.create({
+                        data: {
+                            user: { connect: { id: userId } },
+                            amount: amountVal,
+                            currency: 'USD',
+                            type: 'DEPOSIT',
+                            status: 'COMPLETED',
+                            transactionId: txID,
+                            provider: `Oxapay - ${payCurrency || 'Unknown'}`,
+                            details: JSON.stringify({ ...req.body, packageId, diamondAmount })
+                        }
+                    })
+                }
 
-       // Check if TopUpRequest exists by TRX ID
-       const existingReq = await prisma.topUpRequest.findUnique({ where: { trxId: txID || `TRX-${Date.now()}` } })
-       
-       if (!existingReq) {
-           await prisma.topUpRequest.create({
-               data: {
-                   userId: userId,
-                   packageId: !isNaN(packageId) ? packageId : 1, // Fallback if missing
-                   walletId: walletId,
-                   senderNumber: 'Automatic Payment', // Explicitly set for history display
-                   trxId: txID || `TRX-${Date.now()}`,
-                   // screenshot: 'AUTO_PAYMENT', // Removed because it is not in the schema
-                   status: 'COMPLETED',
-                   processedAt: new Date()
-               }
-           })
-       }
+                // F. Create TopUpRequest (For Admin/User History)
+                // Find Wallet
+                const wallet = await tx.topUpWallet.findFirst({
+                    where: { 
+                        OR: [
+                            { name: { contains: 'Binance', mode: 'insensitive' } },
+                            { name: { contains: 'Crypto', mode: 'insensitive' } }
+                        ]
+                    }
+                })
+                const walletId = wallet ? wallet.id : 1 
+
+                // Check strict uniqueness for TopUpRequest too (using trxId)
+                const existingReq = await tx.topUpRequest.findUnique({ where: { trxId: txID } })
+                
+                if (!existingReq) {
+                    await tx.topUpRequest.create({
+                        data: {
+                            userId: userId,
+                            packageId: !isNaN(packageId) ? parseInt(packageId) : 1,
+                            walletId: walletId,
+                            senderNumber: `Oxapay-${payCurrency}`,
+                            trxId: txID,
+                            screenshot: 'AUTO_PAYMENT',
+                            status: 'COMPLETED',
+                            processedAt: new Date()
+                        }
+                    })
+                }
+
+                // G. Send Notification
+                await tx.notification.create({
+                    data: {
+                        userId: userId,
+                        message: `Top Up Successful! ${diamondAmount} Diamonds added to your account.`,
+                        type: 'credit'
+                    }
+                })
+            })
+
+            return res.json({ success: true })
+
+        } catch (error) {
+            console.error('Webhook Processing Failed:', error)
+            // If uniqueness error occurs despite checks, it implies race condition.
+            // Returning 500 triggers retry, which should hit "Already COMPLETED" check next time.
+            return res.status(500).json({ error: 'Internal processing error' })
+        }
+    }
 
        // 6. Log Success
        console.log(`Top Up Successful for User ${userId}: ${diamondAmount} Diamonds`)
