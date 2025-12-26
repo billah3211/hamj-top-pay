@@ -56,6 +56,12 @@ const handleOxapayWebhook = async (req, res) => {
 
     // User instruction: If status === 'Paid'
     if (status === 'Paid') { 
+       const amountVal = parseFloat(amount)
+       if (isNaN(amountVal)) {
+           console.error(`Invalid amount in webhook: ${amount}`)
+           return res.status(400).json({ error: 'Invalid amount' })
+       }
+
        // Update Transaction
        await prisma.transaction.update({
          where: { id: transaction.id },
@@ -65,14 +71,14 @@ const handleOxapayWebhook = async (req, res) => {
        // Update User Balance (dk = Dollar Balance)
        await prisma.user.update({
          where: { id: transaction.userId },
-         data: { dk: { increment: parseFloat(amount) } }
+         data: { dk: { increment: amountVal } }
        })
 
        // Send Notification
        await prisma.notification.create({
          data: {
            userId: transaction.userId,
-           message: `Deposit of $${amount} via OxaPay successful.`,
+           message: 'Top Up Successful',
            type: 'credit'
          }
        })
