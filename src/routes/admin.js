@@ -84,6 +84,7 @@ const getSidebar = (active, role, config = {}) => {
     <li class="nav-item"><a href="/admin/withdrawals" class="${active === 'withdrawals' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:banknote.svg?color=%2394a3b8" class="nav-icon"> Withdrawals</a></li>
     <li class="nav-item"><a href="/admin/reported" class="${active === 'reported-tasks' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:alert-triangle.svg?color=%2394a3b8" class="nav-icon"> Reported Tasks</a></li>
     <li class="nav-item"><a href="/admin/topup-requests" class="${active === 'topup-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:gem.svg?color=%2394a3b8" class="nav-icon"> Top Up Requests</a></li>
+    <li class="nav-item"><a href="/admin/topup-history" class="${active === 'topup-history' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:history.svg?color=%2394a3b8" class="nav-icon"> Top Up History</a></li>
     <li class="nav-item"><a href="/admin/guild-requests" class="${active === 'guild-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shield.svg?color=%2394a3b8" class="nav-icon"> Guild Requests</a></li>
     <li class="nav-item"><a href="/admin/guild-settings" class="${active === 'guild-settings' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:settings-2.svg?color=%2394a3b8" class="nav-icon"> Guild Settings</a></li>
     <li class="nav-item"><a href="/admin/promote-requests" class="${active === 'promote-requests' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:megaphone.svg?color=%2394a3b8" class="nav-icon"> Promote Requests</a></li>
@@ -896,6 +897,140 @@ router.post('/topup-approve', requireAdmin, async (req, res) => {
         await prisma.$transaction(ops)
     }
     res.redirect('/admin/topup-requests')
+})
+
+// Top Up History & Reports
+router.get('/topup-history', requireAdmin, async (req, res) => {
+  const settings = await getSystemSettings()
+  const { date } = req.query
+  
+  // Date Filter
+  let where = { status: 'COMPLETED' }
+  if (date) {
+    const start = new Date(date)
+    start.setHours(0,0,0,0)
+    const end = new Date(date)
+    end.setHours(23,59,59,999)
+    where.processedAt = { gte: start, lte: end }
+  }
+
+  // Fetch Data
+  const history = await prisma.topUpRequest.findMany({
+    where,
+    include: { user: true, package: true, wallet: true },
+    orderBy: { processedAt: 'desc' },
+    take: 100 // Last 100 records
+  })
+
+  // Daily Stats (For selected date or today)
+  const targetDate = date ? new Date(date) : new Date()
+  const startOfDay = new Date(targetDate.setHours(0,0,0,0))
+  const endOfDay = new Date(targetDate.setHours(23,59,59,999))
+  
+  const dailyStats = await prisma.topUpRequest.aggregate({
+    where: {
+      status: 'COMPLETED',
+      processedAt: { gte: startOfDay, lte: endOfDay }
+    },
+    _sum: { packageId: true }, // This won't work directly for price summing because price is in Package model
+    _count: true
+  })
+  
+  // Calculate Total Amount manually since price is in related model
+  const dailyRequests = await prisma.topUpRequest.findMany({
+    where: {
+      status: 'COMPLETED',
+      processedAt: { gte: startOfDay, lte: endOfDay }
+    },
+    include: { package: true, wallet: true }
+  })
+  
+  const totalAmount = dailyRequests.reduce((sum, req) => sum + req.package.price, 0)
+  const walletStats = {}
+  
+  dailyRequests.forEach(req => {
+    const wName = req.wallet.name
+    if (!walletStats[wName]) walletStats[wName] = 0
+    walletStats[wName] += req.package.price
+  })
+
+  res.send(`
+    ${getHead('Top Up History')}
+    ${getSidebar('topup-history', req.session.role, settings)}
+    <div class="main-content">
+      
+      <!-- Summary Cards -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:20px; margin-bottom:30px;">
+        <div class="glass-panel" style="padding:20px; background:linear-gradient(135deg, rgba(16,185,129,0.1), rgba(16,185,129,0.05)); border:1px solid rgba(16,185,129,0.2);">
+           <div style="color:#10b981; font-size:14px; margin-bottom:5px;">Total Amount (${date || 'Today'})</div>
+           <div style="font-size:24px; font-weight:bold; color:white;">৳${totalAmount}</div>
+        </div>
+        <div class="glass-panel" style="padding:20px;">
+           <div style="color:#94a3b8; font-size:14px; margin-bottom:5px;">Total Transactions</div>
+           <div style="font-size:24px; font-weight:bold; color:white;">${dailyStats._count}</div>
+        </div>
+      </div>
+
+      <!-- Wallet Breakdown -->
+      <div class="glass-panel" style="padding:20px; margin-bottom:30px;">
+        <h3 style="margin-top:0; margin-bottom:15px; font-size:16px; color:#f472b6;">Wallet Breakdown (${date || 'Today'})</h3>
+        <div style="display:flex; flex-wrap:wrap; gap:15px;">
+           ${Object.keys(walletStats).length > 0 ? Object.keys(walletStats).map(w => `
+             <div style="background:rgba(255,255,255,0.05); padding:10px 15px; border-radius:8px; border:1px solid rgba(255,255,255,0.1);">
+               <div style="font-size:12px; color:#94a3b8;">${w}</div>
+               <div style="font-size:16px; font-weight:bold; color:white;">৳${walletStats[w]}</div>
+             </div>
+           `).join('') : '<span style="color:#64748b; font-size:14px;">No transactions found.</span>'}
+        </div>
+      </div>
+
+      <!-- Filter & List -->
+      <div class="section-header">
+         <div class="section-title">Transaction History</div>
+         <form method="GET" style="display:flex; gap:10px;">
+            <input type="date" name="date" value="${date || new Date().toISOString().split('T')[0]}" class="form-input" style="padding:8px;">
+            <button class="btn-premium">Filter</button>
+            <a href="/admin/topup-history" class="btn-premium" style="background:rgba(255,255,255,0.1);">Reset</a>
+         </form>
+      </div>
+
+      <div class="glass-panel" style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; color:white;">
+           <thead>
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.1); text-align:left;">
+                 <th style="padding:15px; color:#94a3b8; font-size:12px;">Date</th>
+                 <th style="padding:15px; color:#94a3b8; font-size:12px;">User</th>
+                 <th style="padding:15px; color:#94a3b8; font-size:12px;">Package</th>
+                 <th style="padding:15px; color:#94a3b8; font-size:12px;">Amount</th>
+                 <th style="padding:15px; color:#94a3b8; font-size:12px;">Wallet</th>
+                 <th style="padding:15px; color:#94a3b8; font-size:12px;">TrxID</th>
+                 <th style="padding:15px; color:#94a3b8; font-size:12px;">Status</th>
+              </tr>
+           </thead>
+           <tbody>
+              ${history.map(h => `
+                <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                   <td style="padding:15px; font-size:13px;">
+                      <div>${new Date(h.processedAt).toLocaleDateString()}</div>
+                      <div style="font-size:11px; color:#64748b;">${new Date(h.processedAt).toLocaleTimeString()}</div>
+                   </td>
+                   <td style="padding:15px;">
+                      <div style="font-weight:bold; font-size:14px;">${h.user.username}</div>
+                      <div style="font-size:11px; color:#64748b;">ID: ${h.userId}</div>
+                   </td>
+                   <td style="padding:15px; font-size:13px; color:#60a5fa;">${h.package.diamondAmount} 💎</td>
+                   <td style="padding:15px; font-weight:bold; color:#10b981;">৳${h.package.price}</td>
+                   <td style="padding:15px; font-size:13px;">${h.wallet.name}</td>
+                   <td style="padding:15px; font-family:monospace; font-size:12px; color:#facc15;">${h.trxId}</td>
+                   <td style="padding:15px;"><span style="background:rgba(16,185,129,0.2); color:#10b981; padding:4px 8px; border-radius:4px; font-size:11px;">COMPLETED</span></td>
+                </tr>
+              `).join('')}
+              ${history.length === 0 ? '<tr><td colspan="7" style="padding:30px; text-align:center; color:#64748b;">No history found for this period.</td></tr>' : ''}
+           </tbody>
+        </table>
+      </div>
+    </div>
+  `)
 })
 
 router.post('/topup-reject', requireAdmin, async (req, res) => {
