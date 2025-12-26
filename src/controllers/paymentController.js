@@ -67,14 +67,13 @@ const handleOxapayWebhook = async (req, res) => {
        // 4. Save History (Create NEW Transaction)
        await prisma.transaction.create({
          data: {
-            user: { connect: { id: userId } }, // Fixed: Use connect syntax
+            user: { connect: { id: userId } },
             amount: amountVal,
             currency: 'USD',
             type: 'DEPOSIT',
             status: 'COMPLETED',
-            method: `Oxapay - ${payCurrency || 'Unknown'}`,
             transactionId: txID || `Unknown-${Date.now()}`,
-            provider: 'oxapay',
+            provider: `Oxapay - ${payCurrency || 'Unknown'}`, // Saved method in provider field
             details: JSON.stringify(req.body)
          }
        })
