@@ -84,18 +84,19 @@ const handleOxapayWebhook = async (req, res) => {
 
     // 2. Verify Payment
     if (status === 'Paid') {
-       // Check for existing transaction to prevent double counting
+       // Check for existing transaction
        const existingTx = await prisma.transaction.findFirst({
            where: { 
                OR: [
-                   { transactionId: txID },
-                   { details: { contains: orderId } }
+                   { transactionId: txID }, // Match by Blockchain TXID
+                   { details: { contains: orderId } } // Match by OrderID (from pending init)
                ]
            }
        })
 
-       if (existingTx) {
-           console.log(`Transaction ${txID} or Order ${orderId} already processed. Skipping.`)
+       // If transaction exists and is already COMPLETED, skip
+       if (existingTx && existingTx.status === 'COMPLETED') {
+           console.log(`Transaction ${txID} or Order ${orderId} already processed (COMPLETED). Skipping.`)
            return res.json({ success: true })
        }
 
@@ -131,25 +132,35 @@ const handleOxapayWebhook = async (req, res) => {
            })
        }
 
-       // 4. Save History (Transaction)
-       // Use a try-catch for transaction creation to handle race conditions gracefully
-       try {
-           await prisma.transaction.create({
-             data: {
-                user: { connect: { id: userId } },
-                amount: amountVal,
-                currency: 'USD',
-                type: 'DEPOSIT', // Or TOPUP
-                status: 'COMPLETED',
-                transactionId: txID || `Unknown-${Date.now()}`,
-                provider: `Oxapay - ${payCurrency || 'Unknown'}`,
-                details: JSON.stringify({ ...req.body, packageId, diamondAmount })
-             }
+       // 4. Save/Update History (Transaction)
+       if (existingTx && existingTx.status === 'PENDING') {
+           // Update existing pending transaction
+           await prisma.transaction.update({
+               where: { id: existingTx.id },
+               data: {
+                   status: 'COMPLETED',
+                   transactionId: txID || existingTx.transactionId, // Update with real TXID if available
+                   details: JSON.stringify({ ...req.body, packageId, diamondAmount })
+               }
            })
-       } catch (e) {
-           console.error('Transaction creation failed (likely duplicate):', e.message)
-           // If transaction failed, we should probably stop here to avoid creating TopUpRequest? 
-           // But balance is already updated. Let's continue to try creating TopUpRequest so user sees history.
+       } else {
+           // Create new transaction if none exists
+           try {
+               await prisma.transaction.create({
+                 data: {
+                    user: { connect: { id: userId } },
+                    amount: amountVal,
+                    currency: 'USD',
+                    type: 'DEPOSIT', // Or TOPUP
+                    status: 'COMPLETED',
+                    transactionId: txID || `Unknown-${Date.now()}`,
+                    provider: `Oxapay - ${payCurrency || 'Unknown'}`,
+                    details: JSON.stringify({ ...req.body, packageId, diamondAmount })
+                 }
+               })
+           } catch (e) {
+               console.error('Transaction creation failed (likely duplicate):', e.message)
+           }
        }
 
        // 5. Create TopUpRequest (For Admin Panel History)
@@ -163,7 +174,7 @@ const handleOxapayWebhook = async (req, res) => {
        // Fallback to ID 1 if not found, but we expect it to exist now
        const walletId = wallet ? wallet.id : 1 
 
-       // Check if TopUpRequest exists
+       // Check if TopUpRequest exists by TRX ID
        const existingReq = await prisma.topUpRequest.findUnique({ where: { trxId: txID || `TRX-${Date.now()}` } })
        
        if (!existingReq) {
