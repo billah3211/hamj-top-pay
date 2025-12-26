@@ -131,24 +131,22 @@ const handleOxapayWebhook = async (req, res) => {
        })
 
        // 5. Create TopUpRequest (For Admin Panel History)
-       // We need a walletId. We'll try to find one named "Binance" or "Crypto" or take the first one.
+       // Find the Crypto / Binance wallet
        const wallet = await prisma.topUpWallet.findFirst({
            where: { 
-               OR: [
-                   { name: { contains: 'Binance', mode: 'insensitive' } },
-                   { name: { contains: 'Crypto', mode: 'insensitive' } }
-               ]
+               name: 'Crypto / Binance'
            }
        })
        
-       const walletId = wallet ? wallet.id : 1 // Fallback to ID 1 if not found
+       // Fallback to ID 1 if not found, but we expect it to exist now
+       const walletId = wallet ? wallet.id : 1 
 
        await prisma.topUpRequest.create({
            data: {
                userId: userId,
                packageId: !isNaN(packageId) ? packageId : 1, // Fallback if missing
                walletId: walletId,
-               senderNumber: `Oxapay-${payCurrency}`,
+               senderNumber: 'Automatic Payment', // Explicitly set for history display
                trxId: txID || `TRX-${Date.now()}`,
                screenshot: 'AUTO_PAYMENT',
                status: 'COMPLETED',

@@ -604,7 +604,10 @@ router.get('/history', requireAuth, async (req, res) => {
               <tr>
                 <td>
                   <div style="font-weight: 600; color: white;">${req.package.diamondAmount} 💎</div>
-                  <div style="font-size: 12px; color: var(--text-muted);">${req.wallet.name}</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">
+                    ${req.wallet.name}
+                    ${req.senderNumber === 'Automatic Payment' ? '<br><span style="color:#10b981; font-size:11px;">Automatic Payment</span>' : ''}
+                  </div>
                 </td>
                 <td>${req.package.price} TK</td>
                 <td style="font-family: monospace;">${req.trxId}</td>

@@ -1020,7 +1020,10 @@ router.get('/topup-history', requireAdmin, async (req, res) => {
                    </td>
                    <td style="padding:15px; font-size:13px; color:#60a5fa;">${h.package.diamondAmount} 💎</td>
                    <td style="padding:15px; font-weight:bold; color:#10b981;">৳${h.package.price}</td>
-                   <td style="padding:15px; font-size:13px;">${h.wallet.name}</td>
+                   <td style="padding:15px; font-size:13px;">
+                      ${h.wallet.name}
+                      ${h.senderNumber === 'Automatic Payment' ? '<div style="font-size:11px; color:#10b981;">Automatic Payment</div>' : ''}
+                   </td>
                    <td style="padding:15px; font-family:monospace; font-size:12px; color:#facc15;">${h.trxId}</td>
                    <td style="padding:15px;"><span style="background:rgba(16,185,129,0.2); color:#10b981; padding:4px 8px; border-radius:4px; font-size:11px;">COMPLETED</span></td>
                 </tr>
