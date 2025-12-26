@@ -341,7 +341,7 @@ router.get('/:pkgId/wallets', requireAuth, async (req, res) => {
         `).join('')}
 
         <!-- OxaPay Crypto Option -->
-        <div onclick="initiateCryptoPayment('${pkg.price}', '${settings.dollar_rate || 120}')" class="wallet-item">
+        <div onclick="initiateCryptoPayment('${pkg.id}')" class="wallet-item">
             <div style="display: flex; align-items: center; gap: 16px;">
                <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid rgba(255,255,255,0.1); display: grid; place-items: center; overflow: hidden;">
                  <img src="https://api.iconify.design/cryptocurrency:usdt.svg" style="width: 32px; height: 32px;">
@@ -358,9 +358,7 @@ router.get('/:pkgId/wallets', requireAuth, async (req, res) => {
       </div>
 
       <script>
-      async function initiateCryptoPayment(tkPrice, rate) {
-          const usdAmount = (parseFloat(tkPrice) / parseFloat(rate)).toFixed(2);
-          
+      async function initiateCryptoPayment(packageId) {
           // Show loading state
           const btn = event.currentTarget;
           const originalContent = btn.innerHTML;
@@ -371,7 +369,7 @@ router.get('/:pkgId/wallets', requireAuth, async (req, res) => {
               const res = await fetch('/api/pay/oxapay/create', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ amount: usdAmount })
+                  body: JSON.stringify({ packageId: packageId })
               });
               const data = await res.json();
               

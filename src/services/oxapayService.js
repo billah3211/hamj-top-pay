@@ -1,10 +1,13 @@
 const axios = require('axios')
 const { prisma } = require('../db/prisma')
 
-const createPayment = async (amount, userId) => {
+const createPayment = async (amount, userId, packageId) => {
   try {
     const merchantKey = process.env.OXAPAY_MERCHANT_KEY
     if (!merchantKey) throw new Error('OXAPAY_MERCHANT_KEY is missing')
+
+    // Append packageId to orderId for tracking
+    const orderId = packageId ? `TRX-${Date.now()}-${userId}-${packageId}` : `TRX-${Date.now()}-${userId}`
 
     const response = await axios.post('https://api.oxapay.com/merchants/request', {
       merchant: merchantKey,
@@ -15,14 +18,14 @@ const createPayment = async (amount, userId) => {
       callbackUrl: 'https://hamj-top-pay.onrender.com/api/pay/oxapay/webhook',
       returnUrl: 'https://hamj-top-pay.onrender.com/dashboard',
       description: `TopUp for User ${userId}`,
-      orderId: `TRX-${Date.now()}-${userId}`
+      orderId: orderId
     })
 
     if (response.data && response.data.result === 100) {
       return {
         payLink: response.data.payLink,
         trackId: response.data.trackId,
-        orderId: `TRX-${Date.now()}-${userId}`
+        orderId: orderId
       }
     } else {
       throw new Error(response.data.message || 'Payment request failed')

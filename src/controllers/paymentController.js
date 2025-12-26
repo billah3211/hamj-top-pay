@@ -1,27 +1,54 @@
 const { prisma } = require('../db/prisma')
 const { createPayment } = require('../services/oxapayService')
 
+const { getSystemSettings } = require('../utils/settings')
+
 const initiateOxapayPayment = async (req, res) => {
   try {
-    const { amount } = req.body
+    const { packageId } = req.body
     const userId = req.session.userId
 
     if (!userId) return res.status(401).json({ error: 'Unauthorized' })
-    if (!amount || isNaN(amount) || parseFloat(amount) <= 0) return res.status(400).json({ error: 'Invalid amount' })
+    if (!packageId) return res.status(400).json({ error: 'Missing packageId' })
 
-    const result = await createPayment(parseFloat(amount), userId)
+    // 1. Fetch Package Details
+    const pkg = await prisma.topUpPackage.findUnique({ where: { id: parseInt(packageId) } })
+    if (!pkg) return res.status(404).json({ error: 'Package not found' })
+
+    // 2. Calculate USD Amount
+    const settings = await getSystemSettings()
+    const rate = parseFloat(settings.dollar_rate || 120)
+    const usdAmount = (pkg.price / rate).toFixed(2)
+
+    if (parseFloat(usdAmount) <= 0) return res.status(400).json({ error: 'Invalid amount' })
+
+    // 3. Create Payment (Encode packageId in orderId)
+    // Custom logic to include packageId in createPayment if needed, 
+    // or just rely on the orderId we pass to createPayment if the service allows overriding orderId.
+    // However, oxapayService.js generates its own orderId. 
+    // Let's modify the createPayment call or service to accept orderId or just store it in DB.
+    // Since we can't easily change service without reading it, we'll try to use the `description` field or just rely on DB persistence.
+    // Actually, createPayment in service generates `TRX-${Date.now()}-${userId}`. 
+    // We should probably UPDATE the service to accept a custom OrderID or modify it here if we could.
+    // But since I can't see service code right now (I saw it earlier), let's assume I can't change it easily without re-reading.
+    // Wait, I saw oxapayService.js earlier. It hardcodes orderId. 
+    // I will modify oxapayService.js to accept custom orderId or just append packageId.
+    
+    // For now, let's call a modified createPayment that accepts packageId.
+    // I will update oxapayService.js in next step.
+    const result = await createPayment(parseFloat(usdAmount), userId, packageId)
 
     // Create pending transaction
     await prisma.transaction.create({
       data: {
         userId: userId,
-        amount: parseFloat(amount),
+        amount: parseFloat(usdAmount),
         currency: 'USD',
         type: 'DEPOSIT',
         provider: 'oxapay',
         transactionId: result.trackId.toString(),
         status: 'PENDING',
-        details: JSON.stringify({ orderId: result.orderId })
+        details: JSON.stringify({ orderId: result.orderId, packageId: pkg.id, diamondAmount: pkg.diamondAmount })
       }
     })
 
@@ -39,15 +66,16 @@ const handleOxapayWebhook = async (req, res) => {
 
     const { orderId, status, amount, payCurrency, txID } = req.body
 
-    // 1. Extract User ID
+    // 1. Extract User ID and Package ID
     if (!orderId) {
         console.warn('Missing orderId in webhook')
         return res.status(400).json({ error: 'Missing orderId' })
     }
     
-    // Format: TRX-[Timestamp]-[UserId]
+    // Format: TRX-[Timestamp]-[UserId]-[PackageId]
     const parts = orderId.split('-')
-    const userId = parseInt(parts[parts.length - 1])
+    const userId = parseInt(parts[2]) // Index 2 is UserId
+    const packageId = parseInt(parts[3]) // Index 3 is PackageId
 
     if (isNaN(userId)) {
         console.error(`Failed to extract userId from orderId: ${orderId}`)
@@ -58,34 +86,84 @@ const handleOxapayWebhook = async (req, res) => {
     if (status === 'Paid') {
        const amountVal = parseFloat(amount)
        
-       // 3. Update Balance (Increment DK/Dollar Balance)
-       await prisma.user.update({
-         where: { id: userId },
-         data: { dk: { increment: amountVal } }
-       })
+       let diamondAmount = 0
+       let packageName = 'Custom TopUp'
+       let priceTk = 0
 
-       // 4. Save History (Create NEW Transaction)
+       // Fetch Package if packageId exists
+       if (!isNaN(packageId)) {
+           const pkg = await prisma.topUpPackage.findUnique({ where: { id: packageId } })
+           if (pkg) {
+               diamondAmount = pkg.diamondAmount
+               packageName = pkg.name
+               priceTk = pkg.price
+           }
+       }
+
+       // 3. Update Balance (Increment DIAMOND)
+       if (diamondAmount > 0) {
+           await prisma.user.update({
+             where: { id: userId },
+             data: { diamond: { increment: diamondAmount } }
+           })
+       } else {
+           // Fallback: If no package ID, maybe credit USD (or handle as error?)
+           // For now, we assume packageId is always present for this flow.
+           console.warn(`No package found for ID ${packageId}, crediting DK instead.`)
+           await prisma.user.update({
+             where: { id: userId },
+             data: { dk: { increment: amountVal } }
+           })
+       }
+
+       // 4. Save History (Transaction)
        await prisma.transaction.create({
          data: {
             user: { connect: { id: userId } },
             amount: amountVal,
             currency: 'USD',
-            type: 'DEPOSIT',
+            type: 'DEPOSIT', // Or TOPUP
             status: 'COMPLETED',
             transactionId: txID || `Unknown-${Date.now()}`,
-            provider: `Oxapay - ${payCurrency || 'Unknown'}`, // Saved method in provider field
-            details: JSON.stringify(req.body)
+            provider: `Oxapay - ${payCurrency || 'Unknown'}`,
+            details: JSON.stringify({ ...req.body, packageId, diamondAmount })
          }
        })
 
-       // 5. Log Success
-       console.log(`Top Up Successful for User ${userId}`)
+       // 5. Create TopUpRequest (For Admin Panel History)
+       // We need a walletId. We'll try to find one named "Binance" or "Crypto" or take the first one.
+       const wallet = await prisma.topUpWallet.findFirst({
+           where: { 
+               OR: [
+                   { name: { contains: 'Binance', mode: 'insensitive' } },
+                   { name: { contains: 'Crypto', mode: 'insensitive' } }
+               ]
+           }
+       })
+       
+       const walletId = wallet ? wallet.id : 1 // Fallback to ID 1 if not found
+
+       await prisma.topUpRequest.create({
+           data: {
+               userId: userId,
+               packageId: !isNaN(packageId) ? packageId : 1, // Fallback if missing
+               walletId: walletId,
+               senderNumber: `Oxapay-${payCurrency}`,
+               trxId: txID || `TRX-${Date.now()}`,
+               screenshot: 'AUTO_PAYMENT',
+               status: 'COMPLETED',
+               processedAt: new Date()
+           }
+       })
+
+       // 6. Log Success
+       console.log(`Top Up Successful for User ${userId}: ${diamondAmount} Diamonds`)
 
        // Send Notification
        await prisma.notification.create({
          data: {
            userId: userId,
-           message: 'Top Up Successful',
+           message: `Top Up Successful! ${diamondAmount} Diamonds added to your account.`,
            type: 'credit'
          }
        })
