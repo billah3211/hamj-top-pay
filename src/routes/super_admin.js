@@ -80,6 +80,7 @@ function getSidebar(active, config = {}) {
         <li class="nav-item"><a href="/super-admin/dashboard" class="${active === 'dashboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:layout-dashboard.svg?color=${active === 'dashboard' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Dashboard</a></li>
         <li class="nav-item"><a href="/super-admin/users" class="${active === 'users' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=${active === 'users' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Users</a></li>
         <li class="nav-item"><a href="/super-admin/balance" class="${active === 'balance' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:wallet.svg?color=${active === 'balance' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Balance</a></li>
+        <li class="nav-item"><a href="/super-admin/transactions" class="${active === 'transactions' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:history.svg?color=${active === 'transactions' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Payment History</a></li>
         <li class="nav-item"><a href="/super-admin/admins" class="${active === 'admins' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:shield-check.svg?color=${active === 'admins' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Admins</a></li>
         <li class="nav-item"><a href="/super-admin/guilds" class="${active === 'guilds' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:users.svg?color=${active === 'guilds' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Manage Guilds</a></li>
         <li class="nav-item"><a href="/super-admin/leaderboard-bonuses" class="${active === 'leaderboard' ? 'active' : ''}"><img src="https://api.iconify.design/lucide:crown.svg?color=${active === 'leaderboard' ? '%23ec4899' : '%2394a3b8'}" class="nav-icon"> Leaderboard Bonuses</a></li>
@@ -2146,5 +2147,65 @@ router.post('/leaderboard-banners/delete', requireSuperAdmin, async (req, res) =
 })
 
 
+
+router.get('/transactions', requireSuperAdmin, async (req, res) => {
+  try {
+    const config = await getSystemSettings()
+    const transactions = await prisma.transaction.findMany({
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+      take: 100
+    })
+
+    const html = `
+      ${getHead('Payment History')}
+      <body>
+        <div class="dashboard-container">
+          ${getSidebar('transactions', config)}
+          <main class="main-content">
+             <div class="header-box">
+               <h2>Payment History</h2>
+             </div>
+             
+             <div class="card" style="overflow-x:auto;">
+               <table class="data-table" style="width:100%; border-collapse:collapse; color:white;">
+                 <thead>
+                   <tr style="border-bottom:1px solid rgba(255,255,255,0.1); text-align:left;">
+                     <th style="padding:10px;">ID</th>
+                     <th style="padding:10px;">User</th>
+                     <th style="padding:10px;">Amount</th>
+                     <th style="padding:10px;">Provider</th>
+                     <th style="padding:10px;">Trx ID</th>
+                     <th style="padding:10px;">Status</th>
+                     <th style="padding:10px;">Date</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   ${transactions.map(t => `
+                     <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                       <td style="padding:10px;">${t.id}</td>
+                       <td style="padding:10px;">${t.user ? t.user.username : 'Unknown'} (ID: ${t.userId})</td>
+                       <td style="padding:10px; font-weight:bold; color:#10b981;">$${t.amount.toFixed(2)}</td>
+                       <td style="padding:10px;">${t.provider || '-'}</td>
+                       <td style="padding:10px; font-size:12px; font-family:monospace;">${t.transactionId}</td>
+                       <td style="padding:10px;"><span style="padding:4px 8px; border-radius:4px; font-size:12px; background:${t.status === 'COMPLETED' ? '#10b981' : t.status === 'PENDING' ? '#f59e0b' : '#ef4444'}; color:white;">${t.status}</span></td>
+                       <td style="padding:10px; font-size:12px; color:#cbd5e1;">${new Date(t.createdAt).toLocaleString()}</td>
+                     </tr>
+                   `).join('')}
+                 </tbody>
+               </table>
+               ${transactions.length === 0 ? '<div style="padding:20px; text-align:center; color:#cbd5e1;">No transactions found.</div>' : ''}
+             </div>
+          </main>
+        </div>
+      </body>
+      </html>
+    `
+    res.send(html)
+  } catch (error) {
+    console.error(error)
+    res.status(500).send('Error loading transactions')
+  }
+})
 
 module.exports = router

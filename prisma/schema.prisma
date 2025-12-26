@@ -57,6 +57,23 @@ model User {
 
   resetPasswordToken String?
   resetPasswordExpires DateTime?
+
+  transactions Transaction[]
+}
+
+model Transaction {
+  id              Int      @id @default(autoincrement())
+  userId          Int?
+  user            User?    @relation(fields: [userId], references: [id])
+  amount          Float
+  currency        String   @default("USD")
+  type            String   // "DEPOSIT", "WITHDRAWAL", "ADJUSTMENT"
+  provider        String?  // "oxapay", "manual"
+  transactionId   String   @unique
+  status          String   @default("PENDING") // PENDING, COMPLETED, FAILED, EXPIRED, WAITING, CONFIRMING
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  details         String?
 }
 
 model Guild {

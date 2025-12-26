@@ -25,6 +25,7 @@ const guildRoutes = require('./routes/guild')
 const leaderboardRoutes = require('./routes/leaderboard')
 const profileRoutes = require('./routes/profile')
 const apiRoutes = require('./routes/api')
+const paymentRoutes = require('./routes/payment')
 
 const { createServer } = require('http')
 const { Server } = require('socket.io')
@@ -181,6 +182,7 @@ app.use('/notifications', notificationRoutes)
 app.use('/guild', guildRoutes)
 app.use('/leaderboard', leaderboardRoutes)
 app.use('/profile', profileRoutes)
+app.use('/api/pay/oxapay', paymentRoutes)
 app.use('/api', apiRoutes)
 
 const port = process.env.PORT || 3000
