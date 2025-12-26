@@ -59,9 +59,6 @@ const handleOxapayWebhook = async (req, res) => {
        const amountVal = parseFloat(amount)
        
        // 3. Update Balance (Increment DK/Dollar Balance)
-       // Note: Using dk (Float) as amount is in USD/Float. 
-       // If conversion to diamonds is needed, a rate must be applied. 
-       // For now, we credit the USD amount to the user's balance.
        await prisma.user.update({
          where: { id: userId },
          data: { dk: { increment: amountVal } }
@@ -70,13 +67,13 @@ const handleOxapayWebhook = async (req, res) => {
        // 4. Save History (Create NEW Transaction)
        await prisma.transaction.create({
          data: {
-            userId: userId,
+            user: { connect: { id: userId } }, // Fixed: Use connect syntax
             amount: amountVal,
-            currency: 'USD', // Base currency is USD
+            currency: 'USD',
             type: 'DEPOSIT',
             status: 'COMPLETED',
             method: `Oxapay - ${payCurrency || 'Unknown'}`,
-            transactionId: txID || `Unknown-${Date.now()}`, // Use txID from webhook
+            transactionId: txID || `Unknown-${Date.now()}`,
             provider: 'oxapay',
             details: JSON.stringify(req.body)
          }
