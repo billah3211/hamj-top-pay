@@ -174,11 +174,6 @@ const handleOxapayWebhook = async (req, res) => {
                 })
 
                 if (!wallet) {
-                    // Fallback to any wallet
-                    wallet = await tx.topUpWallet.findFirst()
-                }
-
-                if (!wallet) {
                     // Create a system wallet if ABSOLUTELY none exist (Prevent FK Error)
                     wallet = await tx.topUpWallet.create({
                         data: {
