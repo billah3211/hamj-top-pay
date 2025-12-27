@@ -163,8 +163,8 @@ const handleOxapayWebhook = async (req, res) => {
                 }
 
                 // F. Create TopUpRequest (For Admin/User History)
-                // Find Wallet
-                const wallet = await tx.topUpWallet.findFirst({
+                // Find Wallet or Create Fallback
+                let wallet = await tx.topUpWallet.findFirst({
                     where: { 
                         OR: [
                             { name: { contains: 'Binance', mode: 'insensitive' } },
@@ -172,7 +172,50 @@ const handleOxapayWebhook = async (req, res) => {
                         ]
                     }
                 })
-                const walletId = wallet ? wallet.id : 1 
+
+                if (!wallet) {
+                    // Fallback to any wallet
+                    wallet = await tx.topUpWallet.findFirst()
+                }
+
+                if (!wallet) {
+                    // Create a system wallet if ABSOLUTELY none exist (Prevent FK Error)
+                    wallet = await tx.topUpWallet.create({
+                        data: {
+                            name: 'Crypto / Binance (System)',
+                            adminNumber: 'System',
+                            instruction: 'Auto-generated for crypto payments'
+                        }
+                    })
+                }
+
+                const walletId = wallet.id
+
+                // Ensure Valid Package ID (Prevent FK Error)
+                let finalPackageId = !isNaN(packageId) ? parseInt(packageId) : 1
+                
+                // Check if package actually exists
+                const packageExists = await tx.topUpPackage.findUnique({ where: { id: finalPackageId } })
+                
+                if (!packageExists) {
+                    // Fallback to ANY existing package to save the record
+                    const anyPkg = await tx.topUpPackage.findFirst()
+                    if (anyPkg) {
+                        finalPackageId = anyPkg.id
+                    } else {
+                        // If NO packages exist in system, create a dummy one (Extreme fallback)
+                        const dummyPkg = await tx.topUpPackage.create({
+                            data: {
+                                name: 'Unknown Package',
+                                price: 0,
+                                diamondAmount: 0,
+                                countries: 'All',
+                                isActive: false
+                            }
+                        })
+                        finalPackageId = dummyPkg.id
+                    }
+                }
 
                 // Check strict uniqueness for TopUpRequest too (using trxId)
                 const existingReq = await tx.topUpRequest.findUnique({ where: { trxId: txID } })
@@ -181,11 +224,10 @@ const handleOxapayWebhook = async (req, res) => {
                     await tx.topUpRequest.create({
                         data: {
                             userId: userId,
-                            packageId: !isNaN(packageId) ? parseInt(packageId) : 1,
+                            packageId: finalPackageId,
                             walletId: walletId,
                             senderNumber: `Oxapay-${payCurrency}`,
                             trxId: txID,
-                            screenshot: 'AUTO_PAYMENT',
                             status: 'COMPLETED',
                             processedAt: new Date()
                         }
